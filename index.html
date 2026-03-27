@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>人生评分测试</title>
+  <link rel="icon" type="image/png" href="images/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
@@ -19,6 +20,8 @@
         <span class="lang-label" id="langLabel">简体中文</span>
         <svg class="lang-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         <div class="lang-dropdown" id="langDropdown">
+          <div class="lang-option" data-lang="en-US">English (US)</div>
+          <div class="lang-option" data-lang="es-US">Español (EE.UU.)</div>
           <div class="lang-option active" data-lang="zh-CN">简体中文</div>
           <div class="lang-option" data-lang="zh-TW">繁體中文</div>
         </div>
@@ -67,7 +70,7 @@
     </div>
 
     <div class="hero-content">
-      <div class="winner-banner" id="winnerBanner">🏆 恭喜你，你是真正的人生赢家！</div>
+      <div class="winner-banner" id="winnerBanner" data-i18n="winner.banner">🏆 Congratulations — you are a true LifeScore champion!</div>
       <div class="hero-badge" data-i18n="badge">你的专属人生评分</div>
 
       <!-- Previous score badge (rendered by JS) -->
@@ -170,11 +173,11 @@
   <div class="deep-notice-overlay" id="deepNoticeOverlay" onclick="closeDeepNotice()">
     <div class="deep-notice-modal" onclick="event.stopPropagation()">
       <div class="deep-notice-icon">✨</div>
-      <div class="deep-notice-title">好事值得等待</div>
-      <div class="deep-notice-text">深度测试正在经历一次重要的升级。<br><br>我们的团队正在逐题打磨100多道深度问题，重新校准评分模型，并设计全新的个性化分析维度——因为你值得一份真正有深度、有温度的人生报告。<br><br>这不是一次简单的维护，而是一次让你"被更好地理解"的升级。<br><br>请放心，快速测试已经能够为你提供一份准确且有洞察力的综合评分。等深度版本重新上线时，你将获得一次远超预期的体验。<br><br>感谢你的耐心等待，我们不会让你失望 💛</div>
+      <div class="deep-notice-title" data-i18n="deepnotice.title">Worth the Wait</div>
+      <div class="deep-notice-text" id="deepNoticeText" data-i18n="deepnotice.text">The In-Depth Test is undergoing a major upgrade — we're refining every question and recalibrating the scoring model. The Quick Test will give you an accurate, insightful score in the meantime. 💛</div>
       <div class="deep-notice-btns">
-        <button class="btn-start" onclick="window.location.href='quiz-quick.html'" style="font-size:14px;padding:12px 28px">先体验快速测试 →</button>
-        <button class="btn-secondary" onclick="closeDeepNotice()" style="font-size:13px;padding:10px 22px">好的，我等着</button>
+        <button class="btn-start" onclick="window.location.href='quiz-quick.html'" style="font-size:14px;padding:12px 28px" data-i18n="deepnotice.cta">Try the Quick Test first →</button>
+        <button class="btn-secondary" onclick="closeDeepNotice()" style="font-size:13px;padding:10px 22px" data-i18n="deepnotice.wait">Got it, I'll wait</button>
       </div>
     </div>
   </div>

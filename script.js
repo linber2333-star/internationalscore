@@ -175,7 +175,7 @@
     if (lastScore > 100) {
       document.body.classList.add('winner-mode');
       var wb = document.getElementById('winnerBanner');
-      if (wb) wb.style.display = 'block';
+      if (wb) { wb.textContent = window.t('winner.banner'); wb.style.display = 'block'; }
     }
   }
 

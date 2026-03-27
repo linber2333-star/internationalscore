@@ -59,24 +59,7 @@ img{max-width:100%}
 .lang-icon{display:flex;align-items:center;color:var(--v-400)}
 .lang-arrow{transition:transform .25s var(--ease)}
 .lang-switcher.open .lang-arrow{transform:rotate(180deg)}
-.lang-dropdown{
-  position:absolute;
-  top:calc(100% + 10px);
-  left:0;
-  background:var(--white);
-  border:1px solid var(--v-100);
-  border-radius:var(--radius);
-  box-shadow:var(--sh-md);
-  min-width:160px;
-  /* 关键：限制高度 + 支持滚动，避免溢出屏幕 */
-  max-height:calc(100vh - 110px);
-  overflow-y:auto;
-  opacity:0;
-  pointer-events:none;
-  transform:translateY(-8px);
-  transition:all .22s var(--ease);
-  z-index:200;
-}
+.lang-dropdown{position:absolute;top:calc(100%+10px);left:0;background:var(--white);border:1px solid var(--v-100);border-radius:var(--radius);box-shadow:var(--sh-md);overflow:hidden;min-width:140px;opacity:0;pointer-events:none;transform:translateY(-8px);transition:all .22s var(--ease);z-index:200}
 .lang-switcher.open .lang-dropdown{opacity:1;pointer-events:all;transform:none}
 .lang-option{padding:11px 18px;font-size:13px;font-weight:600;color:var(--g-500);cursor:pointer;transition:all .15s}
 .lang-option:hover{background:var(--v-50);color:var(--v-600)}

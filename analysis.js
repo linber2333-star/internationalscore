@@ -30,9 +30,13 @@ function drawRadar(canvas, scores, colors){
   var W=canvas.width, H=canvas.height, cx=W/2, cy=H/2;
   // Keep R small enough that labels at R+40 never exceed the canvas bounds
   var R=Math.min(W,H)*0.30; // 30% of canvas size leaves ample label room
-  var labels=['基础信息','社会生活方向','个人认同'], n=labels.length;
+  var labels, n=3;
   var lang=window.I18N_CURRENT||'zh-CN';
-  if(lang==='zh-TW') labels=['基礎資訊','社會生活方向','個人認同'];
+  if(lang==='en-US')   labels=['Baseline','Social & Life','Personal Identity'];
+  else if(lang==='es-US') labels=['Base','Social y Vida','Identidad Personal'];
+  else if(lang==='zh-TW') labels=['基礎資訊','社會生活方向','個人認同'];
+  else labels=['基础信息','社会生活方向','个人认同'];
+  n=labels.length;
 
   ctx.clearRect(0,0,W,H);
 
@@ -150,6 +154,40 @@ var DIM_DEEP={
       high:'你的個人認同得分優秀，顯示出清晰的價值觀、穩健的心理狀態和明確的人生方向。',
     },
   },
+  'en-US':{
+    basic:{
+      low:"Your Baseline score is on the lower end — this typically reflects challenges in health, education, or living environment. These are starting points, not life sentences. Many high achievers started from disadvantaged conditions.",
+      mid:"Your Baseline is at a solid middle level. You have enough foundation to build on — the key is using what you have as a launchpad for the next stage.",
+      high:"Your Baseline score is excellent, showing strong foundational support in health, education, and living environment. This gives you a powerful platform to build everything else on.",
+    },
+    social:{
+      low:"Your Social & Life score is lower, which may reflect challenges in career, income, or your network. This is actually the most changeable dimension — deliberate effort here creates the biggest returns.",
+      mid:"Your Social & Life score is near average. You have resources and room to grow. The key question: how do you turn your current resources into the launchpad for the next phase?",
+      high:"Your Social & Life score is impressive, showing clear advantages in career, finances, or social influence. If you keep converting these advantages, you'll benefit from compounding effects.",
+    },
+    identity:{
+      low:"Your Personal Identity score is lower — meaning there's real room to grow in clarity of values, sense of direction, and psychological resilience. This dimension ultimately determines how you show up for your life.",
+      mid:"Your Personal Identity is in an exploratory phase. You have some self-awareness but haven't yet built a fully stable inner system. This is normal for most people before their 30s.",
+      high:"Your Personal Identity score is strong, showing clear values, psychological stability, and a defined life direction. This is inner strength in action — and the foundation for sustained action.",
+    },
+  },
+  'es-US':{
+    basic:{
+      low:"Tu puntaje Base es bajo, lo que generalmente refleja desafíos en salud, educación o entorno de vida. Estos son puntos de partida, no sentencias. Muchas personas exitosas comenzaron desde condiciones desfavorables.",
+      mid:"Tu Base está en un nivel medio sólido. Tienes suficiente fundamento para construir — la clave es usar lo que tienes como trampolín para la siguiente etapa.",
+      high:"Tu puntaje Base es excelente, mostrando un sólido apoyo fundamental en salud, educación y entorno de vida. Esto te da una plataforma poderosa para construir todo lo demás.",
+    },
+    social:{
+      low:"Tu puntaje Social y Vida es bajo, lo que puede reflejar desafíos en carrera, ingresos o red de contactos. Esta es la dimensión más modificable — el esfuerzo deliberado aquí genera los mayores retornos.",
+      mid:"Tu puntaje Social y Vida está cerca del promedio. Tienes recursos y espacio para crecer. La pregunta clave: ¿cómo conviertes tus recursos actuales en el trampolín para la siguiente fase?",
+      high:"Tu puntaje Social y Vida es impresionante, mostrando ventajas claras en carrera, finanzas o influencia social. Si sigues convirtiendo estas ventajas, te beneficiarás de efectos compuestos.",
+    },
+    identity:{
+      low:"Tu puntaje de Identidad Personal es bajo — hay espacio real para crecer en claridad de valores, sentido de dirección y resiliencia psicológica. Esta dimensión determina cómo te presentas ante tu propia vida.",
+      mid:"Tu Identidad Personal está en una fase exploratoria. Tienes algo de autoconciencia pero aún no has construido un sistema interior completamente estable. Esto es normal para la mayoría de personas antes de los 30.",
+      high:"Tu puntaje de Identidad Personal es sólido, mostrando valores claros, estabilidad psicológica y una dirección de vida definida. Esto es fortaleza interior en acción — y la base para una acción sostenida.",
+    },
+  },
 };
 
 function dimTier(s){ if(s<40)return'low'; if(s<70)return'mid'; return'high'; }
@@ -157,16 +195,20 @@ function dimTier(s){ if(s<40)return'low'; if(s<70)return'mid'; return'high'; }
 function buildDimDeep(lang){
   var c=document.getElementById('dimDeepRows'); if(!c) return; c.innerHTML='';
   var conf=[
-    {key:'basic',    label_cn:'基础信息',label_tw:'基礎資訊',  icon:'🧬',color:'#7dd3fc'},
-    {key:'social',   label_cn:'社会生活方向',label_tw:'社會生活方向',  icon:'🏙️',color:'#0ea5e9'},
-    {key:'identity', label_cn:'个人认同',label_tw:'個人認同',  icon:'💡',color:'#10b981'},
+    {key:'basic',    label_cn:'基础信息',label_tw:'基礎資訊',label_en:'Baseline',label_es:'Base',  icon:'🧬',color:'#7dd3fc'},
+    {key:'social',   label_cn:'社会生活方向',label_tw:'社會生活方向',label_en:'Social & Life',label_es:'Social y Vida',  icon:'🏙️',color:'#0ea5e9'},
+    {key:'identity', label_cn:'个人认同',label_tw:'個人認同',label_en:'Personal Identity',label_es:'Identidad Personal',  icon:'💡',color:'#10b981'},
   ];
   conf.forEach(function(d){
     var score=dimPct&&dimPct[d.key]!=null?dimPct[d.key]:0;
     var t=dimTier(score);
     var deepTexts=(DIM_DEEP[lang]||DIM_DEEP['zh-CN'])[d.key];
     var text=deepTexts[t];
-    var label=lang==='zh-TW'?d.label_tw:d.label_cn;
+    var label;
+    if(lang==='en-US') label=d.label_en;
+    else if(lang==='es-US') label=d.label_es;
+    else if(lang==='zh-TW') label=d.label_tw;
+    else label=d.label_cn;
     var pct=score;
 
     var card=document.createElement('div'); card.className='dim-deep-card';
@@ -203,17 +245,20 @@ function buildQSummary(sectionKey, lang){
   });
   if(!items.length) return '';
   var rows=items.map(function(item){
-    var qText=lang==='zh-TW'?item.q.tw:item.q.cn;
+    var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
     /* Use stored optionText from answerMap to avoid undefined */
-    var oText = (lang==='zh-TW'
-      ? (answerMap[item.q.id].optionText_tw||item.opt.tw||item.opt.cn)
-      : (answerMap[item.q.id].optionText_cn||item.opt.cn||item.opt.tw)) || '';
+    var oText;
+    if(lang==='en-US') oText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn||item.opt.en||item.opt.cn||'';
+    else if(lang==='es-US') oText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||item.opt.es||item.opt.en||item.opt.cn||'';
+    else if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw||item.opt.tw||item.opt.cn||'';
+    else oText=answerMap[item.q.id].optionText_cn||item.opt.cn||'';
     /* noImprove questions: show raw score. Others: show percentage bar but hide raw number */
     var isNoImprove=!!item.q.noImprove;
     var pct=item.max>0 ? Math.round(item.score/item.max*100) : 0;
     var color=pct>=75?'#10b981':pct>=50?'#f59e0b':'#ef4444';
+    var _pts=lang==='en-US'?'pts':(lang==='es-US'?'pts':'分');
     var scoreDisplay = isNoImprove
-      ? '<div class="qs-pct qs-raw" style="color:#6366f1">'+item.score+'分</div>'
+      ? '<div class="qs-pct qs-raw" style="color:#6366f1">'+item.score+_pts+'</div>'
       : '<div class="qs-bar"><div class="qs-fill" style="width:'+pct+'%;background:'+color+'"></div></div>';
     return '<div class="qs-row">'+
       '<div class="qs-q">'+qText+'</div>'+
@@ -243,7 +288,7 @@ function buildQBreakdown(lang){
     var opt=q.options[oi];
 
     var maxScore=Math.max.apply(null,q.options.map(function(o){return o.score||0;}));
-    var qText=lang==='zh-TW'?q.tw:q.cn;
+    var qText=window.qlang?window.qlang(q):(lang==='zh-TW'?q.tw:q.cn);
     var mc=SECTION_COLORS[q.section]||'#7dd3fc';
 
     /* Score display logic:
@@ -254,11 +299,12 @@ function buildQBreakdown(lang){
     var scorePct = q.scorable&&maxScore>0 ? Math.round((opt.score||0)/maxScore*100) : 50;
     var scoreColor = scorePct>=75?'#10b981':scorePct>=50?'#f59e0b':'#ef4444';
     var scoreChipHtml = '';
+    var _rawLabel=lang==='en-US'?'Raw: ':(lang==='es-US'?'Puntaje: ':(lang==='en-US'?'Raw: ':(lang==='es-US'?'Puntaje: ':'原始分：')));
+    var _scoreLabel=lang==='en-US'?'Score ':(lang==='es-US'?'Puntaje ':(lang==='en-US'?'Score ':(lang==='es-US'?'Puntaje ':'得分 ')));
     if(isNoImprove && q.scorable){
-      /* Raw score display for age/birthplace — no percentage, just the raw number */
-      scoreChipHtml='<span class="qb-score-chip qb-score-raw" style="color:#6366f1;background:#6366f118">'+(lang==='zh-TW'?'原始分：':'原始分：')+(opt.score||0)+'</span>';
+      scoreChipHtml='<span class="qb-score-chip qb-score-raw" style="color:#6366f1;background:#6366f118">'+_rawLabel+(opt.score||0)+'</span>';
     } else if(q.scorable){
-      scoreChipHtml='<span class="qb-score-chip" style="color:'+scoreColor+';background:'+scoreColor+'18">'+(lang==='zh-TW'?'得分 ':'得分 ')+(opt.score||0)+' / '+maxScore+'</span>';
+      scoreChipHtml='<span class="qb-score-chip" style="color:'+scoreColor+';background:'+scoreColor+'18">'+_scoreLabel+(opt.score||0)+' / '+maxScore+'</span>';
     }
 
     var card=document.createElement('div'); card.className='qb-card'; card.dataset.section=q.section;
@@ -268,14 +314,14 @@ function buildQBreakdown(lang){
        - Other options: show text only — NO individual scores (per spec: hide all option scores) */
     var optsHtml=q.options.map(function(o,i){
       /* Guard: option text can be undefined for 6/7-option questions if letters array was short */
-      var text=(lang==='zh-TW'?o.tw:o.cn)||'';
+      var text=(lang==='en-US'?(o.en||o.cn):(lang==='es-US'?(o.es||o.en||o.cn):(lang==='zh-TW'?o.tw:o.cn)))||'';
       var isSel=i===oi;
       /* Best-option marker only shown on selected item for context; never shows score number */
       var isBest=o.score===maxScore&&o.score>0&&!isNoImprove;
       return '<div class="qb-opt'+(isSel?' qb-opt--sel':'')+(isBest&&isSel?' qb-opt--best':'')+'">'+
         '<span class="qb-letter">'+(letters[i]||'?')+'</span>'+
         '<span class="qb-otext">'+text+'</span>'+
-        (isSel?'<span class="qb-you">'+(lang==='zh-TW'?'你的選擇':'你的选择')+'</span>':'')+
+        (isSel?'<span class="qb-you">'+(lang==='en-US'?'Your pick':(lang==='es-US'?'Tu elección':(lang==='zh-TW'?'你的選擇':'你的选择')))+'</span>':'')+
         /* Intentionally omit score numbers per requirement */
         '</div>';
     }).join('');
@@ -284,7 +330,7 @@ function buildQBreakdown(lang){
       '<div class="qb-header">'+
         '<span class="qb-num" style="background:'+mc+'18;color:'+mc+'">'+(shown+1)+'</span>'+
         '<span class="qb-section-dot" style="background:'+mc+'"></span>'+
-        '<span class="qb-section-name">'+(lang==='zh-TW'?(q.section==='basic'?'基礎資訊':q.section==='social'?'社會生活方向':'個人認同'):(q.section==='basic'?'基础信息':q.section==='social'?'社会生活方向':'个人认同'))+'</span>'+
+        '<span class="qb-section-name">'+(lang==='en-US'?(q.section==='basic'?'Background':q.section==='social'?'Social & Life':'Personal Identity'):(lang==='es-US'?(q.section==='basic'?'Información básica':q.section==='social'?'Social y vida':'Identidad personal'):(lang==='zh-TW'?(q.section==='basic'?'基礎資訊':q.section==='social'?'社會生活方向':'個人認同'):(q.section==='basic'?'基础信息':q.section==='social'?'社会生活方向':'个人认同'))))+'</span>'+
         scoreChipHtml+
       '</div>'+
       '<div class="qb-q">'+qText+'</div>'+
@@ -292,11 +338,75 @@ function buildQBreakdown(lang){
     c.appendChild(card);
     shown++;
   });
-  if(shown===0) c.innerHTML='<div class="empty-note">'+(lang==='zh-TW'?'此篩選條件下無題目。':'此筛选条件下无题目。')+'</div>';
+  if(shown===0) c.innerHTML='<div class="empty-note">'+(lang==='en-US'?'No questions match this filter.':(lang==='es-US'?'Ninguna pregunta coincide con este filtro.':(lang==='zh-TW'?'此篩選條件下無題目。':'此筛选条件下无题目。')))+'</div>';
 }
 
 /* ── Insights ── */
 var INSIGHTS={
+  'en-US':[
+    {
+      test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
+      icon:'⚠️', color:'#f59e0b',
+      title:'Untapped Potential',
+      text:'Your baseline conditions are stronger than most, but your Social & Life score hasn\'t caught up. You have more starting-line advantages than you realize — the key is converting them systematically into outcomes.',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
+      icon:'💭', color:'#0ea5e9',
+      title:'Thinker Who Needs to Act',
+      text:'Strong self-awareness, rich inner world — but your Social & Life score hasn\'t caught up. Block 30 minutes each week as your "execution window" dedicated to the one thing you already know needs to happen.',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
+      icon:'🏃', color:'#10b981',
+      title:'Running Fast Without a Compass',
+      text:'You\'re achieving externally — career, income, status — but your Personal Identity score suggests your inner compass needs recalibration. Carve out time weekly to ask yourself: what do I actually want my life to look like?',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.basic<40&&dimPct.identity>70; },
+      icon:'💪', color:'#8b5cf6',
+      title:'Rising Against the Odds',
+      text:'Your baseline is challenging, but your personal identity — values, resilience, self-direction — is strong. Your greatest asset is not your circumstances; it\'s how you interpret and act on them.',
+    },
+    {
+      test:function(){ return finalScore>100; },
+      icon:'🌟', color:'#f59e0b',
+      title:'Elite Territory',
+      text:'Scoring above 100 means you\'ve excelled across standard dimensions and demonstrated externally verifiable elite accomplishments. At this level, your biggest risk is complacency, not lack of ability.',
+    },
+  ],
+  'es-US':[
+    {
+      test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
+      icon:'⚠️', color:'#f59e0b',
+      title:'Potencial sin aprovechar',
+      text:'Tus condiciones base son más sólidas que las de la mayoría, pero tu puntaje Social y Vida no ha alcanzado ese nivel. Tienes más ventajas de partida de las que reconoces — la clave es convertirlas sistemáticamente en resultados.',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
+      icon:'💭', color:'#0ea5e9',
+      title:'Pensador que necesita actuar',
+      text:'Fuerte autoconciencia, rico mundo interior — pero tu puntaje Social y Vida no ha alcanzado el mismo nivel. Bloquea 30 minutos semanales como tu "ventana de ejecución" para avanzar en lo que ya sabes que debes hacer.',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
+      icon:'🏃', color:'#10b981',
+      title:'Corriendo sin brújula',
+      text:'Logras metas externas — carrera, ingresos, posición — pero tu Identidad Personal sugiere que tu brújula interior necesita recalibración. Dedica tiempo semanal a preguntarte: ¿qué quiero realmente que sea mi vida?',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.basic<40&&dimPct.identity>70; },
+      icon:'💪', color:'#8b5cf6',
+      title:'Superando las dificultades',
+      text:'Tu base es desafiante, pero tu identidad personal es fuerte. Tu mayor activo no son tus circunstancias; es cómo las interpretas y actúas sobre ellas.',
+    },
+    {
+      test:function(){ return finalScore>100; },
+      icon:'🌟', color:'#f59e0b',
+      title:'Territorio élite',
+      text:'Superar los 100 puntos significa que destacaste en todas las dimensiones y demostraste logros élite verificables. En este nivel, tu mayor riesgo es la complacencia, no la falta de habilidad.',
+    },
+  ],
   'zh-CN':[
     {
       test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
@@ -605,8 +715,8 @@ function buildInsights(lang){
   if(!shown){
     var def=document.createElement('div'); def.className='insight-card';
     def.style.borderLeft='4px solid #94a3b8';
-    def.innerHTML='<div class="ic-header"><span class="ic-icon">📊</span><span class="ic-title">'+( lang==='zh-TW'?'整體表現均衡':'整体表现均衡')+'</span></div>'+
-      '<div class="ic-text">'+(lang==='zh-TW'?'你的各維度發展較為均衡，沒有觸發特定的模式洞察。繼續保持這種均衡，並選擇最感興趣的維度深耕。':'你的各维度发展较为均衡，没有触发特定的模式洞察。继续保持这种均衡，并选择最感兴趣的维度深耕。')+'</div>';
+    def.innerHTML='<div class="ic-header"><span class="ic-icon">📊</span><span class="ic-title">'+( lang==='en-US'?'Well Balanced Overall':(lang==='es-US'?'Bien equilibrado en general':(lang==='zh-TW'?'整體表現均衡':'整体表现均衡')))+'</span></div>'+
+      '<div class="ic-text">'+(lang==='zh-TW'?'Your dimensions are well balanced — no specific patterns were triggered. Keep up the balance and pick the area you\'re most excited about to go deeper.':'Your dimensions are well balanced — no specific patterns were triggered. Mantén este equilibrio y elige la dimensión que más te emocione para profundizar.')+'</div>';
     c.appendChild(def);
   }
 }
@@ -731,7 +841,7 @@ function init(){
   var sn=document.getElementById('anScoreNum'); if(sn) sn.textContent=finalScore;
   var dateEl=document.getElementById('anDate');
   var stored=null; try{stored=localStorage.getItem('ls_last_date');}catch(e){}
-  if(dateEl) dateEl.textContent=(window.I18N_CURRENT==='zh-TW'?'測試日期：':'测试日期：')+(stored||new Date().toLocaleDateString());
+  if(dateEl) dateEl.textContent=(window.I18N_CURRENT==='en-US'?'Test date: ':(window.I18N_CURRENT==='es-US'?'Fecha: ':(window.I18N_CURRENT==='zh-TW'?'測試日期：':'测试日期：')))+(stored||new Date().toLocaleDateString());
 
   patchI18n(); setupLangSwitcher(); setupMobileNav(); setupParticles(); setupPaymentModal();
   setupFilters(window.I18N_CURRENT||'zh-CN');

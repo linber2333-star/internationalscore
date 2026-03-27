@@ -1,6 +1,15 @@
 /* result.js — comprehensive result display with fixed improve logic + share modal */
 (function(){
 'use strict';
+
+/* ── locale helper ── */
+function ql(cn, tw, en, es) {
+  var l = window.I18N_CURRENT || 'zh-CN';
+  if (l === 'en-US') return en || cn;
+  if (l === 'es-US') return es || en || cn;
+  if (l === 'zh-TW') return tw || cn;
+  return cn;
+}
 var CIRC = 2 * Math.PI * 90;
 var finalScore, dimPct, dimPctRaw, answerMap, activeQueue, resultLang, baseScore, bonusScore, quizMode;
 
@@ -88,7 +97,11 @@ function computeProfessionalDims(){
   return out;
 }
 function tier(s,lang){
-  var t=lang==='zh-TW'?['待提升','發展中','尚可','良好','優秀','卓越']:['待提升','发展中','尚可','良好','优秀','卓越'];
+  var t;
+  if(lang==='en-US') t=['Needs Work','Developing','Fair','Good','Excellent','Outstanding'];
+  else if(lang==='es-US') t=['Por mejorar','En desarrollo','Aceptable','Bueno','Excelente','Sobresaliente'];
+  else if(lang==='zh-TW') t=['待提升','發展中','尚可','良好','優秀','卓越'];
+  else t=['待提升','发展中','尚可','良好','优秀','卓越'];
   if(s<17)return t[0]; if(s<34)return t[1]; if(s<50)return t[2]; if(s<67)return t[3]; if(s<84)return t[4]; return t[5];
 }
 function buildDims(lang){
@@ -113,6 +126,9 @@ function buildMini(score){
 function buildBreakdown(){
   var el=document.getElementById('scoreBreakdown'); if(!el) return;
   var lang=window.I18N_CURRENT||'zh-CN';
+  var _isEN=(lang==='en-US'||lang==='es-US');
+  var _bonusLabel=_isEN?(lang==='es-US'?'Puntos élite':'Bonus'):(lang==='zh-TW'?'加分題':'加分题');
+  var _totalLabel=_isEN?(lang==='es-US'?'Puntaje total':'Total Score'):(lang==='zh-TW'?'綜合分數':'综合分数');
   /* Compute raw weighted contributions and scale proportionally to baseScore
      so the displayed numbers always add up correctly */
   var rawContribs={}, rawTotal=0;
@@ -134,13 +150,13 @@ function buildBreakdown(){
   var bonusRow='';
   if(bonusScore>0){
     bonusRow='<div class="breakdown-row"><span class="br-icon">⭐</span>'+
-      '<span class="br-name">'+(lang==='zh-TW'?'加分題':'加分题')+'</span>'+
+      '<span class="br-name">'+_bonusLabel+'</span>'+
       '<span class="br-score"></span><span class="br-x"></span>'+
       '<span class="br-weight"></span><span class="br-eq"></span>'+
       '<span class="br-contrib">+'+bonusScore+'</span></div>';
   }
   el.innerHTML='<div class="breakdown-grid">'+rows+bonusRow+
-    '<div class="breakdown-total"><span>'+(lang==='zh-TW'?'綜合分數':'综合分数')+'</span><span class="bt-score">'+finalScore+'</span></div></div>';
+    '<div class="breakdown-total"><span>'+_totalLabel+'</span><span class="bt-score">'+finalScore+'</span></div></div>';
 }
 
 /* ── Highlights ── */
@@ -155,13 +171,19 @@ function buildHighlights(lang){
   });
   scored.sort(function(a,b){ return b.score-a.score; });
   var top=scored.slice(0,4);
-  if(!top.length){ c.innerHTML='<div class="empty-note">'+(lang==='zh-TW'?'繼續努力，亮點正在積累中。':'继续努力，亮点正在积累中。')+'</div>'; return; }
+  if(!top.length){ c.innerHTML='<div class="empty-note">'+(lang==='en-US'?'Keep going — your highlights are building up.':(lang==='es-US'?'¡Sigue adelante — tus fortalezas están creciendo!':(lang==='zh-TW'?'繼續努力，亮點正在積累中。':'继续努力，亮点正在积累中。')))+'</div>'; return; }
   top.forEach(function(item){
     var row=document.createElement('div'); row.className='highlight-row';
-    var qText=lang==='zh-TW'?item.q.tw:item.q.cn;
-    var oText=answerMap[item.q.id].optionText_cn; if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw;
+    var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
+    var oText;
+    if(lang==='en-US') oText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
+    else if(lang==='es-US') oText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
+    else if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw;
+    else oText=answerMap[item.q.id].optionText_cn;
+    if(!oText) oText=answerMap[item.q.id].optionText_cn;
     var mc=SECTION_COLORS[item.q.section]||'#7dd3fc';
-    row.innerHTML='<div class="hl-score-dot" style="background:'+mc+'">'+item.score*25+'<small>分</small></div>'+
+    var _scoreLabel=lang==='en-US'?'pts':(lang==='es-US'?'pts':'分');
+    row.innerHTML='<div class="hl-score-dot" style="background:'+mc+'">'+item.score*25+'<small>'+_scoreLabel+'</small></div>'+
       '<div class="hl-content"><div class="hl-q">'+qText+'</div><div class="hl-a">'+oText+'</div></div>'+
       '<div class="hl-stars">'+starHtml(item.score)+'</div>';
     c.appendChild(row);
@@ -188,10 +210,14 @@ function buildImprovements(lang){
     A3:{
       cn:'体型改善不靠意志力，靠系统。本周只做一件事：把每天的主食量减少1/4，并增加一次30分钟以上的快走。6周后重新评估。',
       tw:'體型改善不靠意志力，靠系統。本週只做一件事：把每天的主食量減少1/4，並增加一次30分鐘以上的快走。6週後重新評估。',
+      en:'Body composition improves through systems, not willpower. This week do one thing: reduce your main carb portions by 1/4 and add one 30-minute brisk walk. Reassess in 6 weeks.',
+      es:'La composición corporal mejora con sistemas, no con fuerza de voluntad. Esta semana haz una cosa: reduce tus porciones de carbohidratos principales en 1/4 y añade una caminata rápida de 30 minutos. Reevalúa en 6 semanas.',
     },
     A6:{
       cn:'提升学历不一定要全日制——在职研究生、行业认证（PMP/CPA/CFA等）投入产出比更高，且不耽误收入。先研究你行业的"含金量最高"证书。',
       tw:'提升學歷不一定要全日制——在職研究生、行業認證（PMP/CPA/CFA等）投入產出比更高，且不耽誤收入。先研究你行業的「含金量最高」證書。',
+      en:'Upgrading your credentials doesn\'t require going full-time. Part-time grad programs and industry certifications (PMP, CPA, CFA, AWS) have better ROI and don\'t interrupt income. Research the highest-value credential in your industry first.',
+      es:'Mejorar tus credenciales no requiere dedicación completa. Los programas de posgrado a tiempo parcial y las certificaciones de la industria (PMP, CPA, CFA, AWS) tienen mejor ROI y no interrumpen los ingresos.',
     },
     A8:{
       cn:'做一次全面体检，拿到基线数据。90%的早期慢性问题可以通过改善睡眠、饮食和运动在6个月内逆转，代价远低于日后治疗。',
@@ -282,8 +308,8 @@ function buildImprovements(lang){
       tw:'建立第二收入來源最快的方式：把你現有的技能變成可銷售的服務。找到5個可能付錢的潛在客戶，給他們發一個簡短的提案——哪怕只成功1個。',
     },
     B4b:{
-      cn:'应急储备的建立方式：从下月薪资日起，自动转走固定金额（哪怕500元）到一个单独账户，命名为"紧急备用金"，设置无法随意取用的规则。',
-      tw:'應急儲備的建立方式：從下月薪資日起，自動轉走固定金額（哪怕500元）到一個單獨帳戶，命名為「緊急備用金」，設置無法隨意取用的規則。',
+      cn:'应急储备的建立方式：从下月薪资日起，自动转走固定金额（哪怕 $50）到一个单独账户，命名为"紧急备用金"，设置无法随意取用的规则。',
+      tw:'應急儲備的建立方式：從下月薪資日起，自動轉走固定金額（哪怕 $50）到一個單獨帳戶，命名為「緊急備用金」，設置無法隨意取用的規則。',
     },
     B4c:{
       cn:'有多种负债时，用"雪球法"：先还利率最高的（信用卡>消费贷>房贷），每还清一项，把那笔钱全部加速还下一项。这是数学上最快的方式。',
@@ -463,37 +489,37 @@ function buildImprovements(lang){
     while(nextOi<maxOi && q.options[nextOi].score===q.options[oi].score) nextOi++;
     var nextOpt=q.options[nextOi];
     if(!nextOpt) return null;
-    var nextText=lang==='zh-TW'?nextOpt.tw:nextOpt.cn;
+    var nextText=window.qlang?window.qlang(nextOpt):(lang==='zh-TW'?nextOpt.tw:nextOpt.cn);
 
     /* 每档专属建议 */
     var adviceMap={
       0:{cn:'第一步是止血：清点所有负债，按利率排序，优先偿还信用卡和消费贷。暂缓任何投资，先建立1个月的最低应急储备。',
-         tw:'第一步是止血：清點所有負債，按利率排序，優先償還信用卡和消費貸。暫緩任何投資，先建立1個月的最低應急儲備。'},
+         tw:'第一步是止血：清點所有負債，按利率排序，優先償還信用卡和消費貸。暫緩任何投資，先建立1個月的最低應急儲備。', en:'Step one: stop the bleeding. List every debt, sort by interest rate, and pay off credit cards and personal loans first. Pause investing. Build just one month of emergency reserves first.', es:'Paso uno: detener el sangrado. Lista todas las deudas, ordénalas por tasa de interés y paga primero las tarjetas de crédito y préstamos personales. Pausa las inversiones. Construye primero una reserva de emergencia de un mes.'},
       1:{cn:'从0到有：本月建立"先存后花"反射——发薪后立即转走10%（哪怕100元）到独立账户，命名为"未来基金"，不动它。',
-         tw:'從0到有：本月建立「先存後花」反射——發薪後立即轉走10%（哪怕100元）到獨立帳戶，命名為「未來基金」，不動它。'},
+         tw:'從0到有：本月建立「先存後花」反射——發薪後立即轉走10%（哪怕100元）到獨立帳戶，命名為「未來基金」，不動它。', en:'Zero to something: this month, set up auto-transfer — move 10% of your paycheck into a separate account labeled \'Future Fund\' the moment it hits. The habit matters more than the amount.', es:'De cero a algo: este mes, configura una transferencia automática — mueve el 10% de tu cheque a una cuenta separada llamada \'Fondo Futuro\' en cuanto llegue. El hábito importa más que la cantidad.'},
       2:{cn:'积累早期的关键是提高储蓄率，而非投资收益率。目标：把每月结余提高到收入的15%以上，同时消除最主要的1项不必要支出。',
-         tw:'積累早期的關鍵是提高儲蓄率，而非投資收益率。目標：把每月結餘提高到收入的15%以上，同時消除最主要的1項不必要支出。'},
+         tw:'積累早期的關鍵是提高儲蓄率，而非投資收益率。目標：把每月結餘提高到收入的15%以上，同時消除最主要的1項不必要支出。', en:'In the early accumulation phase, savings rate matters more than investment returns. Goal: push your monthly surplus above 15% of income while eliminating your biggest unnecessary expense.', es:'En la fase de acumulación temprana, la tasa de ahorro importa más que el rendimiento de la inversión. Meta: lleva tu excedente mensual por encima del 15% de tus ingresos mientras eliminas tu mayor gasto innecesario.'},
       3:{cn:'到1万元后，建立应急储备（3个月生活费放货币基金），余量开始定投宽基指数基金，门槛低、长期稳健。',
-         tw:'到1萬元後，建立應急儲備（3個月生活費放貨幣基金），餘量開始定投寬基指數基金，門檻低、長期穩健。'},
-      4:{cn:'2万到10万阶段：应急储备到位后，考虑增加储蓄率到20%+。同时了解你可用的税优账户（个人养老金等）。',
-         tw:'2萬到10萬階段：應急儲備到位後，考慮增加儲蓄率到20%+。同時了解你可用的稅優帳戶（個人養老金等）。'},
+         tw:'到1萬元後，建立應急儲備（3個月生活費放貨幣基金），餘量開始定投寬基指數基金，門檻低、長期穩健。', en:'Once you reach $2,000–$5,000: build an emergency fund (3 months of expenses in a high-yield savings account), then start auto-investing the rest into a low-cost index fund.', es:'Una vez que alcances $2,000–$5,000: construye un fondo de emergencia (3 meses de gastos en una cuenta de ahorros de alto rendimiento), luego comienza a invertir automáticamente el resto en un fondo índice de bajo costo.'},
+      4:{cn:'2万到10万阶段：应急储备到位后，考虑增加储蓄率到20%+。同时了解你可用的税优账户（401k/Roth IRA 等）。',
+         tw:'2萬到10萬階段：應急儲備到位後，考慮增加儲蓄率到20%+。同時了解你可用的稅優帳戶（個人養老金等）。', en:'$5K–$20K phase: once your emergency fund is solid, increase savings rate to 20%+. Maximize your 401(k) match and explore opening a Roth IRA.', es:'Fase de $5K–$20K: una vez que tu fondo de emergencia esté sólido, aumenta la tasa de ahorro al 20%+. Maximiza tu aportación con match del 401(k) y considera abrir un Roth IRA.'},
       5:{cn:'10万到25万：这个阶段可以开始考虑资产配置——货币基金应急+股票型基金长期增值+保险保障。不要把所有钱放在一个篮子里。',
-         tw:'10萬到25萬：這個階段可以開始考慮資產配置——貨幣基金應急+股票型基金長期增值+保險保障。不要把所有錢放在一個籃子裡。'},
+         tw:'10萬到25萬：這個階段可以開始考慮資產配置——貨幣基金應急+股票型基金長期增值+保險保障。不要把所有錢放在一個籃子裡。', en:'$20K–$50K: start thinking about asset allocation — HYSA for emergencies + broad index funds for long-term growth + term life and disability insurance for protection. Don\'t put all eggs in one basket.', es:'De $20K a $50K: empieza a pensar en asignación de activos — HYSA para emergencias + fondos índice amplios para crecimiento a largo plazo + seguro de vida a término y por discapacidad. No pongas todos los huevos en una canasta.'},
       6:{cn:'25万到50万：评估房产是否在你的计划中。如果是，计算距目标首付还需多少月并制定计划；如果不是，开始建立正式的投资组合框架。',
-         tw:'25萬到50萬：評估房產是否在你的計劃中。如果是，計算距目標首付還需多少月並制定計劃；如果不是，開始建立正式的投資組合框架。'},
+         tw:'25萬到50萬：評估房產是否在你的計劃中。如果是，計算距目標首付還需多少月並制定計劃；如果不是，開始建立正式的投資組合框架。', en:'$50K–$150K: evaluate whether homeownership fits your timeline. If yes, calculate how many months to your down payment and build a savings plan. If not, build your formal investment portfolio framework.', es:'De $50K a $150K: evalúa si la compra de casa encaja en tu cronograma. Si es así, calcula cuántos meses faltan para tu pago inicial. Si no, construye tu marco formal de cartera de inversiones.'},
       7:{cn:'50万到100万：购买足额寿险和重疾险，保护已有积累不被意外医疗清零。同时评估资产结构：现金/基金/房产的比例是否合理？',
-         tw:'50萬到100萬：購買足額壽險和重疾險，保護已有積累不被意外醫療清零。同時評估資產結構：現金/基金/房產的比例是否合理？'},
+         tw:'50萬到100萬：購買足額壽險和重疾險，保護已有積累不被意外醫療清零。同時評估資產結構：現金/基金/房產的比例是否合理？', en:'$150K–$300K: buy adequate term life and disability insurance to protect your accumulated wealth from being wiped out by a medical event. Review your asset mix: cash / index funds / real estate — is the ratio right?', es:'De $150K a $300K: compra seguro de vida a término y por discapacidad adecuados para proteger tu patrimonio acumulado de un evento médico. Revisa tu mezcla de activos: efectivo / fondos índice / bienes raíces — ¿es la proporción correcta?'},
       8:{cn:'100万到500万：这是从"储蓄型"向"配置型"转变的关键节点。考虑引入专业理财规划，了解股权类资产和固收资产的平衡配比。',
-         tw:'100萬到500萬：這是從「儲蓄型」向「配置型」轉變的關鍵節點。考慮引入專業理財規劃，了解股權類資產和固收資產的平衡配比。'},
+         tw:'100萬到500萬：這是從「儲蓄型」向「配置型」轉變的關鍵節點。考慮引入專業理財規劃，了解股權類資產和固收資產的平衡配比。', en:'$300K–$1M: this is the pivot from \'saver\' to \'investor\'. Consider working with a fee-only financial planner. Understand the balance between equity assets and fixed income at your stage.', es:'De $300K a $1M: este es el pivote de \'ahorrador\' a \'inversionista\'. Considera trabajar con un planificador financiero de solo honorarios. Entiende el equilibrio entre activos de renta variable y renta fija en tu etapa.'},
       9:{cn:'500万到1000万：税务规划开始变得重要。了解个人持有与公司架构在税负上的差异；同时确保流动资产占比不低于净资产的20%。',
-         tw:'500萬到1000萬：稅務規劃開始變得重要。了解個人持有與公司架構在稅負上的差異；同時確保流動資產佔比不低於淨資產的20%。'},
+         tw:'500萬到1000萬：稅務規劃開始變得重要。了解個人持有與公司架構在稅負上的差異；同時確保流動資產佔比不低於淨資產的20%。', en:'$1M–$3M: tax planning becomes critical. Understand the differences between personal holdings and LLC/trust structures. Ensure liquid assets represent at least 20% of your net worth.', es:'De $1M a $3M: la planificación fiscal se vuelve crítica. Entiende las diferencias entre tenencias personales y estructuras LLC/fideicomiso. Asegúrate de que los activos líquidos representen al menos el 20% de tu patrimonio neto.'},
       10:{cn:'1000万到1亿：在这个量级，财富最大的威胁是"失去"而非"不够多"——税务、法律、健康、家庭变故。建立完整的家族财富保护框架。',
-          tw:'1000萬到1億：在這個量級，財富最大的威脅是「失去」而非「不夠多」——稅務、法律、健康、家庭變故。建立完整的家族財富保護框架。'},
+          tw:'1000萬到1億：在這個量級，財富最大的威脅是「失去」而非「不夠多」——稅務、法律、健康、家庭變故。建立完整的家族財富保護框架。', en:'$3M+: at this scale, wealth\'s biggest threat is loss, not insufficient growth — taxes, legal exposure, health crises, family changes. Build a comprehensive wealth protection framework.', es:'Más de $3M: a esta escala, la mayor amenaza para la riqueza es la pérdida, no el crecimiento insuficiente — impuestos, exposición legal, crisis de salud, cambios familiares. Construye un marco integral de protección del patrimonio.'},
     };
     var advice=adviceMap[oi];
     return {
       nextText: nextText,
-      advice: advice ? (lang==='zh-TW'?advice.tw:advice.cn) : null,
+      advice: advice ? (lang==='en-US'?(advice.en||advice.cn):(lang==='es-US'?(advice.es||advice.en||advice.cn):(lang==='zh-TW'?advice.tw:advice.cn))) : null,
     };
   }
 
@@ -510,13 +536,18 @@ function buildImprovements(lang){
   }
 
   function fallbackAdviceByOption(item){
-    var txt=(lang==='zh-TW'
-      ? (answerMap[item.q.id].optionText_tw||item.opt.tw||'')
-      : (answerMap[item.q.id].optionText_cn||item.opt.cn||''));
+    var am=answerMap[item.q.id];
+    var txt;
+    if(lang==='en-US') txt=(am&&am.optionText_en)||item.opt.en||item.opt.cn||'';
+    else if(lang==='es-US') txt=(am&&am.optionText_es)||(am&&am.optionText_en)||item.opt.es||item.opt.en||item.opt.cn||'';
+    else if(lang==='zh-TW') txt=(am&&am.optionText_tw)||item.opt.tw||'';
+    else txt=(am&&am.optionText_cn)||item.opt.cn||'';
     if(!txt) return '';
-    return (lang==='zh-TW'
-      ? ('建議實作：你目前選擇「'+txt+'」。先從可執行的小步驟開始，連續實踐14天並記錄變化，再決定下一步加碼。')
-      : ('建议实操：你当前选择“'+txt+'”。先从一个可执行的小步骤开始，连续实践14天并记录变化，再决定下一步加码。'));
+    if(lang==='en-US') return 'Quick win: You answered "'+txt+'". Pick one small actionable step, commit to it for 14 days, then decide your next move.';
+    if(lang==='es-US') return 'Accion rapida: Respondiste "'+txt+'". Elige un paso ejecutable y comprometete 14 dias seguidos - luego decide tu proximo movimiento.';
+    return lang==='zh-TW'
+      ? '建議實作：你目前選擇「'+txt+'」。先從可執行的小步驟開始，連續實踐１４天並記錄變化，再決定下一步加碼。'
+      : '建议实操：你当前选择“'+txt+'”。先从一个可执行的小步骤开始，连续实践１４天并记录变化，再决定下一步加码。';
   }
 
   var low=[];
@@ -530,7 +561,6 @@ function buildImprovements(lang){
     var gap, nextText, advText;
 
     if(q.id==='B4'){
-      /* B4 handled by specialist function */
       var b4r=getB4NextStep(oi, lang||window.I18N_CURRENT||'zh-CN');
       if(!b4r) return;
       gap=1; nextText=b4r.nextText; advText=b4r.advice;
@@ -540,32 +570,41 @@ function buildImprovements(lang){
       if(!next.opt) return;
       gap=next.score-(opt.score||0);
       if(gap<1) return;
-      nextText=lang==='zh-TW'?next.opt.tw:next.opt.cn;
+      if(lang==='en-US') nextText=next.opt.en||next.opt.cn;
+      else if(lang==='es-US') nextText=next.opt.es||next.opt.en||next.opt.cn;
+      else if(lang==='zh-TW') nextText=next.opt.tw||next.opt.cn;
+      else nextText=next.opt.cn;
       var advObj=ADVICE[q.id] || (window.QUICK_IMPROVE_ADVICE && window.QUICK_IMPROVE_ADVICE[q.id]);
-      advText=advObj?(lang==='zh-TW'?(advObj.tw||advObj.cn):advObj.cn):fallbackAdviceByOption({q:q,opt:opt});
+      if(advObj){
+        if(lang==='en-US') advText=advObj.en||advObj.cn;
+        else if(lang==='es-US') advText=advObj.es||advObj.en||advObj.cn;
+        else if(lang==='zh-TW') advText=advObj.tw||advObj.cn;
+        else advText=advObj.cn;
+      } else { advText=fallbackAdviceByOption({q:q,opt:opt}); }
       low.push({q:q,oi:oi,opt:opt,nextText:nextText,gap:gap,advText:advText,score:(opt.score||0)});
     }
   });
-
   low.sort(function(a,b){ return b.gap-a.gap; });
   var worst=low.slice(0,5);
 
   if(!worst.length){
-    c.innerHTML='<div class="empty-note">'+(lang==='zh-TW'?'各項表現均衡，沒有明顯短板。':'各项表现均衡，没有明显短板。')+'</div>';
+    c.innerHTML='<div class="empty-note">'+(lang==='en-US'?'All areas are balanced — no obvious weak spots.':(lang==='es-US'?'Todas las áreas están equilibradas — sin puntos débiles evidentes.':(lang==='zh-TW'?'各項表現均衡，沒有明顯短板。':'各项表现均衡，没有明显短板。')))+'</div>';
     return;
   }
   worst.forEach(function(item){
     var row=document.createElement('div'); row.className='improve-row';
-    var qText=lang==='zh-TW'?item.q.tw:item.q.cn;
-    var curText=lang==='zh-TW'
-      ?(answerMap[item.q.id].optionText_tw||item.opt.tw)
-      :(answerMap[item.q.id].optionText_cn||item.opt.cn);
+    var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
+    var curText;
+    if(lang==='en-US') curText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
+    else if(lang==='es-US') curText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
+    else if(lang==='zh-TW') curText=answerMap[item.q.id].optionText_tw||item.opt.tw;
+    else curText=answerMap[item.q.id].optionText_cn||item.opt.cn;
+    var _curLabel=lang==='en-US'?'Your answer: ':(lang==='es-US'?'Tu respuesta: ':(lang==='zh-TW'?'你的回答：':'你的回答：'));
     row.innerHTML=
       '<div class="imp-gap">↑'+item.gap+'</div>'+
       '<div class="imp-content">'+
         '<div class="imp-q">'+qText+'</div>'+
-        '<div class="imp-current"><span class="imp-label">'+(lang==='zh-TW'?'現況：':'现况：')+'</span>'+curText+'</div>'+
-        '<div class="imp-best"><span class="imp-label">'+(lang==='zh-TW'?'下一步：':'下一步：')+'</span>'+item.nextText+'</div>'+
+        '<div class="imp-current"><span class="imp-label">'+_curLabel+'</span>'+curText+'</div>'+
         (item.advText?'<div class="imp-advice">'+item.advText+'</div>':'')+
       '</div>';
     c.appendChild(row);
@@ -594,6 +633,22 @@ var TIPS={
     high:'你的評分相當出色，已走在大多數人的前面。\n\n① 戰略聚焦 — 砍掉低價值承諾，把精力集中在最高槓桿的事情上。\n② 影響力建設 — 開始思考如何將經驗系統化傳遞。\n③ 長期思維 — 制定10年願景。\n④ 內在深度 — 探索價值觀和人生意義。\n\n你已經很好了。接下來的問題是：你想成為什麼樣的人。',
     excellent:'你處於頂尖水平，這是極少數人才能達到的狀態。\n\n① 使命層面的思考 — 你的人生目標是否足夠大？\n② 傳承與影響 — 將知識、經驗以系統化方式傳遞給他人。\n③ 預防退化 — 持續謙遜，持續更新認知。\n④ 深度休息 — 確保有真正的假期和內心平靜。\n\n你的存在本身，就是對周圍人最好的激勵。',
     exceptional:'你的得分超過了100分，進入加分獎勵區間。這意味著你不僅在所有常規維度出色，還在頂尖教育、專業成就、創業影響力或競技藝術中擁有可被外部驗證的卓越資歷。\n\n你面臨的挑戰不再是「如何提升」，而是「如何選擇」：把你最稀缺的時間和精力，配置在能讓獨特優勢產生最大正向影響的事情上。',
+  },
+  'en-US':{
+    low:"Your LifeScore is in the starting-out range — and that's a launchpad, not a ceiling. Three priorities worth tackling now:\n\n① Build your foundation — consistent sleep and moving your body 3 times a week will raise every other score. These aren't optional extras, they're the infrastructure.\n② Get clear on direction — spend one afternoon writing out what your life looks like in 5 years. Specific scenes, not vague wishes. Your brain commits to what it can visualize.\n③ Reconnect with one key person — reach out to someone you respect but haven't talked to in over 6 months. Real relationships are compounding assets.\n\nA 1% improvement each day adds up to 37× growth in a year.",
+    'mid-low':"You've built a real foundation, but some important areas have been on the back burner. Time to address them:\n\n① Name your biggest gap — look at your \"Room to Grow\" section and pick the single item you're most capable of changing right now.\n② Design your environment — don't rely on willpower alone. Put your phone across the room at night, schedule workouts like meetings.\n③ Invest in relationships — reach out deeply to 3 people per month. Quality beats quantity every time.\n\nThe gap between you today and you in 6 months of focused effort is larger than you think.",
+    mid:"You're solid — above average in most areas. But \"steady\" can quietly become \"stagnant.\" Time to level up:\n\n① Double down on your strongest dimension — turn your best area into a true competitive edge with a 90-day external milestone.\n② Push past your comfort zone — sign up for something slightly beyond your current ability (public speaking, a new skill, a race).\n③ Get a raise or make a move — if your income has been flat for over a year, that's a signal. Research your market rate and negotiate or explore new options.\n④ Build a public presence — write one post or article per week in your field. Six months of consistency creates real visibility.\n\nYou're one real leveling-up decision away from \"Outstanding.\"",
+    high:"You're already ahead of most people. The next phase isn't about doing more — it's about doing better.\n\n① Cut low-value commitments — audit every obligation and eliminate anything that won't matter in 3 years. Protect your time ruthlessly.\n② Start multiplying your impact — you're capable of influencing others now. Think about how to systematically share your experience and knowledge.\n③ Build a 10-year vision — not just annual goals. People who operate on longer time horizons make fundamentally different decisions.\n④ Invest in your inner life — achievement and fulfillment aren't the same thing. Explore what actually makes you feel alive beyond the scoreboard.\n\nYou're good. The question now: what kind of person do you want to be, and what will you leave behind?",
+    excellent:"You're in rare territory. Standard advice doesn't apply here. What's actually useful:\n\n① Think at the mission level — is your life goal big enough? Are you working on something larger than yourself?\n② Systematize your knowledge — the frameworks and judgment you've built have enormous value to others. Write them down, teach them, pass them on.\n③ Guard against complacency — the biggest risk at high achievement is pride and the slow death of curiosity. Stay genuinely humble. Keep learning hard things.\n④ Protect deep rest — real vacations and genuine mental stillness are the fuel for sustained excellence. Don't optimize them away.\n\nYour existence itself is an inspiration to the people around you.",
+    exceptional:"You've scored over 100 — entering the elite bonus tier. This means you've not only excelled across all standard dimensions, but also hold externally verifiable credentials in elite education, professional achievement, entrepreneurial impact, or competitive excellence.\n\nYour challenge is no longer \"how to improve\" — it's \"how to choose.\" Your time and focus are your scarcest resources. The right question: which allocation of your unique advantages creates the greatest positive impact?\n\nConsider writing your \"life legacy list\" — if today were your last working day, what have you already left the world? Make that answer the strategic core of your next 3 years.",
+  },
+  'es-US':{
+    low:"Tu LifeScore está en la etapa de inicio — y eso es un punto de partida, no un techo. Tres prioridades para atacar ahora:\n\n① Construye tu base — dormir bien y moverte 3 veces por semana eleva todos los demás puntajes. No son extras opcionales, son la infraestructura.\n② Clarifica tu dirección — dedica una tarde a escribir cómo luce tu vida en 5 años. Escenas concretas, no deseos vagos. Tu cerebro se compromete con lo que puede visualizar.\n③ Reconecta con alguien importante — escríbele a alguien que respetas pero con quien no has hablado en más de 6 meses. Las relaciones reales son activos que se capitalizan.\n\nUna mejora del 1% diario equivale a 37 veces de crecimiento en un año.",
+    'mid-low':"Ya tienes una base sólida, pero algunas áreas importantes han estado en espera. Es hora de atenderlas:\n\n① Identifica tu mayor brecha — mira la sección \"Áreas de mejora\" y elige el ítem que más puedes cambiar ahora mismo.\n② Diseña tu entorno — no dependas solo de la fuerza de voluntad. Pon el teléfono lejos por las noches, agenda los entrenamientos como reuniones.\n③ Invierte en relaciones — conéctate profundamente con 3 personas al mes. La calidad supera la cantidad siempre.\n\nLa diferencia entre tú hoy y tú en 6 meses de esfuerzo enfocado es mayor de lo que crees.",
+    mid:"Estás sólido — por encima del promedio en la mayoría de áreas. Pero \"estable\" puede convertirse en \"estancado.\" Momento de subir de nivel:\n\n① Duplica tu dimensión más fuerte — convierte tu mejor área en una ventaja competitiva real con un hito medible en 90 días.\n② Sal de tu zona de confort — inscríbete en algo ligeramente por encima de tu nivel actual (hablar en público, una nueva habilidad, una carrera).\n③ Consigue un aumento o muévete — si tu ingreso ha estado plano más de un año, eso es una señal. Investiga tu valor de mercado y negocia o explora nuevas opciones.\n④ Construye presencia pública — escribe una publicación por semana en tu área. Seis meses de consistencia crean visibilidad real.\n\nEstás a una decisión seria de pasar a \"Sobresaliente.\"",
+    high:"Ya estás por delante de la mayoría. La siguiente fase no es hacer más — es hacer mejor.\n\n① Corta compromisos de bajo valor — audita cada obligación y elimina lo que no importará en 3 años. Protege tu tiempo con determinación.\n② Empieza a multiplicar tu impacto — ya puedes influir en otros. Piensa cómo compartir tu experiencia y conocimiento de forma sistemática.\n③ Construye una visión a 10 años — no solo metas anuales. Quienes operan en horizontes más largos toman decisiones fundamentalmente diferentes.\n④ Invierte en tu vida interior — logros y plenitud no son lo mismo. Explora qué te hace sentir vivo más allá del marcador.\n\nEstás bien. La pregunta ahora: ¿qué tipo de persona quieres ser y qué dejarás atrás?",
+    excellent:"Estás en territorio poco frecuente. Los consejos estándar no aplican aquí. Lo que realmente es útil:\n\n① Piensa a nivel de misión — ¿tu objetivo de vida es suficientemente grande? ¿Estás trabajando en algo más grande que tú mismo?\n② Sistematiza tu conocimiento — los marcos y el juicio que has desarrollado tienen enorme valor para otros. Escríbelos, enséñalos, transfiérelos.\n③ Guárdate de la complacencia — el mayor riesgo en el alto rendimiento es el orgullo y la muerte lenta de la curiosidad. Mantente genuinamente humilde. Sigue aprendiendo cosas difíciles.\n④ Protege el descanso profundo — las vacaciones reales y la calma mental son el combustible de la excelencia sostenida.\n\nTu existencia misma es una inspiración para quienes te rodean.",
+    exceptional:"Has superado los 100 puntos — entrando al nivel élite de bonificación. Esto significa que no solo destacas en todas las dimensiones estándar, sino que también tienes credenciales verificables en educación de élite, logros profesionales, impacto emprendedor o excelencia competitiva.\n\nTu desafío ya no es \"cómo mejorar\" — es \"cómo elegir.\" Tu tiempo y enfoque son tus recursos más escasos. La pregunta correcta: ¿qué asignación de tus ventajas únicas crea el mayor impacto positivo?\n\nConsidera escribir tu \"lista de legado\" — si hoy fuera tu último día de trabajo, ¿qué has dejado ya al mundo? Haz que esa respuesta sea el núcleo estratégico de tus próximos 3 años.",
   },
 };
 
@@ -628,11 +683,11 @@ var ACTION_PLANS={
       {icon:'🎯', title:'锁定你的核心优势并放大',
        desc:'从你得分最高的维度中，找出你最强的1项能力，设定一个90天内可被外部验证的里程碑（比如完成一个项目、发表一篇专业文章、获得一个认证）。优势叠加优势，才能形成真正的差异化竞争力。'},
       {icon:'💼', title:'主动谈薪或跳槽',
-       desc:'研究你所在行业和城市的薪资分位数（可用BOSS直聘/猎聘查询），如果你低于中位数，制定一个3个月计划：更新简历、建立目标公司清单、开始面试。不要等涨薪——主动出击的人平均薪资增幅是被动等待者的3倍。'},
+       desc:'研究你所在行业和城市的薪资分位数（可用LinkedIn Salary / Glassdoor / Levels.fyi 查询），如果你低于中位数，制定一个3个月计划：更新简历、建立目标公司清单、开始面试。不要等涨薪——主动出击的人平均薪资增幅是被动等待者的3倍。'},
       {icon:'✍️', title:'开始持续内容输出',
-       desc:'在知乎、公众号或LinkedIn选一个平台，每周发布1篇你的专业思考或行业洞察。不需要完美，需要持续。6个月后你会有一个真实可见的"专业人设"，这是最高效的被动机会吸引器。'},
+       desc:'在LinkedIn、Medium 或 Substack选一个平台，每周发布1篇你的专业思考或行业洞察。不需要完美，需要持续。6个月后你会有一个真实可见的"专业人设"，这是最高效的被动机会吸引器。'},
       {icon:'📊', title:'启动投资理财计划',
-       desc:'如果你还没有系统投资，现在开始：① 确保有6个月应急储备；② 开通指数基金账户，设置每月定投（哪怕500元起）；③ 了解你所在国家的税收优惠账户（如个人养老金账户）。时间在投资中的价值比本金更重要。'},
+       desc:'如果你还没有系统投资，现在开始：① 确保有6个月应急储备；② 开通指数基金账户（如 Fidelity/Vanguard），设置每月定投（哪怕 $50 起）；③ 了解你所在国家的税收优惠账户（如个人养老金账户）。时间在投资中的价值比本金更重要。'},
       {icon:'🌿', title:'设计一个"深度工作"时间块',
        desc:'每天划出至少90分钟的"不可打扰时间"——关掉通知，专注做最重要的一件事。研究表明，进入心流状态的工作质量是普通状态的5倍。学会用深度工作替代长时间低效工作。'},
     ],
@@ -747,14 +802,332 @@ var ACTION_PLANS={
        desc:'寫下：如果今天是你最後一個工作日，你已為世界留下了什麼？把答案變成未來3年戰略核心。'},
     ],
   },
+  'en-US':{
+    low:[
+      {icon:'🌅', title:'Fix Your Sleep First',
+       desc:'This week: stop scrolling by 10 pm, charge your phone outside the bedroom. Sleep deprivation cuts your executive function, mood, and memory by up to 30%. Zero cost, immediate results.'},
+      {icon:'📋', title:'Write Your "5-Year Scene"',
+       desc:'Take a blank page and finish this sentence: "In 5 years, I\'m living in _____, doing _____, with _____." Write at least 200 words. The more specific, the more real it feels to your brain.'},
+      {icon:'🤝', title:'Reach Out to One Key Person',
+       desc:'Open your contacts and find someone you genuinely respect but haven\'t talked to in 6+ months. Send a real message — not a group forward. Real relationships are the highest-ROI investment most people neglect.'},
+      {icon:'💰', title:'Automate 10% Before You Spend',
+       desc:'Starting this paycheck: set up an auto-transfer on payday — move 5–10% to a separate savings account before you see it. The savings rate matters more than the amount. It trains the habit that builds wealth.'},
+      {icon:'📖', title:'10 Minutes of Real Reading Daily',
+       desc:'Pick one book related to your goals. Read 10 pages every night before bed. No notes required. Over a year that\'s 3,650 pages — equivalent to 10–15 books. Compound curiosity is real.'},
+    ],
+    'mid-low':[
+      {icon:'🔍', title:'Diagnose Your Biggest Gap',
+       desc:'Look at your "Room to Grow" section. Pick the lowest-scoring area you actually have control over. Write: "In 30 days I will ___." Don\'t try to fix everything — one focused breakthrough creates momentum for the rest.'},
+      {icon:'💰', title:'Build a Monthly Money Review',
+       desc:'Last day of every month: spend 20 minutes reviewing how much came in, went out, was saved, and invested. Set a target savings rate (aim for 20%+). You don\'t need to track every purchase — just know the ratios.'},
+      {icon:'🏃', title:'Put Workouts on Your Calendar',
+       desc:'Choose 3 fixed times per week and block "workout 30 min" on your calendar like a meeting. Research shows scheduling exercise triples follow-through vs. relying on motivation alone. The goal isn\'t weight — it\'s cognitive function and mood.'},
+      {icon:'🧩', title:'Learn One Marketable Skill',
+       desc:'Pick a skill with stable demand that genuinely interests you (data analysis, design, copywriting, coding, a second language). Dedicate weekends to it for 3 months. Skills aren\'t for your resume — they\'re for having an independent unit of value.'},
+      {icon:'👥', title:'Invest Deeply in 3 Relationships',
+       desc:'Pick 3 people in your network worth investing in. Reach out meaningfully once a month — not a text, but a call, a meeting, or helping them solve something real. Relationship ROI compounds over years.'},
+    ],
+    mid:[
+      {icon:'🎯', title:'Find Your Strongest Dimension and Amplify It',
+       desc:'From your highest-scoring areas, identify your single best skill. Set a 90-day externally verifiable milestone — finish a project, publish a professional post, earn a certification. Strength stacked on strength creates true differentiation.'},
+      {icon:'💼', title:'Negotiate a Raise or Make a Move',
+       desc:'Research salaries for your role on LinkedIn, Glassdoor, or Indeed. If you\'re below the median for your area and experience, build a 3-month plan: update your resume, identify target companies, start interviewing. People who advocate for themselves earn 3× more over a career than those who wait.'},
+      {icon:'✍️', title:'Start Publishing Consistently',
+       desc:'Choose LinkedIn, a personal blog, or a newsletter. Post one professional insight or industry observation per week. Don\'t aim for perfect — aim for consistent. After 6 months you\'ll have a real visible reputation that attracts opportunities passively.'},
+      {icon:'📊', title:'Launch an Investment Plan',
+       desc:'If you haven\'t started yet: ① Build a 6-month emergency fund (high-yield savings account). ② Open a brokerage and contribute monthly to a diversified index fund. ③ Max out tax-advantaged accounts first (401k match, Roth IRA). Time in market beats timing the market.'},
+      {icon:'🌿', title:'Design a "Deep Work" Block',
+       desc:'Block at least 90 minutes each day with all notifications off, dedicated to your single most important task. Research shows deep-focus work produces 5× the quality of fragmented work. Learn to substitute depth for length.'},
+    ],
+    high:[
+      {icon:'🔭', title:'Write Your Personal 10-Year Strategy',
+       desc:'Spend a quiet weekend writing a personal long-term document: career (who do you want to become?), finances (net worth target?), relationships (what to build or protect?), health (what state to maintain?). This isn\'t a wish list — it\'s a real strategy with priorities, trade-offs, and resource allocation.'},
+      {icon:'👥', title:'Start Systematically Developing Others',
+       desc:'Choose 1–2 people who are 5–10 years behind you with real potential. Give them structured mentorship — not occasional Q&A. Teaching others is the fastest way to verify your own knowledge, and the most durable path to genuine influence.'},
+      {icon:'🧘', title:'Build an "Inner Investment" Practice',
+       desc:'10 minutes of mindfulness daily, one full phone-free outdoor session per week. High achievers most often neglect inner stillness — but it\'s the energy source behind all sustained output. Manage your attention and energy, not just your time.'},
+      {icon:'🔗', title:'Strategically Upgrade Your Network',
+       desc:'Identify 3 people you deeply respect but haven\'t built a real connection with. Create a genuine value-exchange opportunity — not a dinner, but helping them solve a real problem or co-advancing a project. Top-tier connections aren\'t accumulated, they\'re created.'},
+      {icon:'💡', title:'Ruthlessly Eliminate Low-Value Commitments',
+       desc:'List every obligation in your life (projects, social events, subscriptions, habitual tasks). Filter with one question: will this matter to me in 3 years? Eliminate what fails the test. Reinvest that time and energy into your highest-leverage activities.'},
+    ],
+    excellent:[
+      {icon:'🌍', title:'Write a Personal Mission Statement',
+       desc:'Answer three questions: What unique abilities, resources, or experiences do I have? What problems in the world need them? What price am I willing to pay? Distill the answers into a single sentence under 50 words. This is your north star for every decision at this level.'},
+      {icon:'📖', title:'Systematize Your Knowledge',
+       desc:'The methodology and judgment you\'ve built has enormous transmission value. Consider: write a book (even self-published), create a structured course, build a small learning community, or let yourself be interviewed in depth. Knowledge that isn\'t shared disappears with you.'},
+      {icon:'⚖️', title:'Actively Protect Your Core Relationships',
+       desc:'At high-achievement levels, intimate relationships are the most easily neglected asset. Schedule at least one phone-free, work-free dedicated session each week with the people who matter most. This isn\'t a sacrifice — it\'s maintenance on your highest-value asset.'},
+      {icon:'🏥', title:'Invest in Premium Health Management',
+       desc:'Book a comprehensive health screening (not a standard checkup). Build quarterly health data tracking. Consider a nutrition coach or personal trainer. Your body is the hardware running all your achievements — maintain it proactively, because repair costs far more.'},
+      {icon:'🌱', title:'Do One Thing With No Return Calculation',
+       desc:'Choose a cause that has nothing to do with your professional interests — purely from inner conviction — and commit time or resources to it systematically (not just a donation). This isn\'t charity. It\'s a genuine answer to the question: "Why am I alive?"'},
+    ],
+    exceptional:[
+      {icon:'🏆', title:'Document Your Frameworks',
+       desc:'The decision frameworks and judgment models you\'ve built have extreme value to others. Systematize them — write a book, build a course, start a podcast. Knowledge not transmitted disappears.'},
+      {icon:'🌐', title:'Build Cross-Domain Connections',
+       desc:'Actively build real connections with top people outside your field. The next breakthrough almost always comes from an unexpected intersection.'},
+      {icon:'🎓', title:'Strategically Develop Your Successors',
+       desc:'Identify 3–5 people with the potential to surpass you and give them systematic guidance. Your influence compounds geometrically through them.'},
+      {icon:'🧘', title:'Protect Your Mental Stillness',
+       desc:'Create a protected no-agenda time block — no deliverables, just being. Loneliness and loss of meaning are the most common hidden risks at extreme achievement levels.'},
+      {icon:'📜', title:'Define Your Life Legacy',
+       desc:'Write: if today were your last working day, what have you already left the world? Make that answer the strategic core of the next 3 years.'},
+    ],
+  },
+  'es-US':{
+    low:[
+      {icon:'🌅', title:'Primero, repara tu sueño',
+       desc:'Esta semana: deja de mirar pantallas a las 10 pm y carga el teléfono fuera del cuarto. La falta de sueño reduce tu función ejecutiva, estado de ánimo y memoria hasta en un 30%. Costo cero, resultados inmediatos.'},
+      {icon:'📋', title:'Escribe tu "Escena de 5 años"',
+       desc:'Toma una hoja en blanco y completa: "En 5 años, vivo en _____, haciendo _____, con _____." Escribe al menos 200 palabras. Cuanto más específico, más real lo siente tu cerebro — y más se compromete.'},
+      {icon:'🤝', title:'Reconecta con una persona clave',
+       desc:'Abre tus contactos y encuentra a alguien que respetas de verdad pero con quien no has hablado en 6+ meses. Envía un mensaje genuino, no un reenvío masivo. Las relaciones reales son la inversión de mayor retorno que la mayoría descuida.'},
+      {icon:'💰', title:'Automatiza el 10% antes de gastar',
+       desc:'Desde este cheque: configura una transferencia automática el día de pago — mueve el 5–10% a una cuenta de ahorros separada antes de verlo. La tasa de ahorro importa más que el monto. Entrena el hábito que construye riqueza.'},
+      {icon:'📖', title:'10 minutos de lectura real cada día',
+       desc:'Elige un libro relacionado con tus metas. Lee 10 páginas cada noche antes de dormir. Sin tomar notas. En un año son 3,650 páginas — equivalente a 10–15 libros. La curiosidad compuesta es real.'},
+    ],
+    'mid-low':[
+      {icon:'🔍', title:'Diagnostica tu mayor brecha',
+       desc:'Mira la sección "Áreas de mejora". Elige el área de menor puntaje que realmente puedes controlar. Escribe: "En 30 días haré ___." No intentes arreglarlo todo — un avance enfocado crea momentum para el resto.'},
+      {icon:'💰', title:'Crea una revisión financiera mensual',
+       desc:'El último día de cada mes: dedica 20 minutos a revisar cuánto entró, salió, se ahorró e invirtió. Establece una tasa de ahorro objetivo (apunta al 20%+). No necesitas rastrear cada compra — solo conoce las proporciones.'},
+      {icon:'🏃', title:'Pon los entrenamientos en tu calendario',
+       desc:'Elige 3 horarios fijos por semana y bloquea "entreno 30 min" en tu calendario como una reunión. La investigación muestra que programar el ejercicio triplica el cumplimiento vs. depender de la motivación. La meta no es el peso — son la función cognitiva y el estado de ánimo.'},
+      {icon:'🧩', title:'Aprende una habilidad con valor de mercado',
+       desc:'Elige una habilidad con demanda estable que te interese genuinamente (análisis de datos, diseño, escritura, programación, un segundo idioma). Dedica los fines de semana durante 3 meses. Las habilidades no son para tu currículum — son para tener una unidad independiente de valor.'},
+      {icon:'👥', title:'Invierte profundamente en 3 relaciones',
+       desc:'Elige 3 personas en tu red que valen la pena. Conéctate significativamente una vez al mes — no un mensaje, sino una llamada, una reunión o ayudarlos a resolver algo real. El retorno de las relaciones se capitaliza durante años.'},
+    ],
+    mid:[
+      {icon:'🎯', title:'Encuentra tu dimensión más fuerte y amplíala',
+       desc:'De tus áreas de mayor puntaje, identifica tu mejor habilidad. Establece un hito verificable externamente en 90 días — termina un proyecto, publica un artículo profesional, obtén una certificación. La fortaleza apilada sobre fortaleza crea diferenciación real.'},
+      {icon:'💼', title:'Negocia un aumento o muévete',
+       desc:'Investiga salarios para tu rol en LinkedIn, Glassdoor o Indeed. Si estás por debajo de la mediana para tu área y experiencia, construye un plan de 3 meses: actualiza tu perfil, identifica empresas objetivo, comienza a entrevistarte. Quienes abogan por sí mismos ganan 3× más a lo largo de su carrera.'},
+      {icon:'✍️', title:'Empieza a publicar consistentemente',
+       desc:'Elige LinkedIn, un blog personal o un boletín. Publica una reflexión profesional o perspectiva de tu industria por semana. No apuntes a la perfección — apunta a la consistencia. Después de 6 meses tendrás una reputación visible que atrae oportunidades de forma pasiva.'},
+      {icon:'📊', title:'Lanza un plan de inversión',
+       desc:'Si aún no has empezado: ① Construye un fondo de emergencia de 6 meses (cuenta de ahorro de alto rendimiento). ② Abre una cuenta de corretaje y contribuye mensualmente a un fondo indexado diversificado. ③ Maximiza primero las cuentas con ventajas fiscales (401k con match del empleador, Roth IRA). El tiempo en el mercado supera intentar predecirlo.'},
+      {icon:'🌿', title:'Diseña un bloque de "trabajo profundo"',
+       desc:'Bloquea al menos 90 minutos cada día con todas las notificaciones apagadas, dedicado a tu tarea más importante. La investigación muestra que el trabajo de enfoque profundo produce calidad 5× superior al trabajo fragmentado. Aprende a sustituir profundidad por duración.'},
+    ],
+    high:[
+      {icon:'🔭', title:'Escribe tu estrategia personal a 10 años',
+       desc:'Dedica un fin de semana tranquilo a escribir un documento personal de largo plazo: carrera (¿quién quieres llegar a ser?), finanzas (¿meta de patrimonio neto?), relaciones (¿qué construir o proteger?), salud (¿qué estado mantener?). Esto no es una lista de deseos — es una estrategia real con prioridades y compromisos.'},
+      {icon:'👥', title:'Empieza a desarrollar sistemáticamente a otros',
+       desc:'Elige 1–2 personas que están 5–10 años detrás de ti con potencial real. Dales mentoría estructurada — no solo Q&A ocasional. Enseñar a otros es la forma más rápida de verificar tu propio conocimiento y el camino más duradero hacia influencia genuina.'},
+      {icon:'🧘', title:'Construye una práctica de inversión interior',
+       desc:'10 minutos de mindfulness diario, una sesión semanal al aire libre sin teléfono. Los altos rendidores más frecuentemente descuidan la quietud interior — pero es la fuente de energía detrás de todo output sostenido. Gestiona tu atención y energía, no solo tu tiempo.'},
+      {icon:'🔗', title:'Actualiza estratégicamente tu red',
+       desc:'Identifica 3 personas que respetas profundamente pero con quienes no has construido una conexión real. Crea una oportunidad genuina de intercambio de valor — no una cena, sino ayudarlos a resolver un problema real o avanzar juntos en un proyecto.'},
+      {icon:'💡', title:'Elimina sin piedad los compromisos de bajo valor',
+       desc:'Lista cada obligación en tu vida. Filtra con una pregunta: ¿esto me importará en 3 años? Elimina lo que no pasa el filtro. Reinvierte ese tiempo y energía en tus actividades de mayor apalancamiento.'},
+    ],
+    excellent:[
+      {icon:'🌍', title:'Escribe una declaración de misión personal',
+       desc:'Responde tres preguntas: ¿Qué habilidades, recursos o experiencias únicas tengo? ¿Qué problemas del mundo las necesitan? ¿Qué precio estoy dispuesto a pagar? Destila las respuestas en una sola frase de menos de 50 palabras. Este es tu norte para cada decisión en este nivel.'},
+      {icon:'📖', title:'Sistematiza tu conocimiento',
+       desc:'La metodología y el juicio que has desarrollado tienen enorme valor de transmisión. Considera: escribir un libro, crear un curso estructurado, construir una comunidad de aprendizaje, o dejarte entrevistar en profundidad. El conocimiento que no se comparte desaparece contigo.'},
+      {icon:'⚖️', title:'Protege activamente tus relaciones clave',
+       desc:'En niveles de alto rendimiento, las relaciones íntimas son el activo más fácilmente descuidado. Agenda al menos una sesión semanal sin teléfono ni trabajo con las personas que más importan. Esto no es sacrificio — es mantenimiento de tu activo de mayor valor.'},
+      {icon:'🏥', title:'Invierte en gestión de salud premium',
+       desc:'Agenda un chequeo médico completo (no el estándar). Construye un seguimiento trimestral de datos de salud. Considera un entrenador de nutrición o entrenador personal. Tu cuerpo es el hardware que ejecuta todos tus logros — mantenlo proactivamente.'},
+      {icon:'🌱', title:'Haz una cosa sin calcular el retorno',
+       desc:'Elige una causa que no tenga nada que ver con tus intereses profesionales — puramente por convicción interna — y comprométete sistemáticamente. Esto no es caridad. Es una respuesta genuina a la pregunta: "¿Por qué estoy vivo?"'},
+    ],
+    exceptional:[
+      {icon:'🏆', title:'Documenta tus marcos de pensamiento',
+       desc:'Los marcos de decisión que has desarrollado tienen valor extremo para otros. Sistematizalos — escribe un libro, crea un curso, inicia un podcast. El conocimiento no transmitido desaparece.'},
+      {icon:'🌐', title:'Construye conexiones entre dominios',
+       desc:'Construye activamente conexiones reales con personas destacadas fuera de tu campo. El próximo avance importante casi siempre viene de una intersección inesperada.'},
+      {icon:'🎓', title:'Desarrolla estratégicamente a tus sucesores',
+       desc:'Identifica 3–5 personas con potencial de superarte y dales guía sistemática. Tu influencia se multiplica geométricamente a través de ellos.'},
+      {icon:'🧘', title:'Protege tu quietud mental',
+       desc:'Crea un bloque de tiempo protegido sin agenda — sin deliverables, solo existir. La soledad y la pérdida de sentido son los riesgos ocultos más comunes en niveles de logro extremo.'},
+      {icon:'📜', title:'Define tu legado de vida',
+       desc:'Escribe: si hoy fuera tu último día de trabajo, ¿qué has dejado ya al mundo? Haz que esa respuesta sea el núcleo estratégico de los próximos 3 años.'},
+    ],
+  },
+};
+
+/* ── English TIPS ── */
+TIPS['en-US']={
+  low:"Your overall score is in the early stages — and that's your starting line, not your finish line.\n\n① Build the foundation — Start with sleep and physical activity. Consistent sleep and 3 workouts a week are the base for everything else.\n② Get clear on direction — Spend a weekend seriously thinking about the life you want. Write down 3 specific, achievable goals for the next year.\n③ Build real connections — Reach out to one important person and genuinely reconnect. Relationships compound over time.\n\nEvery 1% improvement, sustained for a year, leads to 37× growth.",
+  'mid-low':"You have a solid foundation in several areas, but some important dimensions haven't gotten the attention they deserve.\n\n① Find your biggest weak spot — Look at your \"Room to Grow\" section above. That's where your highest-leverage work is.\n② Build systems, not willpower — Put your phone outside the bedroom. Block reading time in your calendar daily.\n③ Invest in relationships — Reach out to 3 people worth investing in, deeply, every month. Depth beats breadth.\n\nThe version of you that's been seriously working for 6 months will be almost unrecognizable.",
+  mid:"You're in the upper-middle of the mainstream — steady and balanced. But 'steady' can also mean stagnant.\n\n① From balance to excellence — Pick your single strongest dimension and build it into a genuine competitive edge.\n② Break your comfort zone — Sign up for a challenge that's slightly beyond your comfort level.\n③ Financial jump — If your income has been flat for over a year, seriously explore a career move or side income.\n④ Build your personal brand — Publish consistently in a niche. Let the right people find you.\n\nYou're one serious decision away from 'Outstanding'.",
+  high:"Your score is genuinely impressive — you're ahead of most people. The question now isn't 'do more' — it's 'do better.'\n\n① Strategic focus — Cut low-value commitments. Concentrate your energy on the highest-leverage activities.\n② Build influence — You're capable of impacting others. Think about how to systematize and share what you know.\n③ Long-term thinking — Create a 10-year vision, not just annual targets. Your decision horizon should extend further.\n④ Inner depth — Beyond external achievement, explore your values and what a meaningful life looks like to you.\n\nYou're already doing well. The real question now: who do you want to become?",
+  excellent:"You're at the top tier — a place very few people reach.\n\nStandard advice doesn't apply here. What you need:\n\n① Mission-level thinking — Is your life's purpose big enough? Are you working on something larger than yourself?\n② Legacy and influence — Systematically transfer your knowledge, experience, and resources to others.\n③ Guard against complacency — High achievers' biggest risk is stopping learning. Stay humble. Keep updating.\n④ Deep rest — Ensure you have real downtime and inner calm. That's the fuel for sustained excellence.\n\nYour very existence is the best motivation for the people around you.",
+  exceptional:"Your score has exceeded 100, placing you in the elite bonus tier. This means you haven't just excelled across all standard dimensions — you have externally verifiable credentials in elite education, professional achievement, entrepreneurial impact, or competitive mastery.\n\nYour challenge is no longer 'how do I improve?' — it's 'how do I choose?'. Your time and energy are your scarcest resource. How do you deploy your unique advantages for maximum positive impact?\n\nWrite your 'Life Legacy List' — if today were your last working day, what have you left behind for the world? Make that answer the strategic core of your next 3 years.",
+};
+TIPS['es-US']={
+  low:"Tu puntaje está en la etapa inicial — y eso es tu línea de partida, no de llegada.\n\n① Construye la base — Empieza con el sueño y la actividad física. Dormir bien y hacer ejercicio 3 veces por semana son el cimiento de todo.\n② Define tu dirección — Dedica un fin de semana a pensar en la vida que quieres. Escribe 3 metas concretas alcanzables en el próximo año.\n③ Construye conexiones reales — Contacta a una persona importante y reconecta genuinamente. Las relaciones se acumulan con el tiempo.\n\nCada mejora del 1%, sostenida por un año, produce un crecimiento de 37×.",
+  'mid-low':"Tienes una base sólida en varias áreas, pero algunas dimensiones importantes no han recibido la atención que merecen.\n\n① Encuentra tu mayor punto débil — Revisa tu sección 'Áreas de mejora'. Ahí está tu trabajo de mayor impacto.\n② Construye sistemas, no fuerza de voluntad — Pon el teléfono fuera del dormitorio. Bloquea tiempo de lectura en tu calendario.\n③ Invierte en relaciones — Contacta en profundidad a 3 personas valiosas cada mes. La profundidad supera a la amplitud.\n\nLa versión de ti que lleva 6 meses trabajando en serio será casi irreconocible.",
+  mid:"Estás en la parte alta del promedio — estable y equilibrado. Pero 'estable' también puede significar estancado.\n\n① Del equilibrio a la excelencia — Elige tu dimensión más fuerte y conviértela en una ventaja competitiva real.\n② Sal de tu zona de confort — Inscríbete en un desafío que esté levemente fuera de tu comodidad.\n③ Salto financiero — Si tu ingreso ha sido plano por más de un año, explora seriamente un cambio de carrera o ingreso secundario.\n④ Construye tu marca personal — Publica consistentemente en un nicho. Deja que las personas correctas te encuentren.\n\nEstás a una decisión seria de 'Sobresaliente'.",
+  high:"Tu puntaje es genuinamente impresionante — estás por delante de la mayoría. Ahora la pregunta no es 'hacer más' — es 'hacerlo mejor.'\n\n① Enfoque estratégico — Elimina compromisos de bajo valor. Concentra tu energía en las actividades de mayor impacto.\n② Construye influencia — Eres capaz de impactar a otros. Piensa en cómo sistematizar y compartir lo que sabes.\n③ Pensamiento a largo plazo — Crea una visión a 10 años, no solo metas anuales.\n④ Profundidad interior — Más allá del logro externo, explora tus valores y qué significa una vida significativa para ti.\n\nYa lo estás haciendo bien. La pregunta real ahora: ¿en quién quieres convertirte?",
+  excellent:"Estás en el nivel más alto — un lugar al que muy pocas personas llegan.\n\nLos consejos estándar no aplican aquí. Lo que necesitas:\n\n① Pensamiento de misión — ¿Es tu propósito de vida lo suficientemente grande? ¿Estás trabajando en algo más grande que tú mismo?\n② Legado e influencia — Transfiere sistemáticamente tu conocimiento, experiencia y recursos a otros.\n③ Prevén la complacencia — El mayor riesgo de los de alto rendimiento es dejar de aprender. Mantente humilde.\n④ Descanso profundo — Asegúrate de tener tiempo real de descanso. Eso es el combustible para la excelencia sostenida.\n\nTu propia existencia es la mejor motivación para las personas a tu alrededor.",
+  exceptional:"Tu puntaje ha superado los 100 puntos, ubicándote en el nivel élite. Esto significa que no solo has sobresalido en todas las dimensiones estándar — tienes credenciales verificables externamente en educación de élite, logros profesionales, impacto emprendedor o dominio competitivo.\n\nTu desafío ya no es '¿cómo mejorar?' — es '¿cómo elegir?'. Tu tiempo y energía son tu recurso más escaso. ¿Cómo despliegas tus ventajas únicas para el máximo impacto positivo?\n\nEscribe tu 'Lista de Legado de Vida' — si hoy fuera tu último día de trabajo, ¿qué has dejado al mundo? Convierte esa respuesta en el núcleo estratégico de tus próximos 3 años.",
+};
+
+/* ── English ACTION_PLANS ── */
+ACTION_PLANS['en-US']={
+  low:[
+    {icon:'🌅', title:'Step 1: Fix Your Sleep',
+     desc:"Execute this week: turn your phone off by 10:30 PM and charge it outside the bedroom. Sleep deprivation simultaneously reduces your executive function, emotional stability, and memory by 30%. This is zero-cost and produces immediate results."},
+    {icon:'📋', title:'Write Your "5-Year Self-Portrait"',
+     desc:"Grab a piece of paper and start with: 'In 5 years, where am I, what am I doing, and who's around me?' Fill the whole page. Don't write a wish list — paint a complete scene. The more specific the picture, the more your brain believes it's achievable."},
+    {icon:'🤝', title:'Reach Out to One Important Person',
+     desc:"Open your contacts and find someone you genuinely respect but haven't spoken to in over 6 months. Send them a real, personal message — not a group greeting. Your network isn't a pile of business cards; it's accumulated genuine connection."},
+    {icon:'💰', title:"Build a 'Save First' Savings Reflex",
+     desc:"Starting this month: the day after payday, set up an automatic transfer of 5–10% of your income to a separate, untouchable account. The amount doesn't matter as much as the habit. Your savings rate — not the dollar amount — determines how fast you reach financial freedom."},
+    {icon:'📖', title:'10 Minutes a Day of High-Quality Reading',
+     desc:"Pick a book related to your career or goals. Read 10 pages before bed every night. You don't need to finish it — you just need to feed your brain quality information before sleep. That's 3,650 pages a year, roughly 10–15 books."},
+  ],
+  'mid-low':[
+    {icon:'🔍', title:'Diagnose Your Biggest Weak Spot',
+     desc:"Review the 3 lowest-scoring questions in your 'Room to Grow' section. Pick the one you're most confident you can change, and write: 'I will accomplish ___ within 30 days.' Don't try to change everything at once — a single breakthrough creates momentum for everything else."},
+    {icon:'💰', title:'Build a Monthly Financial Snapshot',
+     desc:"On the last day of every month, take 20 minutes: How much did I earn? Spend? Save? Invest? Set a savings rate target (20% is a solid starting point). You don't need to track every transaction — just know the rough breakdown by category. Financial clarity is the prerequisite for building wealth."},
+    {icon:'🏃', title:'Put Exercise on Your Calendar',
+     desc:"Pick 3 fixed times each week and block 30 minutes of movement — even just a brisk walk. Research shows scheduled exercise is 3× more consistent than relying on willpower. The real value of exercise isn't weight loss — it's boosting dopamine and cognitive sharpness."},
+    {icon:'🧩', title:'Learn One Marketable Skill',
+     desc:"Choose a skill with stable market demand that genuinely interests you (data analysis, design, writing, coding, a language). Use your weekends to study systematically for 3 months. Skills aren't for your résumé — they're a unit of value you can deliver independently."},
+    {icon:'👥', title:'Go Deep with 3 Key Relationships',
+     desc:"From your network, choose 3 people most worth investing in. Reach out at least once a month in a real way — a phone call, a meetup, or solving an actual problem for them. Not a text. Relationship ROI is long-term, but it compounds higher than almost anything else."},
+  ],
+  mid:[
+    {icon:'🎯', title:'Identify Your Core Strength and Amplify It',
+     desc:"From your highest-scoring dimension, find your single strongest capability and set a 90-day externally-verifiable milestone (complete a project, publish a piece of work, earn a certification). Stacking strength on strength is the only path to genuine differentiation."},
+    {icon:'💼', title:'Negotiate a Raise — or Start Interviewing',
+     desc:"Research salary percentiles for your role and city (LinkedIn Salary, Glassdoor). If you're below the median, build a 3-month plan: update your résumé, create a target company list, start interviewing. Don't wait for a raise — people who actively pursue pay increases earn 3× more than those who wait."},
+    {icon:'✍️', title:'Start Publishing Your Thinking',
+     desc:"Pick one platform (LinkedIn, Substack, X) and publish one substantive post per week — your professional insights, lessons learned, analysis. It doesn't need to be perfect, just consistent. In 6 months you'll have a visible 'professional identity' that passively attracts the right opportunities."},
+    {icon:'📊', title:'Launch an Investment Plan',
+     desc:"If you haven't started investing systematically: ① Ensure you have a 6-month emergency fund; ② Open a brokerage account and set up automatic monthly contributions to a low-cost index fund (even $50/month to start); ③ Max your 401(k) match if you have one — that's an instant 50–100% return. Time in the market beats everything."},
+    {icon:'🌿', title:"Design a 'Deep Work' Block",
+     desc:"Carve out at least 90 minutes of uninterruptible time every day — notifications off, doing only your most important task. Research shows flow-state work quality is 5× higher than scattered work. Learn to replace long low-efficiency hours with short deep-work sessions."},
+  ],
+  high:[
+    {icon:'🔭', title:"Write Your '10-Year Personal Strategy Document'",
+     desc:"Spend a quiet weekend writing a 1,000-word personal long-range plan covering: Career (who do you want to become?), Finances (asset target?), Relationships (what needs building or protecting?), Health (what state do you want to maintain?). This isn't a wish list — it's a real strategy with priorities, tradeoffs, and resource allocation."},
+    {icon:'👥', title:'Start Systematically Developing Others',
+     desc:"Choose 1–2 people 5–10 years younger with genuine potential. Give them structured mentorship — not occasional Q&A. Developing others is the best way to pressure-test your own knowledge system, and it's the longest-lasting path to real influence."},
+    {icon:'🧘', title:"Build an 'Inner Investment' Practice",
+     desc:"10 minutes of mindfulness meditation daily, plus one fully offline outdoor activity per week. High achievers consistently overlook inner calm — but it's the energy source for all sustained output. Don't just manage time. Manage your attention and energy."},
+    {icon:'🔗', title:'Strategically Upgrade Your Network',
+     desc:"Audit your existing connections. Identify 3 people you respect deeply but haven't truly connected with. Create a real value-exchange opportunity — not a dinner, but helping them solve an actual problem or collaborating on something meaningful. Elite networks aren't accumulated — they're built."},
+    {icon:'💡', title:"Do a 'Low-Value Commitments' Purge",
+     desc:"List every regular commitment you have (work projects, social obligations, subscriptions, habitual tasks). Filter with one criterion: Will this still matter to me in 3 years? Cut everything that doesn't pass. The time and energy you free up should be reinvested in your highest-leverage activities."},
+  ],
+  excellent:[
+    {icon:'🌍', title:"Write a Personal Mission Statement",
+     desc:"Answer three questions: What unique abilities, resources, or experiences do I have? What problems in the world need them? What price am I willing to pay? Condense your answers into a 50-word personal mission. At this level, this is the north star for every major decision you make."},
+    {icon:'📖', title:'Systematize and Share Your Knowledge',
+     desc:"The frameworks and decision-making methods you've accumulated have enormous value to others. Consider: write a book (even self-published), build a structured course, create a learning community, or record a deep-form interview. Knowledge that isn't shared disappears with you."},
+    {icon:'⚖️', title:'Actively Protect Your Core Relationships',
+     desc:"At high-achievement levels, intimate relationships are the most easily neglected. Schedule at least one phone-free, work-free session per week for the most important people in your life — partner, children, parents. This isn't sacrifice; it's maintaining your highest-value asset."},
+    {icon:'🏥', title:'Invest in Top-Tier Health Management',
+     desc:"Schedule a comprehensive executive physical (not just a standard checkup) and build quarterly health data tracking. Consider working with a registered dietitian and a personal trainer. Your body is the hardware for all your achievements — maintain it while it's healthy."},
+    {icon:'🌱', title:"Do Something That Doesn't Pay",
+     desc:"Choose one philanthropic or mission-driven direction completely unrelated to your business interests and invest your time systematically (not just money). This isn't charity — it's an honest answer to the question you'll eventually face: 'Why did I live?'"},
+  ],
+  exceptional:[
+    {icon:'🏆', title:'Document Your Methodology',
+     desc:"The judgment frameworks and decision-making patterns you've built have exceptional value to others. Systematize them — write a book, build a course, or start a podcast. Knowledge that isn't passed on disappears with its owner."},
+    {icon:'🌐', title:'Global Perspective and Cross-Domain Connections',
+     desc:"Actively build real relationships with top practitioners outside your field. The next major breakthrough almost always comes from an unexpected intersection of domains."},
+    {icon:'🎓', title:'Strategically Develop Successors',
+     desc:"Identify 3–5 high-potential people capable of surpassing you. Give them structured guidance and real resources. Your influence compounds geometrically through them."},
+    {icon:'🧘', title:'Deliberately Maintain Inner Calm',
+     desc:"Protect a zone of purposeless time — not for any output, just for being. At extreme achievement levels, loneliness and loss of meaning are the most common hidden risks."},
+    {icon:'📜', title:'Define Your Life Legacy',
+     desc:"Write: if today were your last working day, what have you already left behind for the world? Make that answer the strategic core of your next 3 years."},
+  ],
+};
+
+/* ── Spanish ACTION_PLANS ── */
+ACTION_PLANS['es-US']={
+  low:[
+    {icon:'🌅', title:'Paso 1: Arregla tu sueño',
+     desc:"Ejecuta esta semana: apaga tu teléfono a las 10:30 PM y cárgalo fuera del dormitorio. La falta de sueño reduce simultáneamente tu función ejecutiva, estabilidad emocional y memoria en un 30%. Costo cero, resultados inmediatos."},
+    {icon:'📋', title:'Escribe tu "Retrato Personal a 5 Años"',
+     desc:"Toma una hoja y empieza con: 'En 5 años, ¿dónde estoy, qué estoy haciendo y quién está a mi lado?' Llena toda la página. No hagas una lista de deseos — pinta una escena completa. Cuanto más específica, más cree tu cerebro que es alcanzable."},
+    {icon:'🤝', title:'Contacta a una persona importante',
+     desc:"Abre tus contactos y encuentra a alguien que genuinamente respetes pero con quien no hayas hablado en más de 6 meses. Envíale un mensaje real y personal — no un saludo masivo. Tu red no es una pila de tarjetas de visita; es conexión genuina acumulada."},
+    {icon:'💰', title:"Construye el reflejo de 'Ahorrar primero'",
+     desc:"A partir de este mes: el día después de recibir tu pago, configura una transferencia automática del 5–10% de tus ingresos a una cuenta separada e intocable. La cantidad importa menos que el hábito. Tu tasa de ahorro — no la cifra — determina qué tan rápido alcanzas la libertad financiera."},
+    {icon:'📖', title:'10 minutos al día de lectura de calidad',
+     desc:"Elige un libro relacionado con tu carrera o metas. Lee 10 páginas antes de dormir cada noche. No necesitas terminarlo — solo necesitas nutrir tu cerebro con información de calidad antes de dormir. Eso son 3.650 páginas al año, aproximadamente 10–15 libros."},
+  ],
+  'mid-low':[
+    {icon:'🔍', title:'Diagnostica tu mayor punto débil',
+     desc:"Revisa las 3 preguntas con menor puntaje en tu sección 'Áreas de mejora'. Elige la que más confianza tengas en cambiar y escribe: 'Lograré ___ en 30 días.' No intentes cambiar todo a la vez — un solo avance crea impulso para todo lo demás."},
+    {icon:'💰', title:'Construye un resumen financiero mensual',
+     desc:"El último día de cada mes, dedica 20 minutos: ¿Cuánto gané? ¿Gasté? ¿Ahorré? ¿Invertí? Establece una meta de tasa de ahorro (20% es un buen punto de partida). No necesitas rastrear cada transacción — solo conocer el desglose aproximado por categoría."},
+    {icon:'🏃', title:'Pon el ejercicio en tu calendario',
+     desc:"Elige 3 horarios fijos cada semana y bloquea 30 minutos de movimiento — incluso una caminata rápida. Las investigaciones muestran que el ejercicio programado es 3× más constante que depender de la fuerza de voluntad."},
+    {icon:'🧩', title:'Aprende una habilidad comercializable',
+     desc:"Elige una habilidad con demanda estable en el mercado que te interese genuinamente (análisis de datos, diseño, escritura, programación, idiomas). Usa tus fines de semana para estudiarla sistemáticamente durante 3 meses."},
+    {icon:'👥', title:'Profundiza en 3 relaciones clave',
+     desc:"De tu red, elige a 3 personas que más valga la pena invertir. Contáctalas al menos una vez al mes de forma real — una llamada, un encuentro, o resolver un problema concreto para ellos. No un mensaje de texto."},
+  ],
+  mid:[
+    {icon:'🎯', title:'Identifica tu fortaleza principal y amplificala',
+     desc:"De tu dimensión con mayor puntaje, encuentra tu capacidad más fuerte y establece un hito verificable externamente en 90 días (completar un proyecto, publicar un trabajo, obtener una certificación)."},
+    {icon:'💼', title:'Negocia un aumento — o empieza a entrevistar',
+     desc:"Investiga los percentiles salariales para tu rol y ciudad (LinkedIn, Glassdoor). Si estás por debajo de la mediana, construye un plan de 3 meses: actualiza tu currículum, crea una lista de empresas objetivo, empieza a entrevistar."},
+    {icon:'✍️', title:'Empieza a publicar tu pensamiento',
+     desc:"Elige una plataforma (LinkedIn, Substack) y publica una entrada sustancial por semana — tus perspectivas profesionales, lecciones aprendidas. En 6 meses tendrás una 'identidad profesional' visible que atrae pasivamente las oportunidades correctas."},
+    {icon:'📊', title:'Lanza un plan de inversión',
+     desc:"Si no has empezado a invertir sistemáticamente: ① Asegúrate de tener un fondo de emergencia de 6 meses; ② Abre una cuenta de corretaje y configura contribuciones automáticas mensuales a un fondo indexado de bajo costo; ③ Maximiza tu 401(k) si tienes uno — eso es un retorno inmediato del 50–100%."},
+    {icon:'🌿', title:"Diseña un bloque de 'Trabajo profundo'",
+     desc:"Reserva al menos 90 minutos de tiempo ininterrumpible cada día — notificaciones apagadas, haciendo solo tu tarea más importante. La calidad del trabajo en estado de flujo es 5× mayor que el trabajo disperso."},
+  ],
+  high:[
+    {icon:'🔭', title:"Escribe tu 'Documento de Estrategia Personal a 10 Años'",
+     desc:"Dedica un fin de semana tranquilo a escribir un plan personal a largo plazo que cubra: Carrera, Finanzas, Relaciones y Salud. No es una lista de deseos — es una estrategia real con prioridades y asignación de recursos."},
+    {icon:'👥', title:'Desarrolla sistemáticamente a otros',
+     desc:"Elige 1–2 personas 5–10 años más jóvenes con potencial genuino. Dales mentoría estructurada — no solo responder preguntas ocasionales. Desarrollar a otros es la mejor forma de poner a prueba tu propio sistema de conocimiento."},
+    {icon:'🧘', title:"Construye una práctica de 'inversión interior'",
+     desc:"10 minutos de meditación de mindfulness diariamente, más una actividad al aire libre completamente desconectada por semana. Los de alto rendimiento invariablemente descuidan la calma interior — pero es la fuente de energía para todo output sostenido."},
+    {icon:'🔗', title:'Actualiza estratégicamente tu red',
+     desc:"Identifica 3 personas que respetas profundamente pero con quienes no te has conectado verdaderamente. Crea una oportunidad real de intercambio de valor — no una cena, sino ayudarles a resolver un problema real."},
+    {icon:'💡', title:"Haz una purga de 'compromisos de bajo valor'",
+     desc:"Lista todos tus compromisos regulares y filtra con un criterio: ¿Esto seguirá importándome en 3 años? Elimina todo lo que no pase la prueba. El tiempo y energía liberados deberían reinvertirse en tus actividades de mayor impacto."},
+  ],
+  excellent:[
+    {icon:'🌍', title:"Escribe una declaración de misión personal",
+     desc:"Responde tres preguntas: ¿Qué habilidades, recursos o experiencias únicas tengo? ¿Qué problemas del mundo las necesitan? ¿Qué precio estoy dispuesto a pagar? Condensa tus respuestas en una misión personal de 50 palabras."},
+    {icon:'📖', title:'Sistematiza y comparte tu conocimiento',
+     desc:"Los marcos y métodos de toma de decisiones que has acumulado tienen un valor enorme para otros. Considera: escribir un libro, construir un curso estructurado, crear una comunidad de aprendizaje. El conocimiento que no se comparte desaparece contigo."},
+    {icon:'⚖️', title:'Protege activamente tus relaciones clave',
+     desc:"En niveles de alto rendimiento, las relaciones íntimas son las más fácilmente descuidadas. Programa al menos una sesión semanal sin teléfono ni trabajo para las personas más importantes de tu vida."},
+    {icon:'🏥', title:'Invierte en gestión de salud de primer nivel',
+     desc:"Programa un chequeo ejecutivo completo y construye seguimiento trimestral de datos de salud. Considera trabajar con un dietista registrado y un entrenador personal. Tu cuerpo es el hardware de todos tus logros."},
+    {icon:'🌱', title:"Haz algo que no te pague",
+     desc:"Elige una dirección filantrópica completamente desvinculada de tus intereses comerciales e invierte tu tiempo sistemáticamente. Esta es una respuesta honesta a la pregunta que eventualmente enfrentarás: '¿Por qué viví?'"},
+  ],
+  exceptional:[
+    {icon:'🏆', title:'Documenta tu metodología',
+     desc:"Los marcos de juicio y patrones de toma de decisiones que has construido tienen un valor excepcional para otros. Sistematízalos — escribe un libro, construye un curso o comienza un podcast."},
+    {icon:'🌐', title:'Perspectiva global y conexiones entre dominios',
+     desc:"Construye activamente relaciones reales con los mejores profesionales fuera de tu campo. El próximo gran avance casi siempre viene de una intersección inesperada de dominios."},
+    {icon:'🎓', title:'Desarrolla sucesores estratégicamente',
+     desc:"Identifica 3–5 personas de alto potencial capaces de superarte. Dales orientación estructurada y recursos reales. Tu influencia se multiplica geométricamente a través de ellos."},
+    {icon:'🧘', title:'Mantén deliberadamente la calma interior',
+     desc:"Protege una zona de tiempo sin propósito — no para ningún output, sino solo para existir. En niveles de logro extremo, la soledad y la pérdida de sentido son los riesgos ocultos más comunes."},
+    {icon:'📜', title:'Define tu legado de vida',
+     desc:"Escribe: si hoy fuera tu último día de trabajo, ¿qué has dejado ya al mundo? Convierte esa respuesta en el núcleo estratégico de tus próximos 3 años."},
+  ],
 };
 
 /* ── Payment modal config ── */
 var PAYMENT_CONFIG = {
-  wechat:  { name_cn:'微信支付', name_tw:'微信支付', color:'#07c160', fallback:'💚', logoSrc:'assets/logo-wechat.png', qrSrc:'assets/qr-wechat.png' },
-  alipay:  { name_cn:'支付宝',   name_tw:'支付寶',   color:'#1677ff', fallback:'💙', logoSrc:'assets/logo-alipay.png', qrSrc:'assets/qr-alipay.png' },
-  crypto:  { name_cn:'加密支付', name_tw:'加密支付', color:'#f0b90b', fallback:'🟡', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
-  qq:      { name_cn:'QQ 钱包',  name_tw:'QQ 錢包',  color:'#12b7f5', fallback:'💜', logoSrc:'assets/logo-qq.png',    qrSrc:'assets/qr-qq.png' },
+  wechat:  { name_cn:'微信支付', name_tw:'微信支付', name_en:'WeChat Pay', name_es:'WeChat Pay', color:'#07c160', fallback:'💚', logoSrc:'assets/logo-wechat.png', qrSrc:'assets/qr-wechat.png' },
+  alipay:  { name_cn:'支付宝',   name_tw:'支付寶',   name_en:'Alipay', name_es:'Alipay', color:'#1677ff', fallback:'💙', logoSrc:'assets/logo-alipay.png', qrSrc:'assets/qr-alipay.png' },
+  crypto:  { name_cn:'加密支付', name_tw:'加密支付', name_en:'Crypto', name_es:'Criptomonedas', color:'#f0b90b', fallback:'🟡', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
+  qq:      { name_cn:'QQ 钱包',  name_tw:'QQ 錢包',  name_en:'QQ Wallet', name_es:'QQ Wallet', color:'#12b7f5', fallback:'💜', logoSrc:'assets/logo-qq.png',    qrSrc:'assets/qr-qq.png' },
 };
 
 /* ── Setup payment modal (logo click → QR popup) ── */
@@ -774,7 +1147,7 @@ function setupPaymentModal(){
     var cfg = PAYMENT_CONFIG[platform];
     if(!cfg) return;
     var lang = window.I18N_CURRENT||'zh-CN';
-    var name = lang==='zh-TW' ? cfg.name_tw : cfg.name_cn;
+    var name = lang==='en-US' ? (cfg.name_en||cfg.name_cn) : lang==='es-US' ? (cfg.name_es||cfg.name_en||cfg.name_cn) : lang==='zh-TW' ? cfg.name_tw : cfg.name_cn;
 
     /* Logo */
     if(pmLogoImg){ pmLogoImg.src=cfg.logoSrc; pmLogoImg.style.display=''; }
@@ -834,9 +1207,7 @@ function buildRankVerdict(lang){
   var isUnder18 = (answerMap && answerMap.A1 && answerMap.A1.questionIdx === 0) ||
                   (answerMap && answerMap.QK1 && answerMap.QK1.questionIdx === 0);
   if(isUnder18){
-    var youthTip = lang==='zh-TW'
-      ? '🌱 给未满18岁的你\n\n你才刚刚开始。\n\n此刻的评分，是你在一个最受限制的人生阶段交出的答卷——没有完整的财务自主、没有职业积累、也没有太多的选择权。这些不是你的问题，而是年龄本来的样子。\n\n真正重要的是：你今天好奇什么、认真对待什么、选择成为什么样的人。这些，才是决定你未来20年的真实变量。\n\n你现在拥有最珍贵的资源——时间和可塑性。今天认真投入的每一个习惯，都在悄悄为你未来的人生叠加复利。\n\n去探索，去尝试，去犯错，去成长。你的人生，才刚刚开幕。'
-      : '🌱 給未滿18歲的你\n\n你才剛剛開始。\n\n此刻的評分，是你在一個最受限制的人生階段交出的答卷——沒有完整的財務自主、沒有職業積累、也沒有太多的選擇權。這些不是你的問題，而是年齡本來的樣子。\n\n真正重要的是：你今天好奇什麼、認真對待什麼、選擇成為什麼樣的人。這些，才是決定你未來20年的真實變量。\n\n你現在擁有最珍貴的資源——時間和可塑性。今天認真投入的每一個習慣，都在悄悄為你未來的人生疊加複利。\n\n去探索，去嘗試，去犯錯，去成長。你的人生，才剛剛開幕。';
+    var youthTip = window.t('youth.tip');
     if(tipEl) tipEl.textContent = youthTip;
     /* Show the under-18 banner highlight */
     var u18El = document.getElementById('under18Banner');
@@ -846,7 +1217,7 @@ function buildRankVerdict(lang){
     try{ var rd=sessionStorage.getItem('ls_result'); if(rd) bonusScore=JSON.parse(rd).bonusScore||0; }catch(e){}
     var bonusEl=document.getElementById('bonusBadge');
     if(bonusEl){
-      if(bonusScore>0){ bonusEl.textContent='+'+bonusScore+' '+(lang==='zh-TW'?'卓越加分':'卓越加分'); bonusEl.style.display='inline-flex'; }
+      if(bonusScore>0){ bonusEl.textContent='+'+bonusScore+' '+window.t('bonus.label'); bonusEl.style.display='inline-flex'; }
       else { bonusEl.style.display='none'; }
     }
     return;
@@ -859,7 +1230,7 @@ function buildRankVerdict(lang){
   var bonusEl=document.getElementById('bonusBadge');
   if(bonusEl){
     if(bonusScore>0){
-      bonusEl.textContent='+'+ bonusScore +' '+(lang==='zh-TW'?'卓越加分':'卓越加分');
+      bonusEl.textContent='+'+ bonusScore +' '+window.t('bonus.label');
       bonusEl.style.display='inline-flex';
     } else { bonusEl.style.display='none'; }
   }
@@ -1054,11 +1425,11 @@ function drawDonut(canvas){
   var isTW=lang==='zh-TW';
 
   var data=[
-    {label:isTW?'基礎維度':'基础维度', value:dimPct.basic||0, color:'#38bdf8'},
-    {label:isTW?'社會生活方向':'社会生活方向', value:dimPct.social||0, color:'#0ea5e9'},
-    {label:isTW?'個人認同':'个人认同', value:dimPct.identity||0, color:'#f59e0b'},
+    {label:ql('基础维度','基礎維度','Baseline','Base'), value:dimPct.basic||0, color:'#38bdf8'},
+    {label:ql('社会生活方向','社會生活方向','Social & Life','Social y Vida'), value:dimPct.social||0, color:'#0ea5e9'},
+    {label:ql('个人认同','個人認同','Personal Identity','Identidad Personal'), value:dimPct.identity||0, color:'#f59e0b'},
   ];
-  if(bonusScore>0) data.push({label:isTW?'加分題':'加分题', value:bonusScore*2, color:'#10b981'});
+  if(bonusScore>0) data.push({label:ql('加分题','加分題','Elite Bonus','Puntos Élite'), value:bonusScore*2, color:'#10b981'});
 
   var total=0; data.forEach(function(d){ total+=d.value; });
   if(total===0) return;
@@ -1081,7 +1452,7 @@ function drawDonut(canvas){
   ctx.font='800 26px Quicksand,sans-serif'; ctx.fillStyle='#18181b';
   ctx.fillText(finalScore, cx, cy-4);
   ctx.font='500 11px sans-serif'; ctx.fillStyle='#a1a1aa';
-  ctx.fillText(isTW?'總分':'总分', cx, cy+16);
+  ctx.fillText(ql('总分','總分','Total','Total'), cx, cy+16);
 
   /* Legend — laid out vertically below the donut */
   var ly=cy+R+28;
@@ -1165,14 +1536,14 @@ function buildInsights(lang){
     var mx=Math.max.apply(null,vals), mn=Math.min.apply(null,vals);
     if(mx-mn>25){
       rows.push({cls:'warn',icon:'⚖️',
-        title:isTW?'維度發展不均衡':'维度发展不均衡',
-        body:isTW?'你最強和最弱的維度之間差距超過25分。短板效應會限制你的整體上限——建議優先補強最弱的維度，而非繼續加強已有的優勢。具體來說，找出最弱維度中得分最低的2個問題，制定一個30天的集中改善計劃。':'你最强和最弱的维度之间差距超过25分。短板效应会限制你的整体上限——建议优先补强最弱的维度，而非继续加强已有的优势。具体来说，找出最弱维度中得分最低的2个问题，制定一个30天的集中改善计划。'
+        title:ql('维度发展不均衡','維度發展不均衡','Uneven Dimension Development','Desarrollo dimensional desigual'),
+        body:ql('你最强和最弱的维度之间差距超过25分。短板效应会限制整体上限——建议优先补强最弱的维度，找出最弱维度中得分最低的2个问题，制定一个30天的集中改善计划。','你最強和最弱的維度之間差距超過25分。建議優先補強最弱的維度，找出得分最低的2個問題，制定30天集中改善計劃。','Your strongest and weakest dimensions are over 25 points apart. The weak-link effect caps your overall ceiling — prioritize strengthening your lowest dimension. Find its 2 lowest-scoring questions and build a 30-day focused improvement plan.',"Tu dimensión más fuerte y la más débil están a más de 25 puntos de distancia. El efecto del eslabón débil limita tu techo general — prioriza fortalecer tu dimensión más débil.")
       });
     }
     if(mn>70){
       rows.push({cls:'good',icon:'🌟',
-        title:isTW?'三維度均衡發展':'三维度均衡发展',
-        body:isTW?'你的三個維度均在70分以上，展現出難得的均衡性。這意味著你沒有明顯的短板拖後腿。下一步建議：選擇你最有熱情的1個維度，投入額外精力將其打造成真正的核心優勢。':'你的三个维度均在70分以上，展现出难得的均衡性。这意味着你没有明显的短板拖后腿。下一步建议：选择你最有热情的1个维度，投入额外精力将其打造成真正的核心优势。'
+        title:ql('三维度均衡发展','三維度均衡發展','Three Dimensions in Balance','Tres dimensiones equilibradas'),
+        body:ql('你的三个维度均在70分以上，展现出难得的均衡性——没有明显短板拖后腿。下一步建议：选择你最有热情的1个维度，打造成真正的核心优势。','你的三個維度均在70分以上，展現出難得的均衡性。下一步建議：選擇你最有熱情的1個維度，打造成真正的核心優勢。','All three of your dimensions are above 70 — a rare, well-balanced profile. No obvious weak links. Next step: pick the one dimension you\'re most passionate about and invest extra energy to build it into a true competitive edge.','Las tres dimensiones están por encima de 70 — un perfil equilibrado poco común. Próximo paso: elige la dimensión que más te apasiona e invierte energía extra para convertirla en una ventaja competitiva real.')
       });
     }
   }
@@ -1181,8 +1552,8 @@ function buildInsights(lang){
   var habitsScore=a('QK14'), visionScore=a('QK15a'), healthScore=a('QK15b');
   if(habitsScore>=3 || (visionScore>=3 && healthScore>=2)){
     rows.push({cls:'warn',icon:'🏥',
-      title:isTW?'健康風險預警':'健康风险预警',
-      body:isTW?'你的健康相關指標多項偏低，包括不良習慣、視力或慢性健康問題。健康是所有其他維度的"地基"——地基動搖，上層建築再好也會塌。建議本月內完成一次全面體檢，同時從最容易改變的1個不良習慣開始，用30天養成替代行為。':'你的健康相关指标多项偏低，包括不良习惯、视力或慢性健康问题。健康是所有其他维度的"地基"——地基动摇，上层建筑再好也会塌。建议本月内完成一次全面体检，同时从最容易改变的1个不良习惯开始，用30天养成替代行为。'
+      title:ql('健康风险预警','健康風險預警','Health Risk Warning','Alerta de riesgo de salud'),
+      body:ql('你的健康相关指标多项偏低，包括不良习惯、视力或慢性健康问题。健康是所有其他维度的"地基"——地基动摇，上层建筑再好也会塌。建议本月内完成一次全面体检，同时从最容易改变的1个不良习惯开始，用30天养成替代行为。','你的健康相關指標多項偏低，包括不良習慣、視力或慢性健康問題。健康是所有其他維度的"地基"——地基動搖，上層建築再好也會塌。建議本月內完成一次全面體檢，同時從最容易改變的1個不良習慣開始，用30天養成替代行為。','Several of your health indicators are low — unhealthy habits, vision issues, or chronic conditions. Health is the foundation everything else rests on. Action this month: schedule a comprehensive physical, and pick the single easiest bad habit to change. Replace it with a better behavior for 30 days.','Varios de tus indicadores de salud son bajos — hábitos poco saludables, problemas de visión o condiciones crónicas. La salud es la base sobre la que descansa todo lo demás. Acción este mes: programa un chequeo médico completo y elige el hábito malo más fácil de cambiar. Reemplázalo con un comportamiento mejor durante 30 días.')
     });
   }
 
@@ -1190,8 +1561,8 @@ function buildInsights(lang){
   var savings=a('QK19'), runway=a('QK20');
   if(savings===0 && runway<=1){
     rows.push({cls:'warn',icon:'💸',
-      title:isTW?'財務安全墊極薄':'财务安全垫极薄',
-      body:isTW?'你的儲蓄水平和財務跑道同時處於最低區間，這意味著任何突發事件（失業、疾病、意外）都可能造成嚴重財務危機。緊急行動：本月起暫停所有非必要消費，啟動"50/30/20預算法"強制儲蓄。目標：3個月內建立至少1個月的應急儲備。':'你的储蓄水平和财务跑道同时处于最低区间，这意味着任何突发事件（失业、疾病、意外）都可能造成严重财务危机。紧急行动：本月起暂停所有非必要消费，启动"50/30/20预算法"强制储蓄。目标：3个月内建立至少1个月的应急储备。'
+      title:ql('财务安全垫极薄','財務安全墊極薄','Dangerously Thin Financial Cushion','Colchón financiero peligrosamente delgado'),
+      body:ql('你的储蓄水平和财务跑道同时处于最低区间，这意味着任何突发事件（失业、疾病、意外）都可能造成严重财务危机。紧急行动：本月起暂停所有非必要消费，启动"50/30/20预算法"强制储蓄。目标：3个月内建立至少1个月的应急储备。','你的儲蓄水平和財務跑道同時處於最低區間，這意味著任何突發事件（失業、疾病、意外）都可能造成嚴重財務危機。緊急行動：本月起暫停所有非必要消費，啟動"50/30/20預算法"強制儲蓄。目標：3個月內建立至少1個月的應急儲備。','Your savings and financial runway are both at the very bottom. Any unexpected event — job loss, illness, accident — could trigger a serious financial crisis. Emergency action: pause all non-essential spending this month, apply the 50/30/20 budget rule, and build at least one month of emergency reserves within 3 months.','Tus ahorros y tu pista financiera están en el nivel más bajo. Cualquier evento inesperado podría desencadenar una crisis financiera grave. Acción de emergencia: pausa todos los gastos no esenciales este mes, aplica la regla presupuestaria 50/30/20 y construye al menos un mes de reservas de emergencia en 3 meses.')
     });
   }
 
@@ -1199,8 +1570,8 @@ function buildInsights(lang){
   var overtime=a('QK12'), stress=a('QK13');
   if(overtime>=3 && stress>=3){
     rows.push({cls:'warn',icon:'🔥',
-      title:isTW?'嚴重的工作-生活失衡':'严重的工作-生活失衡',
-      body:isTW?'你同時報告了高加班時長和高工作壓力，這是職業倦怠的典型前兆。研究表明，長期超負荷工作不會提升產出，反而會導致決策質量下降、免疫力降低和人際關係惡化。本週就做一件事：設定一個"每日停工時間"（比如晚上8點），超過後完全不看工作消息，堅持7天。':'你同时报告了高加班时长和高工作压力，这是职业倦怠的典型前兆。研究表明，长期超负荷工作不会提升产出，反而会导致决策质量下降、免疫力降低和人际关系恶化。本周就做一件事：设定一个"每日停工时间"（比如晚上8点），超过后完全不看工作消息，坚持7天。'
+      title:ql('严重的工作-生活失衡','嚴重的工作-生活失衡','Severe Work-Life Imbalance','Grave desequilibrio trabajo-vida'),
+      body:ql('你同时报告了高加班时长和高工作压力，这是职业倦怠的典型前兆。研究表明，长期超负荷工作不会提升产出，反而会导致决策质量下降、免疫力降低和人际关系恶化。本周就做一件事：设定一个"每日停工时间"（比如晚上8点），超过后完全不看工作消息，坚持7天。','你同時報告了高加班時長和高工作壓力，這是職業倦怠的典型前兆。研究表明，長期超負荷工作不會提升產出，反而會導致決策質量下降、免疫力降低和人際關係惡化。本週就做一件事：設定一個"每日停工時間"（比如晚上8點），超過後完全不看工作消息，堅持7天。','You reported both heavy overtime and high work pressure — the classic precursor to burnout. Research shows chronic overwork reduces output quality, weakens your immune system, and damages relationships. One thing to do this week: set a hard daily \'shutdown time\' (e.g. 8 PM) and enforce a complete work-message blackout after that. Hold it for 7 days.','Reportaste tanto horas extra intensas como alta presión laboral — el precursor clásico del burnout. Una cosa esta semana: establece una \'hora de cierre\' diaria estricta (ej. 8 PM) y aplica un bloqueo total de mensajes de trabajo después de esa hora. Mantenlo 7 días.')
     });
   }
 
@@ -1208,8 +1579,8 @@ function buildInsights(lang){
   var confide=a('QK33'), parents=a('QK28a'), siblings=a('QK28b');
   if(confide===4 || (confide===-1 && parents>=2 && siblings>=2)){
     rows.push({cls:'purple',icon:'🫂',
-      title:isTW?'社交支持系統薄弱':'社交支持系统薄弱',
-      body:isTW?'你缺乏可以傾訴的對象，同時家庭關係也不夠親密。社交孤立是心理健康最大的隱形殺手——它對壽命的負面影響相當於每天抽15根菸。建議：本月嘗試加入一個興趣社群（線上或線下），或者約一位老朋友進行一次真正的深度對話。':'你缺乏可以倾诉的对象，同时家庭关系也不够亲密。社交孤立是心理健康最大的隐形杀手——它对寿命的负面影响相当于每天抽15根烟。建议：本月尝试加入一个兴趣社群（线上或线下），或者约一位老朋友进行一次真正的深度对话。'
+      title:ql('社交支持系统薄弱','社交支持系統薄弱','Weak Social Support System','Sistema de apoyo social débil'),
+      body:ql('你缺乏可以倾诉的对象，同时家庭关系也不够亲密。社交孤立是心理健康最大的隐形杀手——它对寿命的负面影响相当于每天抽15根烟。建议：本月尝试加入一个兴趣社群（线上或线下），或者约一位老朋友进行一次真正的深度对话。','你缺乏可以傾訴的對象，同時家庭關係也不夠親密。社交孤立是心理健康最大的隱形殺手——它對壽命的負面影響相當於每天抽15根菸。建議：本月嘗試加入一個興趣社群（線上或線下），或者約一位老朋友進行一次真正的深度對話。','You lack people to confide in, and family relationships are strained. Social isolation is the biggest invisible threat to mental health — its effect on longevity is equivalent to smoking 15 cigarettes a day. This month: join one interest community (online or in person), or reach out to an old friend for a genuine, deep conversation.','Te faltan personas en quienes confiar y las relaciones familiares son tensas. El aislamiento social es la mayor amenaza invisible para la salud mental. Este mes: únete a una comunidad de intereses (en línea o en persona), o contacta a un viejo amigo para una conversación genuina y profunda.')
     });
   }
 
@@ -1217,8 +1588,8 @@ function buildInsights(lang){
   var curiosity=a('QK34'), persist=a('QK35'), emotion=a('QK36'), agency=a('QK37');
   if(curiosity<=1 && persist<=1 && emotion<=1){
     rows.push({cls:'good',icon:'💎',
-      title:isTW?'強大的內在驅動力':'强大的内在驱动力',
-      body:isTW?'你在好奇心、堅持力和情緒管理方面都表現出色。這三項能力的組合被心理學家稱為"成長型人格"——擁有它的人在面對挫折時恢復速度更快，長期成就的上限更高。建議：利用這個優勢去挑戰一個你一直猶豫要不要開始的大項目。':'你在好奇心、坚持力和情绪管理方面都表现出色。这三项能力的组合被心理学家称为"成长型人格"——拥有它的人在面对挫折时恢复速度更快，长期成就的上限更高。建议：利用这个优势去挑战一个你一直犹豫要不要开始的大项目。'
+      title:ql('强大的内在驱动力','強大的內在驅動力','Powerful Inner Drive','Fuerte impulso interior'),
+      body:ql('你在好奇心、坚持力和情绪管理方面都表现出色。这三项能力的组合被心理学家称为"成长型人格"——拥有它的人在面对挫折时恢复速度更快，长期成就的上限更高。建议：利用这个优势去挑战一个你一直犹豫要不要开始的大项目。','你在好奇心、堅持力和情緒管理方面都表現出色。這三項能力的組合被心理學家稱為"成長型人格"——擁有它的人在面對挫折時恢復速度更快，長期成就的上限更高。建議：利用這個優勢去挑戰一個你一直猶豫要不要開始的大項目。','You score strongly on curiosity, persistence, and emotional regulation. Psychologists call this combination a \'growth personality\' — people who have it bounce back from setbacks faster and achieve more over the long run. Use this edge to tackle the big project you\'ve been hesitating to start.','Obtienes puntuaciones altas en curiosidad, persistencia y regulación emocional. Los psicólogos llaman a esta combinación \'personalidad de crecimiento\'. Usa esta ventaja para enfrentar el gran proyecto que has dudado en comenzar.')
     });
   }
 
@@ -1226,16 +1597,16 @@ function buildInsights(lang){
   var income=a('QK7');
   if(income>=3 && savings<=1){
     rows.push({cls:'warn',icon:'🕳️',
-      title:isTW?'高收入低儲蓄陷阱':'高收入低储蓄陷阱',
-      body:isTW?'你的收入水平不低，但儲蓄卻很少——這是典型的"收入膨脹"陷阱：收入增長被同比例的消費升級完全吞噬。解決方案不是"少花錢"，而是在收入到賬的那一刻就自動轉走固定比例。建議設置月薪20%的自動轉存到一個不易取用的帳戶。':'你的收入水平不低，但储蓄却很少——这是典型的"收入膨胀"陷阱：收入增长被同比例的消费升级完全吞噬。解决方案不是"少花钱"，而是在收入到账的那一刻就自动转走固定比例。建议设置月薪20%的自动转存到一个不易取用的账户。'
+      title:ql('高收入低储蓄陷阱','高收入低儲蓄陷阱','High Income, Low Savings Trap','Trampa de altos ingresos y bajos ahorros'),
+      body:ql('你的收入水平不低，但储蓄却很少——这是典型的"收入膨胀"陷阱：收入增长被同比例的消费升级完全吞噬。解决方案不是"少花钱"，而是在收入到账的那一刻就自动转走固定比例。建议设置月薪20%的自动转存到一个不易取用的账户。','你的收入水平不低，但儲蓄卻很少——這是典型的"收入膨脹"陷阱：收入增長被同比例的消費升級完全吞噬。解決方案不是"少花錢"，而是在收入到賬的那一刻就自動轉走固定比例。建議設置月薪20%的自動轉存到一個不易取用的帳戶。','Your income is solid, but savings are minimal — classic lifestyle inflation: every raise gets absorbed by upgraded spending. The fix isn\'t \'spend less\'; it\'s auto-transferring a fixed percentage the moment your paycheck hits. Set up a 20% automatic transfer to a hard-to-touch savings account today.','Tus ingresos son sólidos, pero los ahorros son mínimos — inflación de estilo de vida clásica. La solución no es \'gastar menos\'; es transferir automáticamente un porcentaje fijo en el momento en que llega tu cheque. Configura una transferencia automática del 20% a una cuenta de difícil acceso hoy.')
     });
   }
 
   /* ── Good base, untapped social ── */
   if(dimPct && dimPct.basic>75 && dimPct.social<55){
     rows.push({cls:'purple',icon:'🚀',
-      title:isTW?'基礎優秀但潛力未釋放':'基础优秀但潜力未释放',
-      body:isTW?'你的基礎條件（健康、教育、環境）優於大多數人，但社會生活方向維度還未跟上。這說明你的外部資源轉化效率有待提升——你擁有比你意識到的更多的起點優勢。建議：認真審視你的職業路徑，考慮是否需要一次主動的職業躍升（跳槽、談薪或創業）。':'你的基础条件（健康、教育、环境）优于大多数人，但社会生活方向维度还未跟上。这说明你的外部资源转化效率有待提升——你拥有比你意识到的更多的起点优势。建议：认真审视你的职业路径，考虑是否需要一次主动的职业跃升（跳槽、谈薪或创业）。'
+      title:ql('基础优秀但潜力未释放','基礎優秀但潛力未釋放','Strong Foundation, Untapped Potential','Base sólida, potencial sin aprovechar'),
+      body:ql('你的基础条件（健康、教育、环境）优于大多数人，但社会生活方向维度还未跟上。这说明你的外部资源转化效率有待提升——你拥有比你意识到的更多的起点优势。建议：认真审视你的职业路径，考虑是否需要一次主动的职业跃升（跳槽、谈薪或创业）。','你的基礎條件（健康、教育、環境）優於大多數人，但社會生活方向維度還未跟上。這說明你的外部資源轉化效率有待提升——你擁有比你意識到的更多的起點優勢。建議：認真審視你的職業路徑，考慮是否需要一次主動的職業躍升（跳槽、談薪或創業）。','Your baseline (health, education, environment) is stronger than most people\'s, but your Social & Life dimension hasn\'t caught up. You have more starting-line advantages than you realize — the conversion efficiency just needs work. Seriously review your career path: do you need a proactive leap — a new job, a raise negotiation, or a side business?','Tu base (salud, educación, entorno) es más sólida que la de la mayoría, pero tu dimensión Social y Vida no ha alcanzado ese nivel. Tienes más ventajas de partida de las que reconoces. Revisa seriamente tu trayectoria profesional: ¿necesitas un salto proactivo — un nuevo trabajo, negociar un aumento o un negocio secundario?')
     });
   }
 
@@ -1243,24 +1614,24 @@ function buildInsights(lang){
   var romantic=a('QK23');
   if(romantic>=5 && romantic<=8){
     rows.push({cls:'warn',icon:'💔',
-      title:isTW?'親密關係正在經歷嚴重危機':'亲密关系正在经历严重危机',
-      body:isTW?'你的感情狀態顯示關係正處於高壓或破裂狀態。這會像漏水的水管一樣持續消耗你在其他所有維度的精力和判斷力。最重要的第一步不是"解決問題"，而是為自己找到一個安全的情緒出口——約一位信任的朋友深聊，或預約一次心理諮詢。在做任何重大關係決定之前，先讓自己的情緒回到基準線。':'你的感情状态显示关系正处于高压或破裂状态。这会像漏水的水管一样持续消耗你在其他所有维度的精力和判断力。最重要的第一步不是"解决问题"，而是为自己找到一个安全的情绪出口——约一位信任的朋友深聊，或预约一次心理咨询。在做任何重大关系决定之前，先让自己的情绪回到基准线。'
+      title:ql('亲密关系正在经历严重危机','親密關係正在經歷嚴重危機','Relationship in Serious Crisis','Relación en crisis grave'),
+      body:ql('你的感情状态显示关系正处于高压或破裂状态。这会像漏水的水管一样持续消耗你在其他所有维度的精力和判断力。最重要的第一步不是"解决问题"，而是为自己找到一个安全的情绪出口——约一位信任的朋友深聊，或预约一次心理咨询。在做任何重大关系决定之前，先让自己的情绪回到基准线。','你的感情狀態顯示關係正處於高壓或破裂狀態。這會像漏水的水管一樣持續消耗你在其他所有維度的精力和判斷力。最重要的第一步不是"解決問題"，而是為自己找到一個安全的情緒出口——約一位信任的朋友深聊，或預約一次心理諮詢。在做任何重大關係決定之前，先讓自己的情緒回到基準線。','Your relationship status signals high strain or near-breakdown. This drains your energy and judgment in every other dimension — like a constant leak. The most important first step isn\'t \'solving the problem\': it\'s finding a safe emotional outlet. Talk to a trusted friend or book a therapy session. Before any major relationship decision, get your emotional baseline back first.','Tu estado de relación señala alta tensión o cercanía a una ruptura. Esto drena tu energía en cada otra dimensión. El primer paso más importante no es \'resolver el problema\': es encontrar una salida emocional segura. Habla con un amigo de confianza o reserva una sesión de terapia. Antes de cualquier decisión importante de relación, recupera primero tu línea de base emocional.')
     });
   }
 
   /* ── Youth potential pattern (under-25 with high curiosity/persistence) ── */
   if(a('QK1')<=1 && curiosity<=1 && persist<=1){
     rows.push({cls:'good',icon:'🌅',
-      title:isTW?'年輕且擁有稀缺的成長型特質':'年轻且拥有稀缺的成长型特质',
-      body:isTW?'你在25歲之前就展現出了強烈的好奇心和堅持力——這兩項特質的組合在同齡人中極為罕見。研究表明，這種"成長型人格"在30歲後會轉化為顯著的職業和收入優勢。你現在最需要做的不是追求穩定，而是大膽試錯：嘗試不同的行業、城市和生活方式，因為你的試錯成本在人生中處於最低點，而學習回報率處於最高點。':'你在25岁之前就展现出了强烈的好奇心和坚持力——这两项特质的组合在同龄人中极为罕见。研究表明，这种"成长型人格"在30岁后会转化为显著的职业和收入优势。你现在最需要做的不是追求稳定，而是大胆试错：尝试不同的行业、城市和生活方式，因为你的试错成本在人生中处于最低点，而学习回报率处于最高点。'
+      title:ql('年轻且拥有稀缺的成长型特质','年輕且擁有稀缺的成長型特質','Young With Rare Growth Mindset','Joven con mentalidad de crecimiento poco común'),
+      body:ql('你在25岁之前就展现出了强烈的好奇心和坚持力——这两项特质的组合在同龄人中极为罕见。研究表明，这种"成长型人格"在30岁后会转化为显著的职业和收入优势。你现在最需要做的不是追求稳定，而是大胆试错：尝试不同的行业、城市和生活方式，因为你的试错成本在人生中处于最低点，而学习回报率处于最高点。','你在25歲之前就展現出了強烈的好奇心和堅持力——這兩項特質的組合在同齡人中極為罕見。研究表明，這種"成長型人格"在30歲後會轉化為顯著的職業和收入優勢。你現在最需要做的不是追求穩定，而是大膽試錯：嘗試不同的行業、城市和生活方式，因為你的試錯成本在人生中處於最低點，而學習回報率處於最高點。','You\'re showing strong curiosity and persistence before 25 — that combination is rare among your peers. Research shows this \'growth personality\' translates into significant career and income advantages after 30. What you need most right now isn\'t stability — it\'s bold experimentation. Try different industries, cities, and lifestyles. Your cost of failure is at its lifetime low; your learning rate is at its peak.','Muestras fuerte curiosidad y persistencia antes de los 25 — esa combinación es poco común entre tus pares. Lo que más necesitas ahora no es estabilidad — es experimentación audaz. Prueba diferentes industrias, ciudades y estilos de vida. Tu costo de error está en el mínimo de tu vida; tu tasa de aprendizaje está en su punto máximo.')
     });
   }
 
   /* ── Career stagnation: high income but low agency/satisfaction ── */
   if(income>=3 && (agency>=3 || a('QK39')>=3)){
     rows.push({cls:'purple',icon:'🔒',
-      title:isTW?'高收入陷阱：金色牢籠效應':'高收入陷阱：金色牢笼效应',
-      body:isTW?'你的收入不低，但你對人生的掌控感或成就感卻很弱。這是經典的"金色牢籠"——高薪讓你不敢離開，但工作本身正在消磨你的生命力。建議做一個"最壞情況演練"：如果你明天辭職，最壞的結果是什麼？你能承受嗎？通常你會發現，真實的風險遠小於你想像的。然後制定一個6個月的"逃離計劃"——不是明天就辭職，而是系統性地為自己創造選擇權。':'你的收入不低，但你对人生的掌控感或成就感却很弱。这是经典的"金色牢笼"——高薪让你不敢离开，但工作本身正在消磨你的生命力。建议做一个"最坏情况演练"：如果你明天辞职，最坏的结果是什么？你能承受吗？通常你会发现，真实的风险远小于你想象的。然后制定一个6个月的"逃离计划"——不是明天就辞职，而是系统性地为自己创造选择权。'
+      title:ql('高收入陷阱：金色牢笼效应','高收入陷阱：金色牢籠效應','High Income Trap: The Golden Cage','Trampa de altos ingresos: La jaula dorada'),
+      body:ql('你的收入不低，但你对人生的掌控感或成就感却很弱。这是经典的"金色牢笼"——高薪让你不敢离开，但工作本身正在消磨你的生命力。建议做一个"最坏情况演练"：如果你明天辞职，最坏的结果是什么？你能承受吗？通常你会发现，真实的风险远小于你想象的。然后制定一个6个月的"逃离计划"——不是明天就辞职，而是系统性地为自己创造选择权。','你的收入不低，但你對人生的掌控感或成就感卻很弱。這是經典的"金色牢籠"——高薪讓你不敢離開，但工作本身正在消磨你的生命力。建議做一個"最壞情況演練"：如果你明天辭職，最壞的結果是什麼？你能承受嗎？通常你會發現，真實的風險遠小於你想像的。然後制定一個6個月的"逃離計劃"——不是明天就辭職，而是系統性地為自己創造選擇權。','You earn well, but your sense of control or fulfillment is low — the classic golden cage. High pay makes you afraid to leave, but the work itself is slowly draining your vitality. Run a \'worst-case drill\': if you quit tomorrow, what\'s the worst outcome? Can you survive it? Usually the real risk is far smaller than imagined. Then build a 6-month \'options plan\' — not quitting tomorrow, but systematically creating freedom of choice.','Ganas bien, pero tu sentido de control o realización es bajo — la jaula dorada clásica. Realiza un \'simulacro del peor caso\': si renunciaras mañana, ¿cuál sería el peor resultado? Luego construye un \'plan de opciones\' de 6 meses — no renunciar mañana, sino crear sistemáticamente libertad de elección.')
     });
   }
 
@@ -1268,8 +1639,8 @@ function buildInsights(lang){
   var retireQuality=a('QK8b');
   if(a('QK3')===4 && retireQuality>=3){
     rows.push({cls:'warn',icon:'🏚️',
-      title:isTW?'退休生活質量預警':'退休生活质量预警',
-      body:isTW?'你的退休生活質量評分偏低。退休後最常見的三大問題是：社交圈急劇縮小、日常結構感消失、以及"被需要感"的喪失。建議本月做3件事：①加入一個每週固定聚會的社區團體（太極/書法/棋牌）②設定每天的"小目標"時間表（哪怕只是散步+讀報）③每週至少和子女或老朋友進行一次15分鐘以上的通話。這些看似簡單的行動，能顯著提升退休生活的幸福感。':'你的退休生活质量评分偏低。退休后最常见的三大问题是：社交圈急剧缩小、日常结构感消失、以及"被需要感"的丧失。建议本月做3件事：①加入一个每周固定聚会的社区团体（太极/书法/棋牌）②设定每天的"小目标"时间表（哪怕只是散步+读报）③每周至少和子女或老朋友进行一次15分钟以上的通话。这些看似简单的行动，能显著提升退休生活的幸福感。'
+      title:ql('退休生活质量预警','退休生活質量預警','Retirement Quality Warning','Alerta de calidad de jubilación'),
+      body:ql('你的退休生活质量评分偏低。退休后最常见的三大问题是：社交圈急剧缩小、日常结构感消失、以及"被需要感"的丧失。建议本月做3件事：①加入一个每周固定聚会的社区团体（太极/书法/棋牌）②设定每天的"小目标"时间表（哪怕只是散步+读报）③每周至少和子女或老朋友进行一次15分钟以上的通话。这些看似简单的行动，能显著提升退休生活的幸福感。','你的退休生活質量評分偏低。退休後最常見的三大問題是：社交圈急劇縮小、日常結構感消失、以及"被需要感"的喪失。建議本月做3件事：①加入一個每週固定聚會的社區團體（太極/書法/棋牌）②設定每天的"小目標"時間表（哪怕只是散步+讀報）③每週至少和子女或老朋友進行一次15分鐘以上的通話。這些看似簡單的行動，能顯著提升退休生活的幸福感。','Your retirement quality score is low. The three most common post-retirement problems are: social circle shrinking rapidly, loss of daily structure, and loss of feeling needed. This month, do 3 things: ① Join a weekly community group (walking club, book club, pickleball) ② Set a daily \'small goals\' schedule ③ Call a family member or old friend for at least 15 minutes each week. These simple actions significantly improve retirement well-being.','Tu puntaje de calidad de jubilación es bajo. Los tres problemas más comunes post-jubilación son: círculo social que se reduce rápidamente, pérdida de estructura diaria y pérdida de sentirse necesitado. Este mes, haz 3 cosas: ① Únete a un grupo comunitario semanal ② Establece un horario diario de \'pequeñas metas\' ③ Llama a un familiar o viejo amigo al menos 15 minutos cada semana.')
     });
   }
 
@@ -1278,17 +1649,13 @@ function buildInsights(lang){
     var s561=a('QKS56_1'), s562=a('QKS56_2'), s563=a('QKS56_3');
     if(s561>=2 || s562>=2 || s563>=2){
       rows.push({cls:'warn',icon:'🧭',
-        title:isTW?'56–75歲階段：轉換期風險提示':'56–75岁阶段：转换期风险提示',
-        body:isTW
-          ? '你正處在「工作—退休—家庭角色」快速重構的階段。若健康管理、現金流安排與社交節律任一失衡，後續風險會明顯放大。建議優先把三件事流程化：固定健康追蹤、每月現金流盤點、每週社交活動安排。'
-          : '你正处在“工作—退休—家庭角色”快速重构的阶段。若健康管理、现金流安排与社交节律任一失衡，后续风险会明显放大。建议优先把三件事流程化：固定健康追踪、每月现金流盘点、每周社交活动安排。'
+        title:ql('56–75岁阶段：转换期风险提示','56–75歲階段：轉換期風險提示','Ages 56–75: Transition Risk Alert','Edades 56–75: Alerta de riesgo de transición'),
+        body:ql('你正处在“工作—退休—家庭角色”快速重构的阶段。若健康管理、现金流安排与社交节律任一失衡，后续风险会明显放大。建议优先把三件事流程化：固定健康追踪、每月现金流盘点、每周社交活动安排。','你正處在「工作—退休—家庭角色」快速重構的階段。若健康管理、現金流安排與社交節律任一失衡，後續風險會明顯放大。建議優先把三件事流程化：固定健康追蹤、每月現金流盤點、每週社交活動安排。','You are in the rapid restructuring phase of work → retirement → family roles. If health management, cash flow, or social rhythm gets off-balance, downstream risks multiply. Systematize 3 things now: regular health monitoring, monthly cash flow review, weekly social activities.','Estás en la fase de reestructuración de trabajo → jubilación → roles familiares. Sistematiza 3 cosas: monitoreo regular de salud, revisión mensual del flujo de caja, actividades sociales semanales.')
       });
     } else {
       rows.push({cls:'good',icon:'✅',
-        title:isTW?'56–75歲階段：結構穩定':'56–75岁阶段：结构稳定',
-        body:isTW
-          ? '你在過渡期的健康、財務與社交三項關鍵結構相對穩定。下一步可聚焦在「低風險高回報」：維持規律節奏、提升日常幸福感、並把經驗轉化為家庭與社群價值。'
-          : '你在过渡期的健康、财务与社交三项关键结构相对稳定。下一步可聚焦在“低风险高回报”：维持规律节奏、提升日常幸福感，并把经验转化为家庭与社群价值。'
+        title:ql('56–75岁阶段：结构稳定','56–75歲階段：結構穩定','Ages 56–75: Structurally Stable','Edades 56–75: Estructuralmente estable'),
+        body:ql('你在过渡期的健康、财务与社交三项关键结构相对稳定。下一步可聚焦在“低风险高回报”：维持规律节奏、提升日常幸福感，并把经验转化为家庭与社群价值。','你在過渡期的健康、財務與社交三項關鍵結構相對穩定。下一步可聚焦在「低風險高回報」：維持規律節奏、提升日常幸福感、並把經驗轉化為家庭與社群價值。','Your health, finances, and social structure are relatively stable during this transition. Focus on low-risk, high-return moves: maintain regular routines, improve daily well-being, and convert your experience into value for family and community.','Tu salud, finanzas y estructura social son relativamente estables en esta transición. Enfócate en movimientos de bajo riesgo y alto retorno: mantén rutinas regulares, mejora el bienestar diario y convierte tu experiencia en valor para familia y comunidad.')
       });
     }
   }
@@ -1298,17 +1665,13 @@ function buildInsights(lang){
     var s761=a('QKS76_1'), s762=a('QKS76_2'), s763=a('QKS76_3');
     if(s761>=2 || s762>=2 || s763>=2){
       rows.push({cls:'warn',icon:'🛡️',
-        title:isTW?'76–100歲階段：安全與連續性優先':'76–100岁阶段：安全与连续性优先',
-        body:isTW
-          ? '此年齡段最重要的不是「再提升多少」，而是「穩定地過好每一天」。若行動獨立性、就醫連續性或情緒安穩感偏弱，建議立刻補齊：居家防跌倒、緊急聯絡機制、規律陪伴與復診節奏。'
-          : '此年龄段最重要的不是“再提升多少”，而是“稳定地过好每一天”。若行动独立性、就医连续性或情绪安稳感偏弱，建议立刻补齐：居家防跌倒、紧急联络机制、规律陪伴与复诊节奏。'
+        title:ql('76–100岁阶段：安全与连续性优先','76–100歲階段：安全與連續性優先','Ages 76–100: Safety & Continuity First','Edades 76–100: Seguridad y continuidad primero'),
+        body:ql('此年龄段最重要的不是“再提升多少”，而是“稳定地过好每一天”。若行动独立性、就医连续性或情绪安稳感偏弱，建议立刻补齐：居家防跌倒、紧急联络机制、规律陪伴与复诊节奏。','此年齡段最重要的不是「再提升多少」，而是「穩定地過好每一天」。若行動獨立性、就醫連續性或情緒安穩感偏弱，建議立刻補齊：居家防跌倒、緊急聯絡機制、規律陪伴與復診節奏。','At this age the priority isn\'t \'how much more to improve\' — it\'s \'living each day steadily and well.\' If functional independence, healthcare continuity, or emotional stability are weak, address them now: home fall prevention, emergency contact systems, and regular medical check-ins.','En esta edad la prioridad no es \'cuánto más mejorar\' — es \'vivir cada día de forma estable\'. Si la independencia funcional, la continuidad médica o la estabilidad emocional son débiles, abórdalas de inmediato.')
       });
     } else {
       rows.push({cls:'good',icon:'🌿',
-        title:isTW?'76–100歲階段：高品質穩定狀態':'76–100岁阶段：高质量稳定状态',
-        body:isTW
-          ? '你在這一階段維持了難得的功能穩定與心理平和。建議繼續保持「低波動日常」：固定作息、適度活動、穩定社交觸點，讓生活品質可持續。'
-          : '你在这一阶段维持了难得的功能稳定与心理平和。建议继续保持“低波动日常”：固定作息、适度活动、稳定社交触点，让生活质量可持续。'
+        title:ql('76–100岁阶段：高质量稳定状态','76–100歲階段：高品質穩定狀態','Ages 76–100: High-Quality Stable State','Edades 76–100: Estado estable de alta calidad'),
+        body:ql('你在这一阶段维持了难得的功能稳定与心理平和。建议继续保持“低波动日常”：固定作息、适度活动、稳定社交触点，让生活质量可持续。','你在這一階段維持了難得的功能穩定與心理平和。建議繼續保持「低波動日常」：固定作息、適度活動、穩定社交觸點，讓生活品質可持續。','You have maintained rare functional stability and mental calm. Keep your low-volatility daily routine: fixed schedule, moderate activity, stable social touchpoints. This is how quality of life stays sustainable.','Has mantenido una estabilidad funcional y calma mental poco comunes. Mantén tu rutina diaria de baja volatilidad: horario fijo, actividad moderada, contactos sociales estables. Así la calidad de vida se mantiene sostenible.')
       });
     }
   }
@@ -1319,8 +1682,8 @@ function buildInsights(lang){
     var hasSedentary=habits14.indexOf(1)>=0, hasScreen=habits14.indexOf(6)>=0, hasLateNight=habits14.indexOf(4)>=0;
     if(hasSedentary && (hasScreen || hasLateNight)){
       rows.push({cls:'warn',icon:'📱',
-        title:isTW?'久坐+螢幕成癮：慢性健康定時炸彈':'久坐+屏幕成瘾：慢性健康定时炸弹',
-        body:isTW?'你同時存在久坐和螢幕過度使用的問題，這個組合會加速頸椎退化、視力下降和睡眠質量惡化。立即可執行的解法：在手機上設置每小時震動一次的提醒，每次站起來做2分鐘的拉伸（特別是頸部和髖部）。同時，把手機的螢幕設為晚上10點後自動變灰階——這會讓你的大腦自然失去刷屏的衝動。':'你同时存在久坐和屏幕过度使用的问题，这个组合会加速颈椎退化、视力下降和睡眠质量恶化。立即可执行的解法：在手机上设置每小时震动一次的提醒，每次站起来做2分钟的拉伸（特别是颈部和髋部）。同时，把手机的屏幕设为晚上10点后自动变灰阶——这会让你的大脑自然失去刷屏的冲动。'
+        title:ql('久坐+屏幕成瘾：慢性健康定时炸弹','久坐+螢幕成癮：慢性健康定時炸彈','Sedentary + Screen Addiction: Slow-Burn Health Bomb','Sedentarismo + pantallas: bomba de tiempo para tu salud'),
+        body:ql('你同时存在久坐和屏幕过度使用的问题，这个组合会加速颈椎退化、视力下降和睡眠质量恶化。立即可执行的解法：在手机上设置每小时震动一次的提醒，每次站起来做2分钟的拉伸（特别是颈部和髋部）。同时，把手机的屏幕设为晚上10点后自动变灰阶——这会让你的大脑自然失去刷屏的冲动。','你同時存在久坐和螢幕過度使用的問題，這個組合會加速頸椎退化、視力下降和睡眠質量惡化。立即可執行的解法：在手機上設置每小時震動一次的提醒，每次站起來做2分鐘的拉伸（特別是頸部和髖部）。同時，把手機的螢幕設為晚上10點後自動變灰階——這會讓你的大腦自然失去刷屏的衝動。','You have both a sedentary lifestyle and excessive screen use — a combination that accelerates cervical degeneration, vision decline, and sleep quality erosion. Immediately actionable fix: set an hourly phone vibration reminder to stand and stretch for 2 minutes (focus on neck and hips). Also, enable grayscale mode on your phone after 10 PM — your brain naturally loses the urge to scroll.','Tienes tanto un estilo de vida sedentario como uso excesivo de pantallas. Solución inmediatamente ejecutable: configura una vibración horaria en tu teléfono para pararte y estirarte 2 minutos. Además, activa el modo escala de grises en tu teléfono después de las 10 PM — tu cerebro pierde naturalmente el impulso de hacer scroll.')
       });
     }
   }
@@ -1328,24 +1691,24 @@ function buildInsights(lang){
   /* ── High identity, low social — Thinker pattern ── */
   if(dimPct && dimPct.identity>75 && dimPct.social<55){
     rows.push({cls:'purple',icon:'💭',
-      title:isTW?'思考者，但行動力不足':'思考者，但行动力不足',
-      body:isTW?'你的內在認知和價值觀非常成熟，但還沒有充分轉化為外部成就。你可能有完美主義傾向——總覺得"還沒準備好"。解藥：每週設定一個30分鐘的"執行時段"，專門用於推進你腦海中已經有答案但一直沒動手的事。完成度比完美度重要得多。':'你的内在认知和价值观非常成熟，但还没有充分转化为外部成就。你可能有完美主义倾向——总觉得"还没准备好"。解药：每周设定一个30分钟的"执行时段"，专门用于推进你脑海中已经有答案但一直没动手的事。完成度比完美度重要得多。'
+      title:ql('思考者，但行动力不足','思考者，但行動力不足','Thinker Without Enough Action','Pensador sin suficiente acción'),
+      body:ql('你的内在认知和价值观非常成熟，但还没有充分转化为外部成就。你可能有完美主义倾向——总觉得"还没准备好"。解药：每周设定一个30分钟的"执行时段"，专门用于推进你脑海中已经有答案但一直没动手的事。完成度比完美度重要得多。','你的內在認知和價值觀非常成熟，但還沒有充分轉化為外部成就。你可能有完美主義傾向——總覺得"還沒準備好"。解藥：每週設定一個30分鐘的"執行時段"，專門用於推進你腦海中已經有答案但一直沒動手的事。完成度比完美度重要得多。','Your inner clarity and values are mature, but they haven\'t fully converted into external results. You may have perfectionist tendencies — always feeling \'not ready yet.\' The antidote: schedule one 30-minute \'execution window\' each week, dedicated entirely to moving forward the one thing you already know the answer to. Done beats perfect, every time.','Tu claridad interior y tus valores son maduros, pero no se han convertido plenamente en resultados externos. Puede que tengas tendencias perfeccionistas. El antídoto: programa una \'ventana de ejecución\' de 30 minutos cada semana, dedicada a avanzar en lo que ya sabes que debes hacer. Lo hecho supera a lo perfecto, siempre.')
     });
   }
 
   /* ── Overall high scorer ── */
   if(finalScore>=85 && !bonusScore){
     rows.push({cls:'good',icon:'⭐',
-      title:isTW?'你正處於人生高點——但要警惕高原效應':'你正处于人生高点——但要警惕高原效应',
-      body:isTW?'85分以上的基礎分意味著你在大多數維度都表現出色。但高分者最大的風險不是"退步"，而是"停滯"——當一切都"還不錯"的時候，人會失去主動突破的動力。建議：給自己設定一個"舒適區之外"的90天挑戰——可以是學一門新語言、嘗試一個新運動、或者主動承接一個超出你當前能力的項目。保持成長的引擎運轉。':'85分以上的基础分意味着你在大多数维度都表现出色。但高分者最大的风险不是"退步"，而是"停滞"——当一切都"还不错"的时候，人会失去主动突破的动力。建议：给自己设定一个"舒适区之外"的90天挑战——可以是学一门新语言、尝试一个新运动、或者主动承接一个超出你当前能力的项目。保持成长的引擎运转。'
+      title:ql('你正处于人生高点——但要警惕高原效应','你正處於人生高點——但要警惕高原效應','At Your Peak — Watch Out for the Plateau Effect','En tu punto máximo — cuidado con el efecto meseta'),
+      body:ql('85分以上的基础分意味着你在大多数维度都表现出色。但高分者最大的风险不是"退步"，而是"停滞"——当一切都"还不错"的时候，人会失去主动突破的动力。建议：给自己设定一个"舒适区之外"的90天挑战——可以是学一门新语言、尝试一个新运动、或者主动承接一个超出你当前能力的项目。保持成长的引擎运转。','85分以上的基礎分意味著你在大多數維度都表現出色。但高分者最大的風險不是"退步"，而是"停滯"——當一切都"還不錯"的時候，人會失去主動突破的動力。建議：給自己設定一個"舒適區之外"的90天挑戰——可以是學一門新語言、嘗試一個新運動、或者主動承接一個超出你當前能力的項目。保持成長的引擎運轉。','A base score above 85 means you\'re doing well across most dimensions. But the biggest risk for high scorers isn\'t regression — it\'s stagnation. When everything is \'pretty good,\' people lose the impulse to push further. Set yourself a 90-day out-of-comfort-zone challenge: learn a new language, try a new sport, or proactively take on a project beyond your current level. Keep the growth engine running.','Una puntuación base superior a 85 significa que te está yendo bien en la mayoría de dimensiones. Pero el mayor riesgo para los que puntúan alto no es el retroceso — es el estancamiento. Establece un desafío de 90 días fuera de tu zona de confort: aprende un nuevo idioma, prueba un nuevo deporte, o asume proactivamente un proyecto más allá de tu nivel actual.')
     });
   }
 
   /* ── Low emotional management + high stress combo ── */
   if(emotion>=3 && (stress>=2 || overtime>=2)){
     rows.push({cls:'warn',icon:'🌊',
-      title:isTW?'情緒管理+高壓力：燃盡綜合症風險':'情绪管理+高压力：燃尽综合症风险',
-      body:isTW?'你的情緒管理能力偏弱，同時又處於高壓環境中——這是心理健康危機的典型前兆組合。不要等到崩潰才行動。本週做2件事：①下載一個冥想App（如潮汐/小睡眠），每天睡前做5分鐘呼吸練習②找一位你信任的人，花15分鐘把你最近的壓力說出來——不需要解決方案，只是說出來本身就有療癒效果。':'你的情绪管理能力偏弱，同时又处于高压环境中——这是心理健康危机的典型前兆组合。不要等到崩溃才行动。本周做2件事：①下载一个冥想App（如潮汐/小睡眠），每天睡前做5分钟呼吸练习②找一位你信任的人，花15分钟把你最近的压力说出来——不需要解决方案，只是说出来本身就有疗愈效果。'
+      title:ql('情绪管理+高压力：燃尽综合症风险','情緒管理+高壓力：燃盡綜合症風險','Poor Emotional Control + High Stress: Burnout Risk','Mal control emocional + alta presión: riesgo de burnout'),
+      body:ql('你的情绪管理能力偏弱，同时又处于高压环境中——这是心理健康危机的典型前兆组合。不要等到崩溃才行动。本周做2件事：①下载一个冥想App（如潮汐/小睡眠），每天睡前做5分钟呼吸练习②找一位你信任的人，花15分钟把你最近的压力说出来——不需要解决方案，只是说出来本身就有疗愈效果。','你的情緒管理能力偏弱，同時又處於高壓環境中——這是心理健康危機的典型前兆組合。不要等到崩潰才行動。本週做2件事：①下載一個冥想App（如潮汐/小睡眠），每天睡前做5分鐘呼吸練習②找一位你信任的人，花15分鐘把你最近的壓力說出來——不需要解決方案，只是說出來本身就有療癒效果。','Poor emotional regulation combined with a high-pressure environment is the classic precursor to a mental health crisis. Don\'t wait until you crash to act. This week, do 2 things: ① Download a meditation app (Calm, Headspace, Insight Timer) and do 5 minutes of breathing before bed ② Tell one person you trust about your recent stress for 15 minutes — no solutions needed, just saying it out loud has therapeutic value.','La regulación emocional deficiente combinada con un entorno de alta presión es el precursor clásico de una crisis de salud mental. Esta semana, haz 2 cosas: ① Descarga una app de meditación (Calm, Headspace) y haz 5 minutos de respiración antes de dormir ② Cuéntale a alguien de confianza sobre tu estrés reciente durante 15 minutos — solo decirlo en voz alta tiene valor terapéutico.')
     });
   }
 
@@ -1370,27 +1733,33 @@ function buildInsights(lang){
   });
   weighted.sort(function(a,b){ return b.impact-a.impact; });
   weighted.slice(0,3).forEach(function(w){
-    var qText=isTW?(w.q.tw||w.q.cn):(w.q.cn||w.q.tw);
-    var oText=isTW?(w.opt.tw||w.opt.cn):(w.opt.cn||w.opt.tw);
+    var qText=window.qlang?window.qlang(w.q):(isTW?(w.q.tw||w.q.cn):(w.q.cn||w.q.tw));
+    var oText=window.qlang?window.qlang(w.opt):(isTW?(w.opt.tw||w.opt.cn):(w.opt.cn||w.opt.tw));
     var scorePct=Math.round(w.pct*100);
-    var secTxt=isTW
-      ? (w.q.section==='basic'?'健康/基礎':w.q.section==='social'?'生存/社會':'內在/情緒')
-      : (w.q.section==='basic'?'健康/基础':w.q.section==='social'?'生存/社会':'内在/情绪');
+    var secTxt=ql(
+      w.q.section==='basic'?'健康/基础':w.q.section==='social'?'生存/社会':'内在/情绪',
+      w.q.section==='basic'?'健康/基礎':w.q.section==='social'?'生存/社會':'內在/情緒',
+      w.q.section==='basic'?'Health/Baseline':w.q.section==='social'?'Social/Life':'Identity/Inner',
+      w.q.section==='basic'?'Salud/Base':w.q.section==='social'?'Social/Vida':'Identidad/Interior'
+    );
     rows.push({
       cls:'warn',
       icon:'🧩',
-      title:isTW?'基於得分權重的個人化提示':'基于得分权重的个性化提示',
-      body:(isTW
-        ? ('在「'+qText+'」你的當前選項是「'+oText+'」，該題完成度約 '+scorePct+'%。此題屬於「'+secTxt+'」維度，對總體表現的拖累係數較高，建議優先改善。')
-        : ('在“'+qText+'”你的当前选项是“'+oText+'”，该题完成度约 '+scorePct+'%。此题属于“'+secTxt+'”维度，对总体表现的拖累系数较高，建议优先改善。'))
+      title:ql('基于得分权重的个性化提示','基於得分權重的個人化提示','Personalized Insight Based on Score Weight','Perspectiva personalizada basada en el peso del puntaje'),
+      body:ql(
+        '在"'+qText+'"你的当前选项是"'+oText+'"，完成度约'+scorePct+'%，属于"'+secTxt+'"维度，建议优先改善。',
+        '在「'+qText+'」你的當前選項是「'+oText+'」，完成度約'+scorePct+'%，屬於「'+secTxt+'」維度，建議優先改善。',
+        '"'+qText+'" — your answer "'+oText+'" scores '+scorePct+'% in the "'+secTxt+'" dimension. This is dragging your overall score. Prioritize improving it.',
+        '"'+qText+'" — tu respuesta "'+oText+'" obtiene '+scorePct+'% en la dimensión "'+secTxt+'". Está bajando tu puntaje. Prioriza mejorarlo.'
+      )
     });
   });
 
   /* Render */
   if(!rows.length){
     rows.push({cls:'good',icon:'📊',
-      title:isTW?'整體表現穩健':'整体表现稳健',
-      body:isTW?'你的各項指標沒有觸發特定的模式預警，整體處於健康穩定的狀態。建議：選擇你最感興趣的1個維度繼續深耕，並定期重測追蹤自己的成長軌跡。':'你的各项指标没有触发特定的模式预警，整体处于健康稳定的状态。建议：选择你最感兴趣的1个维度继续深耕，并定期重测追踪自己的成长轨迹。'
+      title:ql('整体表现稳健','整體表現穩健','Overall Performance Stable','Desempeño general estable'),
+      body:ql('你的各项指标没有触发特定的模式预警，整体处于健康稳定的状态。建议：选择你最感兴趣的1个维度继续深耕，并定期重测追踪自己的成长轨迹。','你的各項指標沒有觸發特定的模式預警，整體處於健康穩定的狀態。建議：選擇你最感興趣的1個維度繼續深耕，並定期重測追蹤自己的成長軌跡。','None of your indicators triggered specific pattern warnings — you\'re in a healthy, stable state overall. Recommendation: pick the one dimension you\'re most excited about and go deeper. Retest periodically to track your growth.','Ninguno de tus indicadores activó advertencias de patrones específicos — estás en un estado general saludable y estable. Recomendación: elige la dimensión que más te emociona y profundiza. Retoma la prueba periódicamente para seguir tu crecimiento.')
     });
   }
   rows.forEach(function(r){
@@ -1408,44 +1777,54 @@ function buildInsights(lang){
 
 var PERSONAS = {
   S: {
-    animal:'🦅', name_cn:'鹰', name_tw:'鷹', tier:'S',
-    title_cn:'S级 · 天际之鹰', title_tw:'S級 · 天際之鷹',
-    traits_cn:['战略视野','极致执行力','资源整合者','精神自由'],
+    animal:'🦅', name_cn:'鹰', name_tw:'鷹', name_en:'Eagle', name_es:'Águila', tier:'S',
+    title_cn:'S级 · 天际之鹰', title_tw:'S級 · 天際之鷹', title_en:'S Tier · Sky Eagle', title_es:'Nivel S · Águila del Cielo',
+    traits_cn:['战略视野','极致执行力','资源整合者','精神自由'], traits_en:['Strategic Vision','Elite Execution','Resource Master','Inner Freedom'], traits_es:['Visión Estratégica','Ejecución Élite','Maestro de Recursos','Libertad Interior'],
     traits_tw:['戰略視野','極致執行力','資源整合者','精神自由'],
     desc_cn:'你是极少数站在人生金字塔顶端的人。鹰是所有鸟类中视野最广的——它可以在3000米高空看清地面上一只兔子的动作。你就像这只鹰：你不仅看得远，而且在关键时刻能以俯冲式的精准执行力锁定目标。你的人生不是"一帆风顺"——事实上，鹰的羽毛每10年必须经历一次痛苦的重生脱换——但你选择了在每一次危机中蜕变而非退缩。你拥有罕见的组合：清晰的价值观、强大的情绪掌控力、和持续创造价值的系统能力。你最大的风险不是失败，而是高处不胜寒的孤独。记住：即使是鹰，也需要在风暴中找到气流来借力。你的下一个挑战不是飞得更高，而是带领更多人看到你所看到的风景。',
     desc_tw:'你是極少數站在人生金字塔頂端的人。鷹是所有鳥類中視野最廣的——它可以在3000米高空看清地面上一隻兔子的動作。你就像這隻鷹：你不僅看得遠，而且在關鍵時刻能以俯衝式的精準執行力鎖定目標。你的人生不是「一帆風順」——事實上，鷹的羽毛每10年必須經歷一次痛苦的重生脫換——但你選擇了在每一次危機中蛻變而非退縮。你擁有罕見的組合：清晰的價值觀、強大的情緒掌控力、和持續創造價值的系統能力。你最大的風險不是失敗，而是高處不勝寒的孤獨。記住：即使是鷹，也需要在風暴中找到氣流來借力。你的下一個挑戰不是飛得更高，而是帶領更多人看到你所看到的風景。',
+    desc_en:'You are among the rare few who stand at the peak. The eagle has the widest field of vision of any bird — it can spot a rabbit from 10,000 feet. You operate with the same clarity: you see far, and when it matters most, you execute with predatory precision. Your life wasn\'t easy — eagles shed their feathers in a painful renewal every decade — but you chose transformation over retreat at every crisis. You have a rare combination: clear values, powerful emotional control, and systems that keep creating value. Your greatest risk isn\'t failure; it\'s the loneliness of altitude. Even eagles need to find updrafts in storms. Your next challenge isn\'t flying higher — it\'s helping more people see what you can see.',
+    desc_es:'Estás entre los pocos que se encuentran en la cima. El águila tiene el campo de visión más amplio de cualquier ave. Operas con la misma claridad: ves lejos y ejecutas con precisión. Tu mayor riesgo no es el fracaso; es la soledad de la altura. Tu próximo desafío no es volar más alto — es ayudar a más personas a ver lo que tú puedes ver.',
   },
   A: {
-    animal:'🐺', name_cn:'狼', name_tw:'狼', tier:'A',
-    title_cn:'A级 · 原野之狼', title_tw:'A級 · 原野之狼',
-    traits_cn:['目标驱动','社群领袖','适应力强','行动果断'],
+    animal:'🐺', name_cn:'狼', name_tw:'狼', name_en:'Wolf', name_es:'Lobo', tier:'A',
+    title_cn:'A级 · 原野之狼', title_tw:'A級 · 原野之狼', title_en:'A Tier · Wolf of the Plains', title_es:'Nivel A · Lobo de la Pradera',
+    traits_cn:['目标驱动','社群领袖','适应力强','行动果断'], traits_en:['Goal-Driven','Community Leader','Highly Adaptable','Decisive'], traits_es:['Orientado a metas','Líder comunitario','Muy adaptable','Decisivo'],
     traits_tw:['目標驅動','社群領袖','適應力強','行動果斷'],
     desc_cn:'你是一匹狼——不是孤狼，而是狼群中的头狼。狼是自然界中最懂得"平衡个人能力与团队协作"的动物：它们独自狩猎时足够强悍，而在群体中又能做出最优的战术配合。你目前的人生状态展现了类似的模式：你有明确的目标、不错的执行力、和相对健康的社交支撑系统。你的财务状况稳健，健康习惯尚可，内心也有清晰的价值锚点。但狼的故事也有另一面——它们永远在奔跑。你可能时常感到"还不够"的焦虑，即使已经超越了大多数人。你现在需要做的不是继续加速，而是学会在奔跑中抬头看路，确认你追逐的方向仍然是你真正想去的地方。你的终极进化方向是：从"追猎者"变成"领地的守护者"——不仅为自己而战，也为你在乎的人创造安全感。',
     desc_tw:'你是一匹狼——不是孤狼，而是狼群中的頭狼。狼是自然界中最懂得「平衡個人能力與團隊協作」的動物：牠們獨自狩獵時足夠強悍，而在群體中又能做出最優的戰術配合。你目前的人生狀態展現了類似的模式：你有明確的目標、不錯的執行力、和相對健康的社交支撐系統。你的財務狀況穩健，健康習慣尚可，內心也有清晰的價值錨點。但狼的故事也有另一面——牠們永遠在奔跑。你可能時常感到「還不夠」的焦慮，即使已經超越了大多數人。你現在需要做的不是繼續加速，而是學會在奔跑中抬頭看路，確認你追逐的方向仍然是你真正想去的地方。',
+    desc_en:'You are a wolf — not a lone wolf, but the alpha. Wolves are nature\'s masters of balancing individual strength with team coordination: fierce enough to hunt alone, smart enough to lead a pack with perfect tactical cooperation. Your current life shows this pattern: clear goals, solid execution, and a relatively healthy social support system. But the wolf\'s story has another side — they never stop running. You may often feel \'not enough\' anxiety even when you\'ve surpassed most people. What you need now isn\'t to accelerate further — it\'s to lift your head while running and confirm that the direction you\'re chasing is still where you actually want to go.',
+    desc_es:'Eres un lobo — no un lobo solitario, sino el alfa. Los lobos son maestros del equilibrio entre fuerza individual y coordinación de equipo. Tu patrón de vida actual muestra esto: metas claras, buena ejecución y un sistema de apoyo social relativamente saludable. Lo que necesitas ahora no es acelerar más — es levantar la cabeza mientras corres y confirmar que la dirección que persigues es adonde realmente quieres ir.',
   },
   B: {
-    animal:'🐎', name_cn:'马', name_tw:'馬', tier:'B',
-    title_cn:'B级 · 草原之马', title_tw:'B級 · 草原之馬',
-    traits_cn:['稳步前进','耐力持久','忠诚可靠','潜力未尽'],
+    animal:'🐎', name_cn:'马', name_tw:'馬', name_en:'Horse', name_es:'Caballo', tier:'B',
+    title_cn:'B级 · 草原之马', title_tw:'B級 · 草原之馬', title_en:'B Tier · Prairie Horse', title_es:'Nivel B · Caballo de Pradera',
+    traits_cn:['稳步前进','耐力持久','忠诚可靠','潜力未尽'], traits_en:['Steady Progress','Lasting Endurance','Loyal & Reliable','Untapped Potential'], traits_es:['Progreso constante','Resistencia duradera','Leal y confiable','Potencial sin explotar'],
     traits_tw:['穩步前進','耐力持久','忠誠可靠','潛力未盡'],
     desc_cn:'你是一匹草原上的马——稳健、有耐力、值得信赖。马不是最快的动物，但它是唯一能在长途跋涉中保持节奏而不崩溃的物种。你的人生正是这样：你可能不是每个维度的佼佼者，但你在大多数方面都维持着"足够好"的状态。这是绝大多数人的位置，但也是最容易陷入"还行吧"惯性的位置。马的历史告诉我们一件事：同样的一匹马，套上不同的鞍具、遇到不同的骑手，命运天差地别。你现在的"B级"不是你的天花板，而是你的发射台。你目前最缺的不是能力，而是一个清晰的、值得全力以赴的目标。当马知道自己要去哪里的时候，它可以跑到不可思议的速度。给自己设定一个90天的挑战：在你最弱的维度中，选1个最想改变的点，全力突破。你会惊讶于自己的潜力。',
     desc_tw:'你是一匹草原上的馬——穩健、有耐力、值得信賴。馬不是最快的動物，但牠是唯一能在長途跋涉中保持節奏而不崩潰的物種。你的人生正是這樣：你可能不是每個維度的佼佼者，但你在大多數方面都維持著「足夠好」的狀態。這是絕大多數人的位置，但也是最容易陷入「還行吧」慣性的位置。你目前最缺的不是能力，而是一個清晰的、值得全力以赴的目標。當馬知道自己要去哪裡的時候，牠可以跑到不可思議的速度。給自己設定一個90天的挑戰：在你最弱的維度中，選1個最想改變的點，全力突破。',
+    desc_en:'You are a horse — steady, enduring, trustworthy. The horse isn\'t the fastest animal, but it\'s the only one that can maintain its rhythm across a long journey without breaking down. Your life is like this: you may not lead every dimension, but you sustain \'good enough\' across most. This is where most people are — but it\'s also where it\'s easiest to fall into comfortable inertia. The same horse, with different gear and a different rider, can have a completely different destiny. Your current \'B tier\' isn\'t your ceiling; it\'s your launch pad. What you\'re missing isn\'t ability — it\'s one clear, worthy target to go all-in on. Set yourself a 90-day challenge in your weakest dimension and commit fully. You\'ll surprise yourself.',
+    desc_es:'Eres un caballo — estable, resistente, confiable. El caballo no es el animal más rápido, pero es el único que puede mantener su ritmo en un largo viaje sin derrumbarse. Tu \'nivel B\' actual no es tu techo; es tu plataforma de lanzamiento. Establece un desafío de 90 días en tu dimensión más débil y comprométete completamente. Te sorprenderás.',
   },
   C: {
-    animal:'🦊', name_cn:'狐', name_tw:'狐', tier:'C',
-    title_cn:'C级 · 丛林之狐', title_tw:'C級 · 叢林之狐',
-    traits_cn:['机敏灵活','逆境求生','独立性强','需要方向'],
+    animal:'🦊', name_cn:'狐', name_tw:'狐', name_en:'Fox', name_es:'Zorro', tier:'C',
+    title_cn:'C级 · 丛林之狐', title_tw:'C級 · 叢林之狐', title_en:'C Tier · Forest Fox', title_es:'Nivel C · Zorro del Bosque',
+    traits_cn:['机敏灵活','逆境求生','独立性强','需要方向'], traits_en:['Sharp & Agile','Thrives Under Pressure','Fiercely Independent','Needs Direction'], traits_es:['Ágil e inteligente','Prospera bajo presión','Muy independiente','Necesita dirección'],
     traits_tw:['機敏靈活','逆境求生','獨立性強','需要方向'],
     desc_cn:'你是一只狐狸——聪明、灵活、独立，但正在一片并不完全友好的丛林中寻找自己的位置。狐狸是自然界最会"以小博大"的动物：它们体型不大，但靠着敏锐的观察力和灵活的策略，在狼群和熊的领地缝隙中活得有声有色。你的人生状态和这只狐狸很像：你可能在某些维度（尤其是财务或社会生活方向）处于起步阶段，但你并不缺乏潜力——你缺乏的是一个系统性的突破路径。你身上最大的资产不是现有的分数，而是你的适应能力和独立精神。很多"高分者"一旦失去现有优势就会崩溃，而你正因为一直在不完美的条件下生存，反而锻造了罕见的韧性。你现在的任务是：停止在多个方向上分散精力，选定一个战场，用你的灵活性集中突破。狐狸不需要变成狼——它需要找到最适合自己的猎场。',
     desc_tw:'你是一隻狐狸——聰明、靈活、獨立，但正在一片並不完全友好的叢林中尋找自己的位置。狐狸是自然界最會「以小博大」的動物：牠們體型不大，但靠著敏銳的觀察力和靈活的策略，在狼群和熊的領地縫隙中活得有聲有色。你可能在某些維度處於起步階段，但你並不缺乏潛力。你身上最大的資產不是現有的分數，而是你的適應能力和獨立精神。你現在的任務是：停止在多個方向上分散精力，選定一個戰場，用你的靈活性集中突破。狐狸不需要變成狼——牠需要找到最適合自己的獵場。',
+    desc_en:'You are a fox — sharp, flexible, independent, finding your place in a jungle that isn\'t always friendly. Foxes are nature\'s greatest \'big results from small resources\' specialists: not the biggest, but sharp enough to thrive in the gaps between wolves and bears using observation and adaptable strategy. You may be in the early stages in some dimensions — especially financially or socially — but you don\'t lack potential. Your biggest asset isn\'t your current score; it\'s your adaptability and independent spirit. Many high scorers collapse the moment their advantages disappear — you\'ve been forged by imperfect conditions, giving you rare resilience. Your task now: stop spreading energy in multiple directions. Choose one battlefield and concentrate your flexibility there. A fox doesn\'t need to become a wolf — it needs to find the perfect hunting ground.',
+    desc_es:'Eres un zorro — inteligente, flexible, independiente. Los zorros son los mejores especialistas de la naturaleza en \'grandes resultados con pocos recursos\'. Tu mayor activo no es tu puntaje actual; es tu adaptabilidad y espíritu independiente. Tu tarea ahora: deja de dispersar energía en múltiples direcciones. Elige un campo de batalla y concentra allí tu flexibilidad. Un zorro no necesita convertirse en lobo — necesita encontrar el territorio de caza perfecto.',
   },
   D: {
-    animal:'🐢', name_cn:'龟', name_tw:'龜', tier:'D',
-    title_cn:'D级 · 深潜之龟', title_tw:'D級 · 深潛之龜',
-    traits_cn:['厚积薄发','防御坚固','内敛沉稳','蓄势待起'],
+    animal:'🐢', name_cn:'龟', name_tw:'龜', name_en:'Turtle', name_es:'Tortuga', tier:'D',
+    title_cn:'D级 · 深潜之龟', title_tw:'D級 · 深潛之龜', title_en:'D Tier · Deep-Diving Turtle', title_es:'Nivel D · Tortuga de las Profundidades',
+    traits_cn:['厚积薄发','防御坚固','内敛沉稳','蓄势待起'], traits_en:['Slow Build, Big Burst','Strong Defenses','Calm & Reserved','Gathering Strength'], traits_es:['Acumulación lenta, gran impulso','Defensas sólidas','Calmado y reservado','Acumulando fuerzas'],
     traits_tw:['厚積薄發','防禦堅固','內斂沉穩','蓄勢待起'],
     desc_cn:'你是一只龟——而龟，是地球上最古老的幸存者之一。在恐龙灭绝的灾难中，龟活了下来。在冰河期的极端环境中，龟活了下来。在每一次看似不可能生存的条件下，龟都凭借一个策略活了下来：缩进壳里，保存能量，等待时机。你现在的状态正是如此。你的分数不高，这意味着你可能在健康、财务、关系或心理状态方面正面临真实的困难。但这里有一个绝大多数人不知道的事实：所有最戏剧性的人生逆转故事，都从比你现在更低的起点开始。龟的壳不是弱点——它是进化了2亿年的完美防护。你此刻需要的不是和别人比较，而是找到你的"壳"——那个让你在困难时刻也能感到安全的最小稳定结构。它可以是一个固定的作息、一份哪怕微薄但稳定的收入、或者一个你信任的人。先稳住，再出发。记住龟赛跑的故事：不是因为龟跑得快，而是因为龟从不停下来。',
     desc_tw:'你是一隻龜——而龜，是地球上最古老的倖存者之一。在恐龍滅絕的災難中，龜活了下來。你現在的狀態正是如此。你的分數不高，這意味著你可能在健康、財務、關係或心理狀態方面正面臨真實的困難。但所有最戲劇性的人生逆轉故事，都從比你現在更低的起點開始。你此刻需要的是找到你的「殼」——那個讓你在困難時刻也能感到安全的最小穩定結構。它可以是一個固定的作息、一份哪怕微薄但穩定的收入、或者一個你信任的人。先穩住，再出發。記住龜賽跑的故事：不是因為龜跑得快，而是因為龜從不停下來。',
+    desc_en:'You are a turtle — and turtles are among Earth\'s oldest survivors. They outlasted the dinosaurs, survived ice ages, made it through every seemingly impossible condition using one strategy: retreat into the shell, conserve energy, wait for the right moment. Your situation may be similar. Your score is lower, which means you may be facing real challenges in health, finances, relationships, or mental state. But here\'s something most people don\'t know: every dramatic life-turnaround story starts from a lower point than where you are. The turtle\'s shell isn\'t a weakness — it\'s 200 million years of perfect protection. What you need right now isn\'t comparison — it\'s your \'shell\': the minimum stable structure that lets you feel safe even in hard times. It could be a fixed daily routine, a modest but steady income, or one person you trust. Stabilize first, then launch. Remember the race: not because the turtle is fast, but because the turtle never stops.',
+    desc_es:'Eres una tortuga — y las tortugas son de los supervivientes más antiguos de la Tierra. Tu caparazón no es una debilidad — es protección perfecta de 200 millones de años. Lo que necesitas ahora no es comparación — es tu \'caparazón\': la estructura mínima estable que te permite sentirte seguro incluso en tiempos difíciles. Estabilízate primero, luego lanza. Recuerda la carrera: no porque la tortuga sea rápida, sino porque la tortuga nunca se detiene.',
   },
 };
 
@@ -1462,11 +1841,11 @@ function buildPersona(lang){
   var isTW=lang==='zh-TW';
   var el=document.getElementById('personaAnimal'); if(el) el.textContent=p.animal;
   var tier=document.getElementById('personaTier'); if(tier) tier.textContent='TIER '+p.tier;
-  var name=document.getElementById('personaName'); if(name) name.textContent=isTW?p.title_tw:p.title_cn;
-  var desc=document.getElementById('personaDesc'); if(desc) desc.textContent=isTW?p.desc_tw:p.desc_cn;
+  var name=document.getElementById('personaName'); if(name) name.textContent=ql(p.title_cn,p.title_tw,p.title_en,p.title_es);
+  var desc=document.getElementById('personaDesc'); if(desc) desc.textContent=ql(p.desc_cn,p.desc_tw,p.desc_en||p.desc_cn,p.desc_es||p.desc_cn);
   var traits=document.getElementById('personaTraits');
   if(traits){
-    var arr=isTW?p.traits_tw:p.traits_cn;
+    var lang2=window.I18N_CURRENT||'zh-CN'; var arr=lang2==='en-US'?(p.traits_en||p.traits_cn):lang2==='es-US'?(p.traits_es||p.traits_en||p.traits_cn):(isTW?p.traits_tw:p.traits_cn);
     traits.innerHTML=arr.map(function(t){ return '<span class="persona-trait">'+t+'</span>'; }).join('');
   }
 }
@@ -1585,6 +1964,8 @@ function buildShareCard(lang){
 function getShareText(lang){
   var v=getVerdict(finalScore);
   var label=window.t('result.'+v);
+  if(lang==='en-US') return 'I scored '+finalScore+'/150 ('+label+') on the LifeScore test! Find out yours →';
+  if(lang==='es-US') return '¡Obtuve '+finalScore+'/150 ('+label+') en la prueba LifeScore! Descubre el tuyo →';
   return lang==='zh-TW'
     ? '我在人生評分測試中獲得了 '+finalScore+'/150 分（'+label+'）！快來測測你的分數 →'
     : '我在人生评分测试中获得了 '+finalScore+'/150 分（'+label+'）！快来测测你的分数 →';
@@ -1638,10 +2019,10 @@ function setupShareModal(){
   if(copyBtn){ copyBtn.addEventListener('click', function(){
     var t=getShareText(window.I18N_CURRENT||'zh-CN');
     if(navigator.clipboard){ navigator.clipboard.writeText(t).then(function(){
-      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; sp.textContent=(window.I18N_CURRENT==='zh-TW'?'已複製！':'已复制！'); setTimeout(function(){sp.textContent=o;},2000); }
+      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; var _copied=window.I18N_CURRENT==='zh-TW'?'已複製！':(window.I18N_CURRENT==='en-US'?'Copied!':(window.I18N_CURRENT==='es-US'?'¡Copiado!':'已复制！')); sp.textContent=_copied; setTimeout(function(){sp.textContent=o;},2000); }
     }); } else {
       var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; sp.textContent=(window.I18N_CURRENT==='zh-TW'?'已複製！':'已复制！'); setTimeout(function(){sp.textContent=o;},2000); }
+      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; var _copied=window.I18N_CURRENT==='zh-TW'?'已複製！':(window.I18N_CURRENT==='en-US'?'Copied!':(window.I18N_CURRENT==='es-US'?'¡Copiado!':'已复制！')); sp.textContent=_copied; setTimeout(function(){sp.textContent=o;},2000); }
     }
   }); }
 

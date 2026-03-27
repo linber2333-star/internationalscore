@@ -123,6 +123,9 @@
 
     var qids = pages[pageIdx] || [];
     var lang  = window.I18N_CURRENT || 'zh-CN';
+    var isEn  = (lang === 'en-US');
+    var isEs  = (lang === 'es-US');
+    var isTW  = (lang === 'zh-TW');
     var letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
 
     /* Section label */
@@ -144,7 +147,12 @@
     var pct   = total > 0 ? Math.round(done / total * 100) : 0;
     if (headerFill)    headerFill.style.width    = pct + '%';
     if (headerLabel)   headerLabel.textContent   = pct + '%';
-    if (progressCount) progressCount.textContent = '第 '+(pageIdx+1)+' 页 · 共 '+pages.length+' 页';
+    if (progressCount) {
+      var _isEN2 = (lang === 'en-US' || lang === 'es-US');
+      progressCount.textContent = _isEN2
+        ? (lang === 'es-US' ? 'Pág. '+(pageIdx+1)+' de '+pages.length : 'Page '+(pageIdx+1)+' of '+pages.length)
+        : ('第 '+(pageIdx+1)+' 页 · 共 '+pages.length+' 页');
+    }
 
     /* Scroll to top */
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -169,24 +177,23 @@
       qids.forEach(function(qid, ci) {
         var q = getQ(qid);
         if (!q) return;
-        /* Dynamic question text (e.g. A14 changes wording based on A0 student/worker) */
+        /* Dynamic question text — supports all 4 locales via qlang() */
         var _fa = flatAnswers();
-        var qText = lang === 'zh-TW'
-          ? (typeof q.twFn === 'function' ? q.twFn(_fa) : q.tw)
-          : (typeof q.cnFn === 'function' ? q.cnFn(_fa) : q.cn);
+        var qText = (typeof window.qlangFn === 'function') ? window.qlangFn(q, _fa) : window.qlang(q);
         var sel     = answers[qid];
         var gNum    = activeQueue.indexOf(qid) + 1;
         var mc      = (SECTION_META[q.section] || SECTION_META.basic).color;
         var isMulti = !!q.multi;
 
-        var noteHtml   = (q.note && !q.noNote && !q.hideNote) ? '<div class="q-note">'+(lang==='zh-TW'?q.note.tw:q.note.cn)+'</div>' : '';
-        var nsBadge    = q.scorable ? '' : '<span class="q-noscore-badge">'+(lang==='zh-TW'?'不計分':'不计分')+'</span>';
-        var multiBadge = isMulti ? '<span class="q-multi-badge">'+(lang==='zh-TW'?'多選':'多选')+'</span>' : '';
-        var bonusBadge = q.bonus ? '<span class="q-bonus-badge">⭐ '+(lang==='zh-TW'?'加分題':'加分题')+'</span>' : '';
+        var _isEN = (lang === 'en-US' || lang === 'es-US');
+        var noteHtml   = (q.note && !q.noNote && !q.hideNote) ? '<div class="q-note">'+(window.qlang ? window.qlang(q.note) : (lang==='zh-TW'?q.note.tw:q.note.cn))+'</div>' : '';
+        var nsBadge    = q.scorable ? '' : '<span class="q-noscore-badge">'+(_isEN ? (lang==='es-US'?'Sin puntaje':'Not scored') : (lang==='zh-TW'?'不計分':'不计分'))+'</span>';
+        var multiBadge = isMulti ? '<span class="q-multi-badge">'+(_isEN ? (lang==='es-US'?'Múltiple':'Multi-select') : (lang==='zh-TW'?'多選':'多选'))+'</span>' : '';
+        var bonusBadge = q.bonus ? '<span class="q-bonus-badge">⭐ '+(_isEN ? (lang==='es-US'?'Puntos élite':'Bonus') : (lang==='zh-TW'?'加分題':'加分题'))+'</span>' : '';
 
         var selArr   = isMulti ? (Array.isArray(sel) ? sel : []) : [];
         var optsHtml = q.options.map(function(o, i) {
-          var text  = lang === 'zh-TW' ? o.tw : o.cn;
+          var text = (typeof window.qlang === 'function') ? window.qlang(o) : (lang === 'zh-TW' ? o.tw : o.cn);
           var isSel = isMulti ? selArr.indexOf(i) >= 0 : sel === i;
           var cls   = isMulti ? 'q-option q-option--multi' : 'q-option';
           return '<div class="'+cls+(isSel?' selected':'')+
@@ -217,7 +224,7 @@
             '<div class="q-text">'+qText+'</div>'+
             noteHtml+
             '<div class="q-options" id="opts-'+qid+'">'+optsHtml+'</div>'+
-            (answered ? '<div class="q-answered-indicator"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> <span>'+window.t('quiz.answered')+'</span></div>' : '')+
+            (answered ? '<div class="q-answered-indicator"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> <span>'+window.t('quiz.answered')+'</span></div>' : '') +
           '</div>';
 
         var inClass = direction >= 0 ? 'slide-in-right' : 'slide-in-left';
@@ -484,19 +491,23 @@
     _submitBank.forEach(function(q) {
       if (!activeSet.has(q.id) || !isAnswered(q.id)) return;
       var raw = answers[q.id];
-      var score = 0, optText_cn, optText_tw, oi;
+      var score = 0, optText_cn, optText_tw, optText_en, optText_es, oi;
 
       if (q.multi) {
         score      = window.computeMultiScore(q, raw);
         var arr    = Array.isArray(raw) ? raw : [];
         optText_cn = arr.map(function(i){ return q.options[i] ? q.options[i].cn : ''; }).join('、');
         optText_tw = arr.map(function(i){ return q.options[i] ? q.options[i].tw : ''; }).join('、');
+        optText_en = arr.map(function(i){ return q.options[i] ? (q.options[i].en||q.options[i].cn||'') : ''; }).join(', ');
+        optText_es = arr.map(function(i){ return q.options[i] ? (q.options[i].es||q.options[i].en||q.options[i].cn||'') : ''; }).join(', ');
         oi         = arr[0] !== undefined ? arr[0] : 0;
       } else {
         oi         = raw;
         var opt    = q.options[oi];
         score      = q.scorable ? (opt.score || 0) : 0;
         optText_cn = opt.cn; optText_tw = opt.tw;
+        optText_en = opt.en || opt.cn || '';
+        optText_es = opt.es || opt.en || opt.cn || '';
       }
 
       answerMap[q.id] = {
@@ -504,6 +515,7 @@
         selectedIndices: Array.isArray(raw) ? raw : [raw],
         score: q.scorable ? score : null,
         optionText_cn: optText_cn, optionText_tw: optText_tw,
+        optionText_en: optText_en, optionText_es: optText_es,
         section: q.section,
         bonus: q.bonus || false,
       };
@@ -554,9 +566,8 @@
 
     try {
       localStorage.setItem('ls_last_score', finalScore);
-      localStorage.setItem('ls_last_date', new Date().toLocaleDateString(
-        window.I18N_CURRENT === 'zh-TW' ? 'zh-TW' : 'zh-CN'
-      ));
+      var _dateLocale = {'zh-TW':'zh-TW','zh-CN':'zh-CN','en-US':'en-US','es-US':'es-US'}[window.I18N_CURRENT] || 'en-US';
+      localStorage.setItem('ls_last_date', new Date().toLocaleDateString(_dateLocale));
     } catch(e) {}
     var resultPayload = {
       finalScore:  finalScore,
