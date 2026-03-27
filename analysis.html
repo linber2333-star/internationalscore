@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>人生评分 — 深度分析</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body class="analysis-body">
+  <div class="particles" id="particles"></div>
+
+  <header class="header scrolled" id="header">
+    <div class="header-inner">
+      <div class="lang-switcher" id="langSwitcher">
+        <div class="lang-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+        <span class="lang-label" id="langLabel">简体中文</span>
+        <svg class="lang-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="lang-dropdown" id="langDropdown">
+          <div class="lang-option active" data-lang="zh-CN">简体中文</div>
+          <div class="lang-option" data-lang="zh-TW">繁體中文</div>
+        </div>
+      </div>
+      <div class="logo"><span class="logo-mark">LS</span><span class="logo-text" data-i18n="brandName">人生评分</span></div>
+      <nav class="nav" id="nav">
+        <a href="index.html" class="nav-link" data-i18n="nav.home">首页</a>
+        <a href="analysis.html" class="nav-link active" data-i18n="nav.analysis">评分分析</a>
+        <a href="#" class="nav-link" data-i18n="nav.database">数据库</a>
+        <a href="more-tests.html" class="nav-link" data-i18n="nav.more">更多测试</a>
+        <a href="#" class="nav-link" data-i18n="nav.about">关于我们</a>
+      </nav>
+      <button class="menu-toggle" id="menuToggle" aria-expanded="false"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <!-- No result state -->
+  <div class="no-result-state" id="noResultState" style="display:none">
+    <div class="nr-inner">
+      <div class="nr-icon">📊</div>
+      <h2 class="nr-title" data-i18n="analysis.noResult.title">尚无测试结果</h2>
+      <p class="nr-desc" data-i18n="analysis.noResult.desc">完成人生评分测试后，你的专属深度分析报告将显示在这里。</p>
+      <a href="quiz.html" class="btn-start" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none">
+        <span data-i18n="btn.start">开始测试</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- Analysis content -->
+  <div class="analysis-wrap" id="analysisWrap">
+
+    <!-- Header + score overview -->
+    <div class="an-hero">
+      <div class="an-hero-left">
+        <div class="an-tag" data-i18n="analysis.tag">深度分析报告</div>
+        <h1 class="an-title" data-i18n="analysis.title">你的人生评分解读</h1>
+        <p class="an-date" id="anDate"></p>
+        <div class="an-score-pill" id="anScorePill">
+          <span class="asp-num" id="anScoreNum">—</span>
+          <span class="asp-slash">/</span>
+          <span class="asp-max">150</span>
+          <span class="asp-label" data-i18n="result.total">综合评分</span>
+        </div>
+        <div class="an-verdict-text" id="anVerdictText"></div>
+      </div>
+      <div class="an-hero-right">
+        <div class="an-radar-wrap" id="radarWrap">
+          <canvas id="radarCanvas" width="340" height="340"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dimension deep-dives -->
+    <div class="an-section-title">
+      <span class="ast-line"></span>
+      <span data-i18n="analysis.dimDeep">维度深度解读</span>
+      <span class="ast-line"></span>
+    </div>
+    <div id="dimDeepRows"></div>
+
+    <!-- Per-question breakdown -->
+    <div class="an-section-title">
+      <span class="ast-line"></span>
+      <span data-i18n="analysis.qBreakdown">题目回顾与解析</span>
+      <span class="ast-line"></span>
+    </div>
+    <div class="an-qb-filters" id="qbFilters">
+      <button class="qbf-btn active" data-filter="all" data-i18n="analysis.filter.all">全部</button>
+      <button class="qbf-btn" data-filter="basic" data-i18n="quiz.section.basic">基础信息</button>
+      <button class="qbf-btn" data-filter="social" data-i18n="quiz.section.social">社会生活</button>
+      <button class="qbf-btn" data-filter="identity" data-i18n="quiz.section.identity">个人认同</button>
+    </div>
+    <div id="qBreakdownRows"></div>
+
+    <!-- Insights -->
+    <div class="an-section-title">
+      <span class="ast-line"></span>
+      <span data-i18n="analysis.insights">个性化洞察</span>
+      <span class="ast-line"></span>
+    </div>
+    <div id="insightRows"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+         赞助区块 — 位于深度分析图表（维度解读）下方
+         此区块与 result.html 中的赞助区块完全相同结构。
+         图片路径说明：
+           LOGO图片：assets/logo-wechat.png / logo-alipay.png / logo-crypto.png / logo-qq.png
+           QR图片：  assets/qr-wechat.png  / qr-alipay.png  / qr-crypto.png  / qr-qq.png
+         尺寸规格：LOGO建议120×120px，QR建议480×480px，均为PNG格式
+    ══════════════════════════════════════════════════════ -->
+    <div class="sponsor-card sponsor-card--analysis" id="analysisSponsorCard">
+      <div class="sponsor-header">
+        <span class="sponsor-heart">☕</span>
+        <div class="sponsor-text-block">
+          <div class="sponsor-title" data-i18n="sponsor.title2">看完报告觉得有收获？请开发者喝杯咖啡</div>
+          <div class="sponsor-sub" data-i18n="sponsor.sub">你的每一份赞助都将直接用于题库扩展、算法优化与服务器维护。感谢你！</div>
+        </div>
+      </div>
+      <div class="sponsor-logo-row">
+        <button class="sponsor-logo-btn" data-payment="wechat" aria-label="微信支付赞助">
+          <div class="slb-logo-wrap">
+            <img class="slb-logo-img" src="assets/logo-wechat.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="微信支付"/>
+            <div class="slb-logo-fallback" style="background:#07c160">💚</div>
+          </div>
+          <span class="slb-label" data-i18n="sponsor.qr.wechat">微信支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
+        </button>
+        <button class="sponsor-logo-btn" data-payment="alipay" aria-label="支付宝赞助">
+          <div class="slb-logo-wrap">
+            <img class="slb-logo-img" src="assets/logo-alipay.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="支付宝"/>
+            <div class="slb-logo-fallback" style="background:#1677ff">💙</div>
+          </div>
+          <span class="slb-label" data-i18n="sponsor.qr.alipay">支付宝</span>
+          <span class="slb-tap-hint">点击赞助</span>
+        </button>
+        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="加密货币赞助">
+          <div class="slb-logo-wrap">
+            <img class="slb-logo-img" src="assets/logo-crypto.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="加密支付"/>
+            <div class="slb-logo-fallback" style="background:#f0b90b">🟡</div>
+          </div>
+          <span class="slb-label" data-i18n="sponsor.qr.crypto">加密支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
+        </button>
+        <button class="sponsor-logo-btn" data-payment="qq" aria-label="QQ钱包赞助">
+          <div class="slb-logo-wrap">
+            <img class="slb-logo-img" src="assets/logo-qq.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="QQ支付"/>
+            <div class="slb-logo-fallback" style="background:#12b7f5">💜</div>
+          </div>
+          <span class="slb-label" data-i18n="sponsor.qr.qq">QQ 钱包</span>
+          <span class="slb-tap-hint">点击赞助</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Score retake CTA -->
+    <div class="an-cta">
+      <div class="an-cta-text" data-i18n="analysis.cta.text">定期重测，追踪自己的成长轨迹。</div>
+      <div class="an-cta-btns">
+        <a id="anRetakeLink" href="quiz-quick.html" class="btn-start" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:13px 28px;font-size:14px">
+          <span data-i18n="result.retake">重新测试</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.27"/></svg>
+        </a>
+        <a href="more-tests.html" class="btn-secondary btn-indepth" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:13px 24px;font-size:14px">
+          <span data-i18n="nav.more">更多测试</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Payment QR modal (shared component, same as result.html) -->
+  <div class="payment-modal-overlay" id="paymentModalOverlay">
+    <div class="payment-modal" id="paymentModal">
+      <button class="payment-modal-close" id="paymentModalClose" aria-label="关闭">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="pm-platform-header" id="pmPlatformHeader">
+        <div class="pm-platform-logo-wrap" id="pmLogoWrap">
+          <img id="pmLogoImg" src="" alt="" onerror="this.style.display='none';document.getElementById('pmLogoFallback').style.display='flex'"/>
+          <div class="pm-logo-fallback" id="pmLogoFallback"></div>
+        </div>
+        <div>
+          <div class="pm-platform-name" id="pmPlatformName"></div>
+          <div class="pm-platform-sub" data-i18n="sponsor.modal.sub">扫码完成赞助，感谢你的支持！</div>
+        </div>
+      </div>
+      <div class="pm-qr-area">
+        <img class="pm-qr-img" id="pmQrImg" src="" alt="支付二维码"
+             onerror="this.style.display='none';document.getElementById('pmQrPlaceholder').style.display='flex'"/>
+        <div class="pm-qr-placeholder" id="pmQrPlaceholder">
+          <div class="pm-qr-placeholder-icon" id="pmQrPlaceholderIcon"></div>
+          <div class="pm-qr-placeholder-text" data-i18n="sponsor.modal.placeholder">请将收款二维码图片放入 assets/ 文件夹</div>
+          <div class="pm-qr-placeholder-path" id="pmQrPlaceholderPath"></div>
+        </div>
+      </div>
+      <div class="pm-amount-hint" data-i18n="sponsor.modal.hint">金额随心，一杯奶茶的价格即可给我们很大鼓励 ☕</div>
+    </div>
+  </div>
+
+  <script src="i18n.js"></script>
+  <script src="questions.js"></script>
+  <script src="quick_questions.js"></script>
+  <script src="analysis.js"></script>
+</body>
+</html>

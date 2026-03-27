@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>人生评分测试</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="particles" id="particles"></div>
+
+  <header class="header" id="header">
+    <div class="header-inner">
+      <div class="lang-switcher" id="langSwitcher">
+        <div class="lang-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+        <span class="lang-label" id="langLabel">简体中文</span>
+        <svg class="lang-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        <div class="lang-dropdown" id="langDropdown">
+          <div class="lang-option active" data-lang="zh-CN">简体中文</div>
+          <div class="lang-option" data-lang="zh-TW">繁體中文</div>
+        </div>
+      </div>
+      <div class="logo">
+        <span class="logo-mark">LS</span>
+        <span class="logo-text" data-i18n="brandName">人生评分</span>
+      </div>
+      <nav class="nav" id="nav">
+        <a href="index.html" class="nav-link active" data-i18n="nav.home">首页</a>
+        <a href="analysis.html" class="nav-link" data-i18n="nav.analysis">评分分析</a>
+        <a href="#" class="nav-link" data-i18n="nav.database">数据库</a>
+        <a href="more-tests.html" class="nav-link" data-i18n="nav.more">更多测试</a>
+        <a href="#" class="nav-link" data-i18n="nav.about">关于我们</a>
+      </nav>
+      <button class="menu-toggle" id="menuToggle" aria-expanded="false"><span></span><span></span><span></span></button>
+    </div>
+  </header>
+
+  <main class="hero" id="hero">
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+
+    <div class="score-display">
+      <svg class="score-arc" viewBox="0 0 200 200">
+        <defs>
+          <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#7dd3fc"/>
+            <stop offset="100%" stop-color="#0284c7"/>
+          </linearGradient>
+        </defs>
+        <circle class="arc-track" cx="100" cy="100" r="85"/>
+        <circle class="arc-fill" cx="100" cy="100" r="85" id="arcFill"/>
+        <text class="arc-number" x="100" y="102" text-anchor="middle" id="arcNumber">0</text>
+        <text class="arc-label" x="100" y="126" text-anchor="middle" data-i18n="scoreUnit">分</text>
+        <text class="arc-sublabel" x="100" y="142" text-anchor="middle">/ 150</text>
+      </svg>
+      <div class="score-tags">
+        <span class="tag" data-i18n="tag.health" style="--delay:0.1s">健康</span>
+        <span class="tag" data-i18n="tag.wealth" style="--delay:0.2s">财富</span>
+        <span class="tag" data-i18n="tag.relation" style="--delay:0.3s">关系</span>
+        <span class="tag" data-i18n="tag.achieve" style="--delay:0.4s">成就</span>
+        <span class="tag" data-i18n="tag.happy" style="--delay:0.5s">幸福</span>
+      </div>
+    </div>
+
+    <div class="hero-content">
+      <div class="winner-banner" id="winnerBanner">🏆 恭喜你，你是真正的人生赢家！</div>
+      <div class="hero-badge" data-i18n="badge">你的专属人生评分</div>
+
+      <!-- Previous score badge (rendered by JS) -->
+      <div class="score-badge-wrap">
+        <div class="score-badge" id="scoreBadge">
+          <span class="score-badge-none" data-i18n="hero.score.none">尚未测试</span>
+        </div>
+      </div>
+
+      <h1 class="hero-title">
+        <span class="line" data-i18n="hero.line1">立刻开始测试</span>
+        <span class="line accent" data-i18n="hero.line2">你的人生评分</span>
+      </h1>
+      <p class="hero-sub" data-i18n="hero.sub">通过科学的维度分析，了解你在健康、财富、社会生活方向与个人价值方面的综合表现，获取专属提升建议。</p>
+      <div class="hero-actions">
+        <button class="btn-start" id="startBtn" onclick="window.location.href='quiz-quick.html'">
+          <span data-i18n="btn.start">开始测试</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+        <button class="btn-secondary btn-indepth" onclick="showDeepTestNotice()">
+          <span data-i18n="btn.indepth">深度测试</span>
+        </button>
+      </div>
+      <p class="indepth-note" data-i18n="btn.indepth.note">想要更准确的结果？深度测试约需 15–20 分钟。</p>
+      <div class="hero-stats">
+        <div class="stat"><span class="stat-num">Free</span><span class="stat-desc" data-i18n="stat.free">完全免费</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><span class="stat-num">∞</span><span class="stat-desc" data-i18n="stat.unlimited">无限次使用</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat"><span class="stat-num">8 min</span><span class="stat-desc" data-i18n="stat.time">完成时间</span></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Privacy trust strip — sits inside the white features box -->
+  <div class="privacy-strip">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <span data-i18n="hero.privacy">我们承诺不泄露任何用户隐私，并全力做好隐私保护工作。</span>
+  </div>
+  <section class="features">
+    <div class="feature-card" style="--i:0">
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
+      <div><div class="feature-title" data-i18n="feat1.title">多维度分析</div><div class="feature-desc" data-i18n="feat1.desc">覆盖基础信息、社会生活方向与个人认同</div></div>
+    </div>
+    <div class="feature-card" style="--i:1">
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+      <div><div class="feature-title" data-i18n="feat2.title">智能跳题</div><div class="feature-desc" data-i18n="feat2.desc">根据你的情况自动调整问题</div></div>
+    </div>
+    <div class="feature-card" style="--i:2">
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div><div class="feature-title" data-i18n="feat3.title">隐私保护</div><div class="feature-desc" data-i18n="feat3.desc">数据加密，匿名处理</div></div>
+    </div>
+    <div class="feature-card" style="--i:3">
+      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+      <div><div class="feature-title" data-i18n="feat4.title">个性化报告</div><div class="feature-desc" data-i18n="feat4.desc">专属改善建议与路径</div></div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="footer-logo-mark">LS</span>
+        <div>
+          <div class="footer-name" data-i18n="footer.brand">人生评分测试</div>
+          <div class="footer-tagline" data-i18n="footer.tagline">了解自己，超越自己</div>
+        </div>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <div class="footer-col-title" data-i18n="footer.col1">产品</div>
+          <a href="quiz-quick.html" data-i18n="footer.l1a">人生评分</a>
+          <a href="analysis.html" data-i18n="footer.l1b">评分分析</a>
+          <a href="more-tests.html" data-i18n="footer.l1c">更多测试</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title" data-i18n="footer.col2">资源</div>
+          <a href="#" data-i18n="footer.l2a">数据库</a>
+          <a href="#" data-i18n="footer.l2b">帮助中心</a>
+          <a href="#" data-i18n="footer.l2c">博客</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title" data-i18n="footer.col3">公司</div>
+          <a href="#" data-i18n="footer.l3a">关于我们</a>
+          <a href="#" data-i18n="footer.l3b">联系我们</a>
+          <a href="#" data-i18n="footer.l3c">隐私政策</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span data-i18n="footer.copy">© 2025 人生评分测试. 保留所有权利。</span>
+      <div class="footer-bottom-links">
+        <a href="#" data-i18n="footer.terms">服务条款</a>
+        <a href="#" data-i18n="footer.privacy">隐私政策</a>
+        <a href="#" data-i18n="footer.cookie">Cookie 政策</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Deep Test Blocked Notice -->
+  <div class="deep-notice-overlay" id="deepNoticeOverlay" onclick="closeDeepNotice()">
+    <div class="deep-notice-modal" onclick="event.stopPropagation()">
+      <div class="deep-notice-icon">✨</div>
+      <div class="deep-notice-title">好事值得等待</div>
+      <div class="deep-notice-text">深度测试正在经历一次重要的升级。<br><br>我们的团队正在逐题打磨100多道深度问题，重新校准评分模型，并设计全新的个性化分析维度——因为你值得一份真正有深度、有温度的人生报告。<br><br>这不是一次简单的维护，而是一次让你"被更好地理解"的升级。<br><br>请放心，快速测试已经能够为你提供一份准确且有洞察力的综合评分。等深度版本重新上线时，你将获得一次远超预期的体验。<br><br>感谢你的耐心等待，我们不会让你失望 💛</div>
+      <div class="deep-notice-btns">
+        <button class="btn-start" onclick="window.location.href='quiz-quick.html'" style="font-size:14px;padding:12px 28px">先体验快速测试 →</button>
+        <button class="btn-secondary" onclick="closeDeepNotice()" style="font-size:13px;padding:10px 22px">好的，我等着</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  function showDeepTestNotice(){document.getElementById('deepNoticeOverlay').classList.add('open');}
+  function closeDeepNotice(){document.getElementById('deepNoticeOverlay').classList.remove('open');}
+  </script>
+
+  <script src="i18n.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
