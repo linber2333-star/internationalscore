@@ -3,9 +3,10 @@
 'use strict';
 
 /* ── locale helper ── */
-function ql(cn, tw, en, es) {
+function ql(cn, tw, en, es, ph) {
   var l = window.I18N_CURRENT || 'zh-CN';
   if (l === 'en-US') return en || cn;
+  if (l === 'en-PH') return ph || en || cn;
   if (l === 'es-US') return es || en || cn;
   if (l === 'zh-TW') return tw || cn;
   return cn;
@@ -21,7 +22,12 @@ function getBank(){
 }
 
 function loadResult(){
+  /* 1. Prefer sessionStorage — set by quiz.js immediately after submission */
   try{ var r=sessionStorage.getItem('ls_result'); if(r) return JSON.parse(r); }catch(e){}
+  /* 2. Fall back to localStorage — survives tab close / direct URL navigation */
+  try{ var d=localStorage.getItem('ls_result_latest'); if(d) return JSON.parse(d); }catch(e){}
+  try{ var q=localStorage.getItem('ls_result_quick');  if(q) return JSON.parse(q); }catch(e){}
+  try{ var p=localStorage.getItem('ls_result_deep');   if(p) return JSON.parse(p); }catch(e){}
   return null;
 }
 
@@ -98,7 +104,7 @@ function computeProfessionalDims(){
 }
 function tier(s,lang){
   var t;
-  if(lang==='en-US') t=['Needs Work','Developing','Fair','Good','Excellent','Outstanding'];
+  if(lang==='en-US'||lang==='en-PH') t=['Needs Work','Developing','Fair','Good','Excellent','Outstanding'];
   else if(lang==='es-US') t=['Por mejorar','En desarrollo','Aceptable','Bueno','Excelente','Sobresaliente'];
   else if(lang==='zh-TW') t=['待提升','發展中','尚可','良好','優秀','卓越'];
   else t=['待提升','发展中','尚可','良好','优秀','卓越'];
@@ -126,7 +132,7 @@ function buildMini(score){
 function buildBreakdown(){
   var el=document.getElementById('scoreBreakdown'); if(!el) return;
   var lang=window.I18N_CURRENT||'zh-CN';
-  var _isEN=(lang==='en-US'||lang==='es-US');
+  var _isEN=(lang==='en-US'||lang==='en-PH'||lang==='es-US');
   var _bonusLabel=_isEN?(lang==='es-US'?'Puntos élite':'Bonus'):(lang==='zh-TW'?'加分題':'加分题');
   var _totalLabel=_isEN?(lang==='es-US'?'Puntaje total':'Total Score'):(lang==='zh-TW'?'綜合分數':'综合分数');
   /* Compute raw weighted contributions and scale proportionally to baseScore
@@ -177,12 +183,13 @@ function buildHighlights(lang){
     var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
     var oText;
     if(lang==='en-US') oText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
+    else if(lang==='en-PH') oText=answerMap[item.q.id].optionText_ph||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
     else if(lang==='es-US') oText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
     else if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw;
     else oText=answerMap[item.q.id].optionText_cn;
     if(!oText) oText=answerMap[item.q.id].optionText_cn;
     var mc=SECTION_COLORS[item.q.section]||'#7dd3fc';
-    var _scoreLabel=lang==='en-US'?'pts':(lang==='es-US'?'pts':'分');
+    var _scoreLabel=(lang==='en-US'||lang==='en-PH')?'pts':(lang==='es-US'?'pts':'分');
     row.innerHTML='<div class="hl-score-dot" style="background:'+mc+'">'+item.score*25+'<small>'+_scoreLabel+'</small></div>'+
       '<div class="hl-content"><div class="hl-q">'+qText+'</div><div class="hl-a">'+oText+'</div></div>'+
       '<div class="hl-stars">'+starHtml(item.score)+'</div>';
@@ -519,7 +526,7 @@ function buildImprovements(lang){
     var advice=adviceMap[oi];
     return {
       nextText: nextText,
-      advice: advice ? (lang==='en-US'?(advice.en||advice.cn):(lang==='es-US'?(advice.es||advice.en||advice.cn):(lang==='zh-TW'?advice.tw:advice.cn))) : null,
+      advice: advice ? (lang==='en-US'?(advice.en||advice.cn):(lang==='en-PH'?(advice.ph||advice.en||advice.cn):(lang==='es-US'?(advice.es||advice.en||advice.cn):(lang==='zh-TW'?advice.tw:advice.cn)))) : null,
     };
   }
 
@@ -539,11 +546,13 @@ function buildImprovements(lang){
     var am=answerMap[item.q.id];
     var txt;
     if(lang==='en-US') txt=(am&&am.optionText_en)||item.opt.en||item.opt.cn||'';
+    else if(lang==='en-PH') txt=(am&&am.optionText_ph)||(am&&am.optionText_en)||item.opt.ph||item.opt.en||item.opt.cn||'';
     else if(lang==='es-US') txt=(am&&am.optionText_es)||(am&&am.optionText_en)||item.opt.es||item.opt.en||item.opt.cn||'';
     else if(lang==='zh-TW') txt=(am&&am.optionText_tw)||item.opt.tw||'';
     else txt=(am&&am.optionText_cn)||item.opt.cn||'';
     if(!txt) return '';
     if(lang==='en-US') return 'Quick win: You answered "'+txt+'". Pick one small actionable step, commit to it for 14 days, then decide your next move.';
+    if(lang==='en-PH') return 'Quick action: You answered "'+txt+'". Choose one actionable step and commit to it for 14 days straight — then decide your next move.';
     if(lang==='es-US') return 'Accion rapida: Respondiste "'+txt+'". Elige un paso ejecutable y comprometete 14 dias seguidos - luego decide tu proximo movimiento.';
     return lang==='zh-TW'
       ? '建議實作：你目前選擇「'+txt+'」。先從可執行的小步驟開始，連續實踐１４天並記錄變化，再決定下一步加碼。'
@@ -571,12 +580,14 @@ function buildImprovements(lang){
       gap=next.score-(opt.score||0);
       if(gap<1) return;
       if(lang==='en-US') nextText=next.opt.en||next.opt.cn;
+      else if(lang==='en-PH') nextText=next.opt.ph||next.opt.en||next.opt.cn;
       else if(lang==='es-US') nextText=next.opt.es||next.opt.en||next.opt.cn;
       else if(lang==='zh-TW') nextText=next.opt.tw||next.opt.cn;
       else nextText=next.opt.cn;
       var advObj=ADVICE[q.id] || (window.QUICK_IMPROVE_ADVICE && window.QUICK_IMPROVE_ADVICE[q.id]);
       if(advObj){
         if(lang==='en-US') advText=advObj.en||advObj.cn;
+        else if(lang==='en-PH') advText=advObj.ph||advObj.en||advObj.cn;
         else if(lang==='es-US') advText=advObj.es||advObj.en||advObj.cn;
         else if(lang==='zh-TW') advText=advObj.tw||advObj.cn;
         else advText=advObj.cn;
@@ -588,7 +599,7 @@ function buildImprovements(lang){
   var worst=low.slice(0,5);
 
   if(!worst.length){
-    c.innerHTML='<div class="empty-note">'+(lang==='en-US'?'All areas are balanced — no obvious weak spots.':(lang==='es-US'?'Todas las áreas están equilibradas — sin puntos débiles evidentes.':(lang==='zh-TW'?'各項表現均衡，沒有明顯短板。':'各项表现均衡，没有明显短板。')))+'</div>';
+    c.innerHTML='<div class="empty-note">'+(lang==='en-US'||lang==='en-PH'?'All areas are balanced — no obvious weak spots.':(lang==='es-US'?'Todas las áreas están equilibradas — sin puntos débiles evidentes.':(lang==='zh-TW'?'各項表現均衡，沒有明顯短板。':'各项表现均衡，没有明显短板。')))+'</div>';
     return;
   }
   worst.forEach(function(item){
@@ -596,10 +607,11 @@ function buildImprovements(lang){
     var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
     var curText;
     if(lang==='en-US') curText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
+    else if(lang==='en-PH') curText=answerMap[item.q.id].optionText_ph||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
     else if(lang==='es-US') curText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
     else if(lang==='zh-TW') curText=answerMap[item.q.id].optionText_tw||item.opt.tw;
     else curText=answerMap[item.q.id].optionText_cn||item.opt.cn;
-    var _curLabel=lang==='en-US'?'Your answer: ':(lang==='es-US'?'Tu respuesta: ':(lang==='zh-TW'?'你的回答：':'你的回答：'));
+    var _curLabel=(lang==='en-US'||lang==='en-PH')?'Your answer: ':(lang==='es-US'?'Tu respuesta: ':(lang==='zh-TW'?'你的回答：':'你的回答：'));
     row.innerHTML=
       '<div class="imp-gap">↑'+item.gap+'</div>'+
       '<div class="imp-content">'+
@@ -641,6 +653,14 @@ var TIPS={
     high:"You're already ahead of most people. The next phase isn't about doing more — it's about doing better.\n\n① Cut low-value commitments — audit every obligation and eliminate anything that won't matter in 3 years. Protect your time ruthlessly.\n② Start multiplying your impact — you're capable of influencing others now. Think about how to systematically share your experience and knowledge.\n③ Build a 10-year vision — not just annual goals. People who operate on longer time horizons make fundamentally different decisions.\n④ Invest in your inner life — achievement and fulfillment aren't the same thing. Explore what actually makes you feel alive beyond the scoreboard.\n\nYou're good. The question now: what kind of person do you want to be, and what will you leave behind?",
     excellent:"You're in rare territory. Standard advice doesn't apply here. What's actually useful:\n\n① Think at the mission level — is your life goal big enough? Are you working on something larger than yourself?\n② Systematize your knowledge — the frameworks and judgment you've built have enormous value to others. Write them down, teach them, pass them on.\n③ Guard against complacency — the biggest risk at high achievement is pride and the slow death of curiosity. Stay genuinely humble. Keep learning hard things.\n④ Protect deep rest — real vacations and genuine mental stillness are the fuel for sustained excellence. Don't optimize them away.\n\nYour existence itself is an inspiration to the people around you.",
     exceptional:"You've scored over 100 — entering the elite bonus tier. This means you've not only excelled across all standard dimensions, but also hold externally verifiable credentials in elite education, professional achievement, entrepreneurial impact, or competitive excellence.\n\nYour challenge is no longer \"how to improve\" — it's \"how to choose.\" Your time and focus are your scarcest resources. The right question: which allocation of your unique advantages creates the greatest positive impact?\n\nConsider writing your \"life legacy list\" — if today were your last working day, what have you already left the world? Make that answer the strategic core of your next 3 years.",
+  },
+  'en-PH':{
+    low:"Your LifeScore is in the starting-out range — and in the Philippines, that starting line is not the same for everyone. Acknowledge what you're working with, then move:\n\n① Fix your foundation first — consistent sleep and basic movement 3× a week will raise every other score. These cost nothing.\n② Get clear on direction — not a vague wish list, but one concrete scene: where are you, what are you doing, who is beside you in 5 years? Write it down.\n③ Reconnect with one person who believes in you — your barkada, a mentor, a respected ate or kuya. Real relationships are compounding assets.\n④ Start saving anything — even ₱100/week into a separate account. The habit of saving matters more than the amount right now.\n\nA 1% improvement each day adds up to 37× growth in a year. Kaya mo ito.",
+    'mid-low':"You've built something real, but some important areas have been set aside. Time to address them:\n\n① Name your biggest gap — look at your \"Room to Grow\" section. Pick the one item you are most capable of changing right now.\n② Design your environment, not your willpower — put your phone across the room at night; schedule workouts like work shifts.\n③ Sort out your finances — if you're living paycheck to paycheck, the single highest-return action is tracking every peso for one month. What you measure, you can manage.\n④ Invest in relationships — reach out deeply to 3 people this month. Quality beats quantity every time.\n\nThe gap between you today and you in 6 months of focused effort is larger than you think.",
+    mid:"You're solid — above average in most areas. But 'stable' can quietly become 'stagnant.' Time to level up:\n\n① Double down on your strongest skill — turn your best area into a real competitive edge. Set one 90-day external milestone.\n② Push past your comfort zone — sign up for something slightly beyond your current ability (a public speaking club, a new certification, a half-marathon).\n③ Sort out your income trajectory — if your salary or livelihood has been flat for over a year, that's a signal. BPO, freelancing online, or starting a small business are live options right now in the PH.\n④ Build a visible presence — post one clear, useful insight per week in your field. Six months of consistency creates real visibility.\n\nYou're one genuine leveling-up decision away from 'Outstanding.'",
+    high:"You're already ahead of most people — and you've likely worked hard in a context that doesn't make it easy. The next phase isn't about doing more. It's about doing better:\n\n① Cut low-value commitments — audit every obligation and eliminate anything that won't matter in 3 years. Your time is your scarcest resource.\n② Start multiplying your impact — you're at the stage where you can lift others. Think about one person you can mentor or help meaningfully this year.\n③ Build a 10-year vision — not just annual targets. People who operate on longer time horizons make fundamentally different decisions.\n④ Invest in your inner life — achievement and fulfillment aren't the same thing. Explore what actually makes you feel alive beyond the scoreboard.\n\nYou're doing well. The question now: what kind of person do you want to be, and what will you leave behind?",
+    excellent:"You're in rare territory — and in the Philippine context, this is especially meaningful given the structural headwinds many people here face. Standard advice doesn't apply at your level:\n\n① Think at the mission level — is your life goal big enough? Are you working on something larger than yourself?\n② Systematize your knowledge — the frameworks and judgment you've built have enormous value to others. Write them down, teach them, pass them on.\n③ Guard against complacency — the biggest risk at high achievement is pride and the slow death of curiosity. Stay genuinely humble. Keep learning hard things.\n④ Protect deep rest — real disconnection and mental stillness are the fuel for sustained excellence. Don't optimize them away.\n\nYour existence itself is an inspiration. Ipagpatuloy mo.",
+    exceptional:"You've scored over 100 — entering the elite bonus tier. This means you've not only excelled across all standard dimensions, but also hold externally verifiable credentials in elite education, professional achievement, entrepreneurial impact, or competitive excellence.\n\nYour challenge is no longer 'how to improve' — it's 'how to choose.' Your time and focus are your scarcest resources. The right question: which allocation of your unique advantages creates the greatest positive impact — for you, your family, and the people you can reach?\n\nWrite your 'legacy list' — if today were your last working day, what have you already left the world? Make that answer the strategic core of your next 3 years.",
   },
   'es-US':{
     low:"Tu LifeScore está en la etapa de inicio — y eso es un punto de partida, no un techo. Tres prioridades para atacar ahora:\n\n① Construye tu base — dormir bien y moverte 3 veces por semana eleva todos los demás puntajes. No son extras opcionales, son la infraestructura.\n② Clarifica tu dirección — dedica una tarde a escribir cómo luce tu vida en 5 años. Escenas concretas, no deseos vagos. Tu cerebro se compromete con lo que puede visualizar.\n③ Reconecta con alguien importante — escríbele a alguien que respetas pero con quien no has hablado en más de 6 meses. Las relaciones reales son activos que se capitalizan.\n\nUna mejora del 1% diario equivale a 37 veces de crecimiento en un año.",
@@ -871,6 +891,80 @@ var ACTION_PLANS={
       {icon:'🎓', title:'Strategically Develop Your Successors',
        desc:'Identify 3–5 people with the potential to surpass you and give them systematic guidance. Your influence compounds geometrically through them.'},
       {icon:'🧘', title:'Protect Your Mental Stillness',
+       desc:'Create a protected no-agenda time block — no deliverables, just being. Loneliness and loss of meaning are the most common hidden risks at extreme achievement levels.'},
+      {icon:'📜', title:'Define Your Life Legacy',
+       desc:'Write: if today were your last working day, what have you already left the world? Make that answer the strategic core of the next 3 years.'},
+    ],
+  },
+  'en-PH':{
+    low:[
+      {icon:'🌅', title:'Step 1: Fix Your Sleep First',
+       desc:'This week: stop using your phone 30 minutes before bed and charge it outside the bedroom. Sleep deprivation cuts your focus, mood, and memory by up to 30% — and it is completely free to fix. Even a 30-minute improvement in sleep consistency will raise your daily energy level noticeably within a week.'},
+      {icon:'📋', title:'Write Your "5-Year Scene"',
+       desc:'Take one sheet of paper and complete this: "In 5 years, I am in ___, doing ___, with ___." Write at least one full page. The more specific and vivid, the more your brain treats it as real. This is the first step to moving from reactive to intentional.'},
+      {icon:'🤝', title:'Reach Out to One Person Who Believes in You',
+       desc:'Open your contacts. Find someone you respect — a mentor, a trusted ate/kuya, a barkada friend you haven\'t spoken to in 6+ months. Send a genuine message. Real relationships are your highest-return investment and the most underutilized resource most people have.'},
+      {icon:'💰', title:'Save Anything — Even ₱100 This Week',
+       desc:'Open a separate savings account (GCash GSave, Maya, or a bank savings account). Transfer even ₱100 after payday, before you spend it. The habit matters far more than the amount at this stage. The 50/30/20 rule is your eventual target — 50% needs, 30% wants, 20% savings.'},
+      {icon:'📖', title:'10 Minutes of Purposeful Reading Daily',
+       desc:'Pick one book relevant to your career or goal. Read 10 pages before bed each night. In a year that\'s 3,000+ pages — equivalent to 10–15 books. Compound learning is as real as compound interest.'},
+    ],
+    'mid-low':[
+      {icon:'🔍', title:'Diagnose Your Biggest Gap',
+       desc:'Look at your "Room to Grow" section. Pick the single gap you are most capable of closing right now. Write: "In 30 days I will ___." Don\'t try to fix everything at once — one focused breakthrough creates momentum for everything else.'},
+      {icon:'💰', title:'Build a Monthly Money Check-In',
+       desc:'On the last day of every month, spend 20 minutes reviewing: how much came in, went out, and was saved. Set a savings rate target. Even starting at 10% of take-home pay is transformative over 12 months. What you measure, you can control.'},
+      {icon:'🏃', title:'Schedule Your Workouts Like Shifts',
+       desc:'Pick 3 fixed times per week and block "exercise 30 min" in your calendar like a work schedule. Research shows scheduling triples follow-through versus relying on motivation. Aim for consistency, not intensity — a 30-minute walk counts.'},
+      {icon:'🧩', title:'Learn One Marketable Skill This Quarter',
+       desc:'Pick a skill with stable demand in the PH market — freelancing online (Upwork, OnlineJobs.ph), BPO-relevant skills, coding basics, graphic design, or social media management. Dedicate 1 hour/day for 90 days. One skill well executed can open a new income stream.'},
+      {icon:'👥', title:'Invest in 3 Real Relationships This Month',
+       desc:'Pick 3 people in your life worth investing in — not a group chat message, but a real call, a merienda meetup, or helping them with something concrete. Relationship capital compounds quietly over years and pays off when you least expect it.'},
+    ],
+    mid:[
+      {icon:'🎯', title:'Amplify Your Strongest Skill',
+       desc:'From your highest-scoring areas, identify your single strongest skill. Set one 90-day externally verifiable milestone: finish a project, earn a certification, land a freelance client, or publish something professional. Strength compounded on strength creates real differentiation.'},
+      {icon:'💼', title:'Sort Out Your Income Trajectory',
+       desc:'If your salary or income has been flat for over a year, that is a signal. Research your market rate (JobStreet, LinkedIn, Glassdoor). If underpaid, build a 3-month plan: update your profile, identify 10 target companies or clients, start conversations. Alternatively, explore freelancing, online business, or a side hustle — the PH digital economy has real opportunities right now.'},
+      {icon:'✍️', title:'Start Publishing Your Expertise',
+       desc:'Post one insight per week in your field — LinkedIn, a Facebook group, a TikTok, or a blog. Don\'t aim for perfect, aim for consistent. After 6 months of consistency you will have built a visible professional reputation that attracts opportunities passively.'},
+      {icon:'📊', title:'Start Investing — Even Small',
+       desc:'① Build a 3–6 month emergency fund (liquid: GCash GSave, Maya, or CIMB). ② Open a UITF, COL Financial, or BPI investment account and start monthly contributions — even ₱500/month. ③ Check if your SSS/PhilHealth/Pag-IBIG contributions are up to date. Time in the market is everything.'},
+      {icon:'🌿', title:'Protect One "Deep Work" Block Daily',
+       desc:'Block 90 minutes each day — notifications off, focused on your single most important task. Research shows deep work produces 5× the output of fragmented work. Even one protected hour per day changes what you can accomplish in a week.'},
+    ],
+    high:[
+      {icon:'🔭', title:'Write Your 10-Year Personal Strategy',
+       desc:'Spend a quiet afternoon writing a personal long-term document: career (who do you want to become?), finances (net worth target?), relationships (what to build or protect?), health (what state to maintain?). This isn\'t a wish list — it\'s a real strategy with priorities, trade-offs, and resource allocation.'},
+      {icon:'👥', title:'Start Lifting Others Deliberately',
+       desc:'Choose 1–2 people who are earlier in their journey — a younger sibling, a colleague, someone from your barangay or school. Give structured mentorship, not occasional advice. Helping others grow validates your own knowledge and builds the most durable form of influence.'},
+      {icon:'🧘', title:'Build an Inner Investment Practice',
+       desc:'10 minutes of quiet reflection or mindfulness daily, one fully offline afternoon per week. High achievers most often neglect inner stillness — but it is the energy source behind all sustained output. Manage your energy and attention, not just your schedule.'},
+      {icon:'🔗', title:'Strategically Upgrade Your Network',
+       desc:'Identify 3 people you respect deeply but haven\'t built a real connection with. Create a genuine value-exchange — not just a social media follow, but helping them solve a real problem or working on something together. Top-tier connections are created, not collected.'},
+      {icon:'💡', title:'Cut Low-Value Commitments',
+       desc:'List every obligation you carry (work projects, social commitments, group chats, family obligations that drain rather than energize). Filter each with: will this matter to me in 3 years? Eliminate what fails. Reinvest the freed energy into your highest-leverage activities.'},
+    ],
+    excellent:[
+      {icon:'🌍', title:'Write Your Personal Mission Statement',
+       desc:'Answer three questions: What unique abilities, experiences, or resources do I have? What problems in my community or country need them? What price am I willing to pay? Distill the answers into one sentence under 50 words. This becomes the north star for every decision at this level.'},
+      {icon:'📖', title:'Systematize and Share Your Knowledge',
+       desc:'The frameworks and judgment you\'ve built have enormous value to others. Consider: write a book (even self-published on Amazon KDP), create a structured online course (Udemy, Teachable), build a community, or record your insights as a podcast. Knowledge not shared disappears with you.'},
+      {icon:'⚖️', title:'Actively Protect Your Core Relationships',
+       desc:'At high-achievement levels, intimate relationships are the most easily neglected. Schedule at least one phone-free, work-free session per week with the people who matter most — partner, children, parents. This is not a sacrifice, it is maintenance on your most irreplaceable asset.'},
+      {icon:'🏥', title:'Invest in Premium Health Management',
+       desc:'Book a comprehensive health screening beyond the basics — full blood panel, cardiac check, sleep quality assessment. Build a quarterly health data habit. Your body is the hardware running all your achievements; proactive maintenance costs far less than reactive repair.'},
+      {icon:'🌱', title:'Do One Thing With No Return Calculation',
+       desc:'Choose a cause with no professional benefit — purely from conviction — and commit time or concrete resources to it (not just a donation). This is not charity. It is a genuine answer to the deepest question: why are you here?'},
+    ],
+    exceptional:[
+      {icon:'🏆', title:'Document Your Frameworks',
+       desc:'The decision models and judgment systems you\'ve built have extreme value to others. Systematize them — write a book, build a course, start a podcast, or mentor seriously. Knowledge not transmitted disappears.'},
+      {icon:'🌐', title:'Build Cross-Domain Connections',
+       desc:'Actively build real connections with top people outside your field — in the Philippines and internationally. The next breakthrough almost always comes from an unexpected intersection.'},
+      {icon:'🎓', title:'Develop Your Successors',
+       desc:'Identify 3–5 people with potential to surpass you and give them structured guidance. Your influence compounds geometrically through them.'},
+      {icon:'🧘', title:'Protect Mental Stillness',
        desc:'Create a protected no-agenda time block — no deliverables, just being. Loneliness and loss of meaning are the most common hidden risks at extreme achievement levels.'},
       {icon:'📜', title:'Define Your Life Legacy',
        desc:'Write: if today were your last working day, what have you already left the world? Make that answer the strategic core of the next 3 years.'},
@@ -1124,10 +1218,10 @@ ACTION_PLANS['es-US']={
 
 /* ── Payment modal config ── */
 var PAYMENT_CONFIG = {
-  wechat:  { name_cn:'微信支付', name_tw:'微信支付', name_en:'WeChat Pay', name_es:'WeChat Pay', color:'#07c160', fallback:'💚', logoSrc:'assets/logo-wechat.png', qrSrc:'assets/qr-wechat.png' },
-  alipay:  { name_cn:'支付宝',   name_tw:'支付寶',   name_en:'Alipay', name_es:'Alipay', color:'#1677ff', fallback:'💙', logoSrc:'assets/logo-alipay.png', qrSrc:'assets/qr-alipay.png' },
-  crypto:  { name_cn:'加密支付', name_tw:'加密支付', name_en:'Crypto', name_es:'Criptomonedas', color:'#f0b90b', fallback:'🟡', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
-  qq:      { name_cn:'QQ 钱包',  name_tw:'QQ 錢包',  name_en:'QQ Wallet', name_es:'QQ Wallet', color:'#12b7f5', fallback:'💜', logoSrc:'assets/logo-qq.png',    qrSrc:'assets/qr-qq.png' },
+  paypal:  { name_cn:'PayPal',      name_tw:'PayPal',      name_en:'PayPal',         name_es:'PayPal',         name_ph:'PayPal',         color:'#003087', fallback:'🅿',  logoSrc:'assets/logo-paypal.png', qrSrc:'assets/qr-paypal.png' },
+  crypto:  { name_cn:'USDT 加密',   name_tw:'USDT 加密',   name_en:'USDT Crypto',    name_es:'USDT Cripto',    name_ph:'USDT Crypto',    color:'#26a17b', fallback:'💎', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
+  wise:    { name_cn:'Wise 转账',   name_tw:'Wise 轉帳',   name_en:'Wise Transfer',  name_es:'Wise Transferencia', name_ph:'Wise Transfer', color:'#9fe870', fallback:'🌿', logoSrc:'assets/logo-wise.png',   qrSrc:'assets/qr-wise.png' },
+  bank:    { name_cn:'银行转账',    name_tw:'銀行轉帳',    name_en:'Bank Transfer',  name_es:'Transferencia Bancaria', name_ph:'Bank Transfer', color:'#1a56db', fallback:'🏦', logoSrc:'assets/logo-bank.png',   qrSrc:'assets/qr-bank.png' },
 };
 
 /* ── Setup payment modal (logo click → QR popup) ── */
@@ -1147,7 +1241,7 @@ function setupPaymentModal(){
     var cfg = PAYMENT_CONFIG[platform];
     if(!cfg) return;
     var lang = window.I18N_CURRENT||'zh-CN';
-    var name = lang==='en-US' ? (cfg.name_en||cfg.name_cn) : lang==='es-US' ? (cfg.name_es||cfg.name_en||cfg.name_cn) : lang==='zh-TW' ? cfg.name_tw : cfg.name_cn;
+    var name = lang==='en-US' ? (cfg.name_en||cfg.name_cn) : lang==='en-PH' ? (cfg.name_ph||cfg.name_en||cfg.name_cn) : lang==='es-US' ? (cfg.name_es||cfg.name_en||cfg.name_cn) : lang==='zh-TW' ? cfg.name_tw : cfg.name_cn;
 
     /* Logo */
     if(pmLogoImg){ pmLogoImg.src=cfg.logoSrc; pmLogoImg.style.display=''; }
@@ -1245,7 +1339,7 @@ function drawResultRadar(canvas){
   var ctx=canvas.getContext('2d');
   var W=canvas.width, H=canvas.height, cx=W/2, cy=H/2+10, R=Math.min(W,H)*0.26;
   var lang=window.I18N_CURRENT||'zh-CN';
-  var labels=lang==='zh-TW'?['基礎資訊','社會生活方向','個人認同']:['基础信息','社会生活方向','个人认同'];
+  var labels=lang==='zh-TW'?['基礎資訊','社會生活方向','個人認同']:(lang==='en-US'||lang==='en-PH')?['Baseline','Social & Life','Personal Identity']:(lang==='es-US')?['Base','Social y Vida','Identidad Personal']:['基础信息','社会生活方向','个人认同'];
   var scores=[dimPct.basic||0, dimPct.social||0, dimPct.identity||0];
   var n=3;
   ctx.clearRect(0,0,W,H);
@@ -1308,7 +1402,9 @@ function drawProfessionalRadar(canvas){
   var lang=window.I18N_CURRENT||'zh-CN';
   var labels=lang==='zh-TW'
     ? ['社交能力','創造力','幸福感']
-    : ['Social Ability','Creativity','Well-being'];
+    : (lang==='zh-CN' ? ['社交能力','创造力','幸福感']
+    : (lang==='es-US' ? ['Habilidad Social','Creatividad','Bienestar']
+    : ['Social Ability','Creativity','Well-being']));
   var scores=[pd.socialAbility,pd.creativity,pd.wellbeing];
   var n=3;
   ctx.clearRect(0,0,W,H);
@@ -1480,9 +1576,9 @@ function drawDimComparison(canvas){
   ctx.clearRect(0,0,W,H);
   var lang=window.I18N_CURRENT||'zh-CN';
   var dims=[
-    {key:'basic',label:lang==='zh-TW'?'基礎維度':'基础维度',color:'#7dd3fc'},
-    {key:'social',label:lang==='zh-TW'?'社會生活方向':'社会生活方向',color:'#0ea5e9'},
-    {key:'identity',label:lang==='zh-TW'?'個人認同':'个人认同',color:'#10b981'},
+    {key:'basic',label:(lang==='zh-TW'?'基礎維度':(lang==='en-US'||lang==='en-PH'?'Baseline':lang==='es-US'?'Base':'基础维度')),color:'#7dd3fc'},
+    {key:'social',label:(lang==='zh-TW'?'社會生活方向':(lang==='en-US'||lang==='en-PH'?'Social & Life':lang==='es-US'?'Social y Vida':'社会生活方向')),color:'#0ea5e9'},
+    {key:'identity',label:(lang==='zh-TW'?'個人認同':(lang==='en-US'||lang==='en-PH'?'Personal Identity':lang==='es-US'?'Identidad Personal':'个人认同')),color:'#10b981'},
   ];
   var barH=28, gap=20, topPad=10, leftPad=80;
   var barW=W-leftPad-60;
@@ -1845,7 +1941,7 @@ function buildPersona(lang){
   var desc=document.getElementById('personaDesc'); if(desc) desc.textContent=ql(p.desc_cn,p.desc_tw,p.desc_en||p.desc_cn,p.desc_es||p.desc_cn);
   var traits=document.getElementById('personaTraits');
   if(traits){
-    var lang2=window.I18N_CURRENT||'zh-CN'; var arr=lang2==='en-US'?(p.traits_en||p.traits_cn):lang2==='es-US'?(p.traits_es||p.traits_en||p.traits_cn):(isTW?p.traits_tw:p.traits_cn);
+    var lang2=window.I18N_CURRENT||'zh-CN'; var arr=lang2==='en-US'?(p.traits_en||p.traits_cn):lang2==='en-PH'?(p.traits_en||p.traits_cn):lang2==='es-US'?(p.traits_es||p.traits_en||p.traits_cn):(isTW?p.traits_tw:p.traits_cn);
     traits.innerHTML=arr.map(function(t){ return '<span class="persona-trait">'+t+'</span>'; }).join('');
   }
 }
@@ -1959,12 +2055,20 @@ function buildShareCard(lang){
       return '<div class="sc-dim"><span>'+d.icon+'</span> '+window.t(d.i18n)+' <strong>'+s+'</strong></div>';
     }).join('');
   }
+
+  /* ── Gender-based theme: pink for female (QK2 answer index 1) ── */
+  var card=document.getElementById('shareCard');
+  if(card){
+    var isFemale=answerMap&&answerMap['QK2']&&answerMap['QK2'].questionIdx===1;
+    card.classList.toggle('sc-theme-female',!!isFemale);
+  }
 }
 
 function getShareText(lang){
   var v=getVerdict(finalScore);
   var label=window.t('result.'+v);
   if(lang==='en-US') return 'I scored '+finalScore+'/150 ('+label+') on the LifeScore test! Find out yours →';
+  if(lang==='en-PH') return 'I scored '+finalScore+'/150 ('+label+') on the LifeScore PH test! Ano ang score mo? →';
   if(lang==='es-US') return '¡Obtuve '+finalScore+'/150 ('+label+') en la prueba LifeScore! Descubre el tuyo →';
   return lang==='zh-TW'
     ? '我在人生評分測試中獲得了 '+finalScore+'/150 分（'+label+'）！快來測測你的分數 →'
@@ -2019,7 +2123,7 @@ function setupShareModal(){
   if(copyBtn){ copyBtn.addEventListener('click', function(){
     var t=getShareText(window.I18N_CURRENT||'zh-CN');
     if(navigator.clipboard){ navigator.clipboard.writeText(t).then(function(){
-      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; var _copied=window.I18N_CURRENT==='zh-TW'?'已複製！':(window.I18N_CURRENT==='en-US'?'Copied!':(window.I18N_CURRENT==='es-US'?'¡Copiado!':'已复制！')); sp.textContent=_copied; setTimeout(function(){sp.textContent=o;},2000); }
+      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; var _copied=(window.I18N_CURRENT==='zh-TW'?'已複製！':((window.I18N_CURRENT==='en-US'||window.I18N_CURRENT==='en-PH')?'Copied!':(window.I18N_CURRENT==='es-US'?'¡Copiado!':'已复制！'))); sp.textContent=_copied; setTimeout(function(){sp.textContent=o;},2000); }
     }); } else {
       var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
       var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; var _copied=window.I18N_CURRENT==='zh-TW'?'已複製！':(window.I18N_CURRENT==='en-US'?'Copied!':(window.I18N_CURRENT==='es-US'?'¡Copiado!':'已复制！')); sp.textContent=_copied; setTimeout(function(){sp.textContent=o;},2000); }

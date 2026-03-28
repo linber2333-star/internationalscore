@@ -11,18 +11,24 @@
     var score, date;
     try { score = localStorage.getItem('ls_last_score'); date = localStorage.getItem('ls_last_date'); } catch(e){}
 
+    var viewBtn = document.getElementById('viewResultBtn');
+
     if (score !== null && score !== undefined) {
       badge.innerHTML =
         '<div class="score-badge-inner">' +
           '<div class="score-badge-label" data-i18n="hero.score.label">' + window.t('hero.score.label') + '</div>' +
           '<div class="score-badge-num">' + score + '<span>/150</span></div>' +
           (date ? '<div class="score-badge-date">' + date + '</div>' : '') +
-          '<a href="quiz.html" class="score-badge-retake" data-i18n="hero.score.retake">' + window.t('hero.score.retake') + '</a>' +
+          '<a href="quiz-quick.html" class="score-badge-retake" data-i18n="hero.score.retake">' + window.t('hero.score.retake') + '</a>' +
         '</div>';
       badge.classList.add('has-score');
+      /* 测试已完成 — 启用"查看结果"按钮 */
+      if (viewBtn) { viewBtn.disabled = false; viewBtn.classList.add('enabled'); }
     } else {
       badge.innerHTML = '<span class="score-badge-none" data-i18n="hero.score.none">' + window.t('hero.score.none') + '</span>';
       badge.classList.remove('has-score');
+      /* 未测试 — 保持禁用 */
+      if (viewBtn) { viewBtn.disabled = true; viewBtn.classList.remove('enabled'); }
     }
   }
 

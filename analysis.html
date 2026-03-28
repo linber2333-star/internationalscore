@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>人生评分 — 深度分析</title>
+  <title>LifeScore — Deep Analysis</title>
   <link rel="icon" type="image/png" href="images/favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -22,11 +22,12 @@
         <div class="lang-dropdown" id="langDropdown">
           <div class="lang-option" data-lang="en-US">English (US)</div>
           <div class="lang-option" data-lang="es-US">Español (EE.UU.)</div>
-          <div class="lang-option active" data-lang="zh-CN">简体中文</div>
+          <div class="lang-option" data-lang="zh-CN">简体中文</div>
           <div class="lang-option" data-lang="zh-TW">繁體中文</div>
+          <div class="lang-option" data-lang="en-PH">English (PH)</div>
         </div>
       </div>
-      <div class="logo"><span class="logo-mark">LS</span><span class="logo-text" data-i18n="brandName">人生评分</span></div>
+      <div class="logo"><img class="logo-mark" src="images/apple-touch-icon.png" alt="LS"/><span class="logo-text" data-i18n="brandName">人生评分</span></div>
       <nav class="nav" id="nav">
         <a href="index.html" class="nav-link" data-i18n="nav.home">首页</a>
         <a href="analysis.html" class="nav-link active" data-i18n="nav.analysis">评分分析</a>
@@ -107,11 +108,24 @@
 
     <!-- ══════════════════════════════════════════════════════
          赞助区块 — 位于深度分析图表（维度解读）下方
-         此区块与 result.html 中的赞助区块完全相同结构。
-         图片路径说明：
-           LOGO图片：assets/logo-wechat.png / logo-alipay.png / logo-crypto.png / logo-qq.png
-           QR图片：  assets/qr-wechat.png  / qr-alipay.png  / qr-crypto.png  / qr-qq.png
-         尺寸规格：LOGO建议120×120px，QR建议480×480px，均为PNG格式
+
+         【开发者说明 — 支付 LOGO 与二维码图片规格】
+
+         LOGO 图片（显示在按钮上）：
+           文件名称         存放路径                    推荐尺寸          格式
+           logo-paypal.png  assets/logo-paypal.png      120×120px        PNG 透明背景
+           logo-crypto.png  assets/logo-crypto.png      120×120px        PNG 透明背景
+           logo-wise.png    assets/logo-wise.png        120×120px        PNG 透明背景
+           logo-bank.png    assets/logo-bank.png        120×120px        PNG 透明背景
+
+         QR / 收款信息图片（点击后弹出展示）：
+           文件名称        存放路径                    推荐尺寸          格式
+           qr-paypal.png   assets/qr-paypal.png        480×480px        PNG 白底
+           qr-crypto.png   assets/qr-crypto.png        480×480px        PNG 白底
+           qr-wise.png     assets/qr-wise.png          480×480px        PNG 白底
+           qr-bank.png     assets/qr-bank.png          480×480px        PNG 白底
+
+         图片未加载时会自动显示 emoji 占位符，不影响布局。
     ══════════════════════════════════════════════════════ -->
     <div class="sponsor-card sponsor-card--analysis" id="analysisSponsorCard">
       <div class="sponsor-header">
@@ -122,37 +136,41 @@
         </div>
       </div>
       <div class="sponsor-logo-row">
-        <button class="sponsor-logo-btn" data-payment="wechat" aria-label="微信支付赞助">
+        <!-- PayPal — logo文件: assets/logo-paypal.png (120×120px PNG透明背景) -->
+        <button class="sponsor-logo-btn" data-payment="paypal" aria-label="PayPal赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-wechat.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="微信支付"/>
-            <div class="slb-logo-fallback" style="background:#07c160">💚</div>
+            <img class="slb-logo-img" src="assets/logo-paypal.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="PayPal"/>
+            <div class="slb-logo-fallback" style="background:#003087">🅿</div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.wechat">微信支付</span>
-          <span class="slb-tap-hint">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.paypal">PayPal</span>
+          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
         </button>
-        <button class="sponsor-logo-btn" data-payment="alipay" aria-label="支付宝赞助">
+        <!-- USDT 加密钱包 — logo文件: assets/logo-crypto.png (120×120px PNG透明背景) -->
+        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="USDT加密钱包赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-alipay.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="支付宝"/>
-            <div class="slb-logo-fallback" style="background:#1677ff">💙</div>
+            <img class="slb-logo-img" src="assets/logo-crypto.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="USDT"/>
+            <div class="slb-logo-fallback" style="background:#26a17b">💎</div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.alipay">支付宝</span>
-          <span class="slb-tap-hint">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.crypto">USDT 加密</span>
+          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
         </button>
-        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="加密货币赞助">
+        <!-- Wise 转账 — logo文件: assets/logo-wise.png (120×120px PNG透明背景) -->
+        <button class="sponsor-logo-btn" data-payment="wise" aria-label="Wise转账赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-crypto.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="加密支付"/>
-            <div class="slb-logo-fallback" style="background:#f0b90b">🟡</div>
+            <img class="slb-logo-img" src="assets/logo-wise.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Wise"/>
+            <div class="slb-logo-fallback" style="background:#9fe870">🌿</div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.crypto">加密支付</span>
-          <span class="slb-tap-hint">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.wise">Wise</span>
+          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
         </button>
-        <button class="sponsor-logo-btn" data-payment="qq" aria-label="QQ钱包赞助">
+        <!-- 银行转账 — logo文件: assets/logo-bank.png (120×120px PNG透明背景) -->
+        <button class="sponsor-logo-btn" data-payment="bank" aria-label="银行转账赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-qq.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="QQ支付"/>
-            <div class="slb-logo-fallback" style="background:#12b7f5">💜</div>
+            <img class="slb-logo-img" src="assets/logo-bank.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bank Transfer"/>
+            <div class="slb-logo-fallback" style="background:#1a56db">🏦</div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.qq">QQ 钱包</span>
-          <span class="slb-tap-hint">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.bank">银行转账</span>
+          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
         </button>
       </div>
     </div>

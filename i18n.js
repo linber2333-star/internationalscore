@@ -13,7 +13,7 @@ window.I18N = {
     'hero.privacy': '我们承诺不泄露任何用户隐私，并全力做好隐私保护工作。',
     'hero.line1': '立刻开始测试', 'hero.line2': '你的人生评分',
     'hero.sub': '通过科学的维度分析，了解你在健康、财富、社会生活方向与个人价值方面的综合表现，获取专属提升建议。',
-    'btn.start': '开始测试', 'btn.indepth': '深度测试',
+    'btn.start': '开始测试', 'btn.indepth': '深度测试', 'btn.viewResult': '查看我的结果',
     'btn.indepth.note': '想要更准确的结果？深度测试约需 15–20 分钟。',
     'btn.more': '了解更多',
     'stat.done': '已完成测试', 'stat.rating': '用户评分', 'stat.time': '完成时间',
@@ -69,8 +69,9 @@ window.I18N = {
     'share.wechatTip': '请截图后分享到微信朋友圈',
     'sponsor.title': '喜欢我们的测试？你的支持让我们走得更远！',
     'sponsor.sub': '你的每一份赞助都将直接用于题库扩展、算法优化与服务器维护。感谢你！',
-    'sponsor.qr.wechat': '微信支付', 'sponsor.qr.alipay': '支付宝',
-    'sponsor.qr.crypto': '加密支付', 'sponsor.qr.qq': 'QQ 钱包',
+    'sponsor.qr.paypal': 'PayPal', 'sponsor.qr.crypto': 'USDT 加密',
+    'sponsor.qr.wise': 'Wise 转账', 'sponsor.qr.bank': '银行转账',
+    'sponsor.tap': '点击赞助',
     'sponsor.title2': '看完报告觉得有收获？请开发者喝杯咖啡',
     'sponsor.modal.sub': '扫码完成赞助，感谢你的支持！',
     'sponsor.modal.placeholder': '请将收款二维码图片放入 assets/ 文件夹',
@@ -88,6 +89,7 @@ window.I18N = {
     'moretests.deep.overwrite': '⚡ 深度测试结果将覆盖快速测试结果',
     'winner.banner': '🏆 恭喜你，你是真正的人生赢家！',
     'deepnotice.title': '好事值得等待', 'deepnotice.cta': '先体验快速测试 →', 'deepnotice.wait': '好的，我等着',
+    'deepnotice.text': '深度测试正在进行重大升级——我们正在优化每一道题目并重新校准评分模型。在此期间，快速测试同样能为你提供准确、深入的评分结果。💛',
     'bonus.label': '卓越加分',
     'youth.tip': '🌱 给年轻的你\n\n你才刚刚开始。在美国这片土地上，你拥有的机会比任何一代人都多——关键在于你今天选择成为什么样的人。\n\n去探索，去尝试，去犯错，去成长。你的人生，才刚刚开幕。',
     'popup.title': '选择您的语言', 'popup.subtitle': '您可以随时在页面顶部更改语言',
@@ -103,7 +105,7 @@ window.I18N = {
     'hero.privacy': '我們承諾不洩露任何用戶隱私，並全力做好隱私保護工作。',
     'hero.line1': '立刻開始測試', 'hero.line2': '你的人生評分',
     'hero.sub': '透過科學的維度分析，了解你在健康、財富、社會生活方向與個人價值方面的綜合表現，獲取專屬提升建議。',
-    'btn.start': '開始測試', 'btn.indepth': '深度測試',
+    'btn.start': '開始測試', 'btn.indepth': '深度測試', 'btn.viewResult': '查看我的結果',
     'btn.indepth.note': '想要更準確的結果？深度測試約需 15–20 分鐘。',
     'btn.more': '了解更多',
     'stat.done': '已完成測試', 'stat.rating': '用戶評分', 'stat.time': '完成時間',
@@ -157,8 +159,9 @@ window.I18N = {
     'share.wechatTip': '請截圖後分享到微信朋友圈',
     'sponsor.title': '喜歡我們的測試？你的支持讓我們走得更遠！',
     'sponsor.sub': '你的每一份贊助都將直接用於題庫擴展、算法優化與服務器維護。感謝你！',
-    'sponsor.qr.wechat': '微信支付', 'sponsor.qr.alipay': '支付寶',
-    'sponsor.qr.crypto': '加密支付', 'sponsor.qr.qq': 'QQ 錢包',
+    'sponsor.qr.paypal': 'PayPal', 'sponsor.qr.crypto': 'USDT 加密',
+    'sponsor.qr.wise': 'Wise 轉帳', 'sponsor.qr.bank': '銀行轉帳',
+    'sponsor.tap': '點擊贊助',
     'sponsor.title2': '看完報告覺得有收穫？請開發者喝杯咖啡',
     'sponsor.modal.sub': '掃碼完成贊助，感謝你的支持！',
     'sponsor.modal.placeholder': '請將收款二維碼圖片放入 assets/ 資料夾',
@@ -176,6 +179,7 @@ window.I18N = {
     'moretests.deep.overwrite': '⚡ 深度測試結果將覆蓋快速測試結果',
     'winner.banner': '🏆 恭喜你，你是真正的人生贏家！',
     'deepnotice.title': '好事值得等待', 'deepnotice.cta': '先體驗快速測試 →', 'deepnotice.wait': '好的，我等著',
+    'deepnotice.text': '深度測試正在進行重大升級——我們正在優化每一道題目並重新校準評分模型。在此期間，快速測試同樣能為你提供準確、深入的評分結果。💛',
     'bonus.label': '卓越加分',
     'youth.tip': '🌱 給年輕的你\n\n你才剛剛開始。在美國這片土地上，你擁有的機會比任何一代人都多——關鍵在於你今天選擇成為什麼樣的人。\n\n去探索，去嘗試，去犯錯，去成長。你的人生，才剛剛開幕。',
     'popup.title': '選擇您的語言', 'popup.subtitle': '您可以隨時在頁面頂部更改語言',
@@ -191,7 +195,7 @@ window.I18N = {
     'hero.privacy': "We're committed to protecting your privacy. Your data is never sold or shared.",
     'hero.line1': 'Take the Test Now', 'hero.line2': 'Your LifeScore',
     'hero.sub': 'Use science-backed dimension analysis to understand your performance in health, wealth, relationships, and personal values — then get a customized action plan.',
-    'btn.start': 'Start Test', 'btn.indepth': 'In-Depth Test',
+    'btn.start': 'Start Test', 'btn.indepth': 'In-Depth Test', 'btn.viewResult': 'View My Results',
     'btn.indepth.note': 'Want a more precise result? The in-depth test takes 15–20 minutes.',
     'btn.more': 'Learn More',
     'stat.done': 'Tests Completed', 'stat.rating': 'User Rating', 'stat.time': 'Avg. Completion',
@@ -245,8 +249,9 @@ window.I18N = {
     'share.wechatTip': 'Take a screenshot to share on social media',
     'sponsor.title': 'Finding this useful? Help keep LifeScore free!',
     'sponsor.sub': 'Every contribution goes directly toward expanding the question bank, improving the algorithm, and keeping the servers running. Thank you!',
-    'sponsor.qr.wechat': 'WeChat Pay', 'sponsor.qr.alipay': 'Alipay',
-    'sponsor.qr.crypto': 'Crypto', 'sponsor.qr.qq': 'QQ Wallet',
+    'sponsor.qr.paypal': 'PayPal', 'sponsor.qr.crypto': 'USDT Crypto',
+    'sponsor.qr.wise': 'Wise', 'sponsor.qr.bank': 'Bank Transfer',
+    'sponsor.tap': 'Tap to Sponsor',
     'sponsor.title2': 'Got value from this report? Buy the developer a coffee ☕',
     'sponsor.modal.sub': 'Scan to donate — thank you for your support!',
     'sponsor.modal.placeholder': 'Place the QR image in the assets/ folder',
@@ -264,10 +269,101 @@ window.I18N = {
     'moretests.deep.overwrite': '⚡ In-Depth results will replace Quick Test results',
     'winner.banner': '🏆 Congratulations — you are a true LifeScore champion!',
     'deepnotice.title': 'Worth the Wait', 'deepnotice.cta': 'Try the Quick Test first →', 'deepnotice.wait': "Got it, I'll wait",
+    'deepnotice.text': "The In-Depth Test is undergoing a major upgrade — we're refining every question and recalibrating the scoring model. The Quick Test will give you an accurate, insightful score in the meantime. 💛",
     'bonus.label': 'Elite Bonus',
     'youth.tip': "🌱 To the younger you\n\nYou're just getting started. In America, you have more opportunity than almost any generation before — what matters is who you choose to become today.\n\nGo explore, try things, make mistakes, and grow. Your story is just beginning.",
     'popup.title': 'Choose Your Language', 'popup.subtitle': 'You can change your language at any time from the top of the page',
         'moretests.deep.cta': 'Start In-Depth Test', 'btn.more.tests': 'More Tests',
+  },
+  'en-PH': {
+    langLabel: '🇵🇭 Pilipinas · English',
+    brandName: 'LifeScore',
+    'nav.home': 'Home', 'nav.analysis': 'Score Analysis', 'nav.database': 'Database',
+    'nav.more': 'More Tests', 'nav.about': 'About',
+    scoreUnit: 'pts', badge: 'Your Personal LifeScore',
+    'stat.free': 'Completely Free', 'stat.unlimited': 'Unlimited Retakes',
+    'hero.privacy': "We're committed to protecting your privacy. Your data is never sold or shared.",
+    'hero.line1': 'Take the Test Now', 'hero.line2': 'Your LifeScore',
+    'hero.sub': "Get a science-backed picture of where you stand in health, finances, relationships, and personal values — then receive a customized action plan built for life in the Philippines.",
+    'btn.start': 'Start Test', 'btn.indepth': 'In-Depth Test', 'btn.viewResult': 'View My Results',
+    'btn.indepth.note': 'Want a more detailed result? The in-depth test takes 15–20 minutes.',
+    'btn.more': 'Learn More',
+    'stat.done': 'Tests Completed', 'stat.rating': 'User Rating', 'stat.time': 'Avg. Completion',
+    'tag.health': 'Health', 'tag.wealth': 'Wealth', 'tag.relation': 'Relationships',
+    'tag.achieve': 'Achievement', 'tag.happy': 'Happiness',
+    'feat1.title': 'Multi-Dimension Analysis', 'feat1.desc': 'Covers background, social life, and personal identity',
+    'feat2.title': 'Smart Question Routing', 'feat2.desc': 'Questions adapt automatically to your situation',
+    'feat3.title': 'Privacy Protected', 'feat3.desc': 'Encrypted and fully anonymous',
+    'feat4.title': 'Personalised Report', 'feat4.desc': 'Tailored advice and a clear improvement roadmap',
+    'hero.score.label': 'Last Score', 'hero.score.retake': 'Retake Test',
+    'hero.score.none': 'Not tested yet',
+    'footer.brand': 'LifeScore PH', 'footer.tagline': 'Know yourself. Grow yourself.',
+    'footer.col1': 'Product', 'footer.l1a': 'LifeScore', 'footer.l1b': 'Score Analysis', 'footer.l1c': 'More Tests',
+    'footer.col2': 'Resources', 'footer.l2a': 'Database', 'footer.l2b': 'Help Center', 'footer.l2c': 'Blog',
+    'footer.col3': 'Company', 'footer.l3a': 'About Us', 'footer.l3b': 'Contact', 'footer.l3c': 'Privacy Policy',
+    'footer.copy': '© 2025 LifeScore PH. All rights reserved.',
+    'footer.terms': 'Terms of Service', 'footer.privacy': 'Privacy Policy', 'footer.cookie': 'Cookie Policy',
+    'quiz.title': 'LifeScore PH',
+    'quiz.progress': 'Completed',
+    'quiz.section.basic': 'Background', 'quiz.section.social': 'Social & Life',
+    'quiz.section.identity': 'Personal Identity', 'quiz.section.bonus': 'Elite Bonus',
+    'quiz.prev': 'Previous', 'quiz.next': 'Next', 'quiz.submit': 'See My Results',
+    'quiz.skip': 'Skip (not applicable)',
+    'quiz.note.gender': 'Gender is not scored — used only to personalise questions',
+    'quiz.answered': 'Answered',
+    'quiz.keyboardHint': 'Selection auto-advances · Arrow keys to change pages',
+    'quiz.pageComplete': 'Page complete — continue to the next',
+    'quiz.mode.short': 'Quick Test', 'quiz.mode.full': 'In-Depth Test',
+    'result.title': 'Your LifeScore', 'result.subtitle': 'Score Report',
+    'result.total': 'Overall Score',
+    'result.dim.basic': 'Baseline', 'result.dim.social': 'Social & Life', 'result.dim.identity': 'Personal Identity',
+    'result.retake': 'Retake Test', 'result.share': 'Share Results',
+    'result.analysis': 'Dimension Breakdown', 'result.tip': 'Improvement Tips',
+    'result.rank': 'You scored higher than', 'result.rankSuffix': 'of users',
+    'result.saved': 'Your score has been saved to the home page',
+    'result.low': 'Just Getting Started', 'result.mid-low': 'Building Up',
+    'result.mid': 'Steady & Balanced', 'result.high': 'Above Average',
+    'result.excellent': 'Outstanding', 'result.exceptional': 'Legendary',
+    'result.viewAnalysis': 'View Deep Analysis',
+    'result.highlights': 'Your Highlights', 'result.improve': 'Room to Grow', 'result.nextSteps': 'Action Plan',
+    'analysis.tag': 'Deep Analysis Report', 'analysis.title': 'Your LifeScore Decoded',
+    'analysis.dimDeep': 'Dimension Deep Dive', 'analysis.qBreakdown': 'Question Review & Insights',
+    'analysis.insights': 'Personalised Insights', 'analysis.filter.all': 'All',
+    'analysis.cta.text': 'Retest regularly to track your personal growth.',
+    'analysis.noResult.title': 'No Results Yet',
+    'analysis.noResult.desc': 'Complete the LifeScore test and your personalised deep analysis report will appear here.',
+    'share.title': 'Share Your Results',
+    'share.copy': 'Copy Text', 'share.weibo': 'Weibo', 'share.wechat': 'WeChat',
+    'share.qzone': 'QZone', 'share.rednote': 'RedNote', 'share.douyin': 'TikTok',
+    'share.kuaishou': 'Kwai', 'share.save': 'Save Image',
+    'share.wechatTip': 'Take a screenshot to share on social media',
+    'sponsor.title': 'Finding this useful? Help keep LifeScore free!',
+    'sponsor.sub': 'Every contribution goes directly toward expanding the question bank, improving the algorithm, and keeping the servers running. Salamat!',
+    'sponsor.qr.paypal': 'PayPal', 'sponsor.qr.crypto': 'USDT Crypto',
+    'sponsor.qr.wise': 'Wise', 'sponsor.qr.bank': 'Bank Transfer',
+    'sponsor.tap': 'Tap to Sponsor',
+    'sponsor.title2': 'Got value from this report? Buy the developer a coffee ☕',
+    'sponsor.modal.sub': 'Scan to donate — thank you for your support!',
+    'sponsor.modal.placeholder': 'Place the QR image in the assets/ folder',
+    'sponsor.modal.hint': 'Any amount helps — even the price of a milk tea goes a long way ☕',
+    'moretests.title': 'Choose Your Test',
+    'moretests.sub': 'The Quick version gives you an overall score in 8 minutes; the In-Depth version uses 100+ questions for a more precise multi-dimensional analysis.',
+    'moretests.quick.title': 'Quick LifeScore PH',
+    'moretests.quick.desc': 'About 50 core questions covering health, finances, relationships, and values — done in 6–8 minutes. Questions are tailored to Philippine life.',
+    'moretests.quick.time': '~6–8 minutes', 'moretests.quick.qcount': '~50 questions',
+    'moretests.quick.feature': 'Localised for the Philippines', 'moretests.quick.cta': 'Start Quick Test',
+    'moretests.deep.title': 'In-Depth LifeScore',
+    'moretests.deep.desc': '100+ questions with smart branching — covers relationships, career achievement, and personal identity.',
+    'moretests.deep.time': '~15–25 minutes', 'moretests.deep.qcount': '70–105 questions (varies)',
+    'moretests.deep.feature': 'Includes relationship & career bonus questions',
+    'moretests.deep.overwrite': '⚡ In-Depth results will replace Quick Test results',
+    'winner.banner': '🏆 Congratulations — you are a true LifeScore champion! 🇵🇭',
+    'deepnotice.title': 'Worth the Wait', 'deepnotice.cta': 'Try the Quick Test first →', 'deepnotice.wait': "Got it, I'll wait",
+    'deepnotice.text': "The In-Depth Test is getting a major upgrade — every question is being refined and the scoring model recalibrated. The Quick Test will give you an accurate, insightful score in the meantime. 💛",
+    'bonus.label': 'Elite Bonus',
+    'youth.tip': "🌱 To the younger you\n\nYou're just getting started — and you're doing it in one of the most resilient, tight-knit cultures in the world. The Philippines will challenge you with real obstacles: traffic, cost of living, limited capital, family obligations. But it will also give you something most countries can't — a community that shows up for you.\n\nBuild your skills. Honor your family. And carve out a future that's also yours.",
+    'popup.title': 'Choose Your Language', 'popup.subtitle': 'You can change your language at any time from the top of the page',
+    'moretests.deep.cta': 'Start In-Depth Test', 'btn.more.tests': 'More Tests',
   },
   'es-US': {
     langLabel: '🇺🇸 Estados Unidos · Español',
@@ -279,7 +375,7 @@ window.I18N = {
     'hero.privacy': 'Nos comprometemos a proteger tu privacidad. Tus datos nunca se venden ni comparten.',
     'hero.line1': 'Haz la prueba ahora', 'hero.line2': 'Tu LifeScore',
     'hero.sub': 'Analiza tu rendimiento en salud, finanzas, relaciones y valores personales usando un sistema basado en evidencia — y obtén un plan de acción personalizado.',
-    'btn.start': 'Comenzar prueba', 'btn.indepth': 'Prueba profunda',
+    'btn.start': 'Comenzar prueba', 'btn.indepth': 'Prueba profunda', 'btn.viewResult': 'Ver mis resultados',
     'btn.indepth.note': '¿Quieres un resultado más preciso? La prueba profunda toma 15–20 minutos.',
     'btn.more': 'Más información',
     'stat.done': 'Pruebas completadas', 'stat.rating': 'Valoración', 'stat.time': 'Tiempo promedio',
@@ -333,8 +429,9 @@ window.I18N = {
     'share.wechatTip': 'Toma una captura de pantalla para compartir en redes sociales',
     'sponsor.title': '¿Te fue útil? ¡Ayúdanos a mantener LifeScore gratuito!',
     'sponsor.sub': 'Cada contribución se destina a ampliar el banco de preguntas, mejorar el algoritmo y mantener los servidores.',
-    'sponsor.qr.wechat': 'WeChat Pay', 'sponsor.qr.alipay': 'Alipay',
-    'sponsor.qr.crypto': 'Criptomonedas', 'sponsor.qr.qq': 'QQ Wallet',
+    'sponsor.qr.paypal': 'PayPal', 'sponsor.qr.crypto': 'USDT Cripto',
+    'sponsor.qr.wise': 'Wise', 'sponsor.qr.bank': 'Transferencia Bancaria',
+    'sponsor.tap': 'Toca para donar',
     'sponsor.title2': '¿Este reporte te fue útil? Invítale un café al desarrollador ☕',
     'sponsor.modal.sub': 'Escanea el código QR para donar — ¡gracias por tu apoyo!',
     'sponsor.modal.placeholder': 'Coloca la imagen QR en la carpeta assets/',
@@ -352,6 +449,7 @@ window.I18N = {
     'moretests.deep.overwrite': '⚡ Los resultados de la prueba profunda reemplazarán los de la prueba rápida',
     'winner.banner': '🏆 ¡Felicitaciones — eres un verdadero campeón de LifeScore!',
     'deepnotice.title': 'Vale la pena esperar', 'deepnotice.cta': 'Probar la prueba rápida →', 'deepnotice.wait': 'Entendido, esperaré',
+    'deepnotice.text': 'La prueba profunda está siendo actualizada — estamos refinando cada pregunta y recalibrando el modelo de puntuación. Mientras tanto, la prueba rápida te dará un resultado preciso e informativo. 💛',
     'bonus.label': 'Puntos Élite',
     'youth.tip': '🌱 Para el tú más joven\n\nRecién estás comenzando. En Estados Unidos tienes más oportunidades que casi cualquier generación anterior — lo que importa es en quién eliges convertirte hoy.\n\nSal a explorar, intenta cosas, comete errores y crece. Tu historia recién comienza.',
     'popup.title': 'Elige tu idioma', 'popup.subtitle': 'Puedes cambiar el idioma en cualquier momento desde la parte superior de la página',
@@ -377,6 +475,7 @@ window.qlang = function(obj) {
   if (!obj) return '';
   var l = window.I18N_CURRENT || 'zh-CN';
   if (l === 'en-US') return obj.en  || obj.cn || '';
+  if (l === 'en-PH') return obj.ph  || obj.en || obj.cn || '';
   if (l === 'es-US') return obj.es  || obj.en || obj.cn || '';
   if (l === 'zh-TW') return obj.tw  || obj.cn || '';
   return obj.cn || '';
@@ -389,6 +488,10 @@ window.qlangFn = function(q, answers) {
   if (l === 'en-US') {
     if (typeof q.enFn === 'function') return q.enFn(answers);
     return q.en || q.cn || '';
+  }
+  if (l === 'en-PH') {
+    if (typeof q.phFn === 'function') return q.phFn(answers);
+    return q.ph || q.en || q.cn || '';
   }
   if (l === 'es-US') {
     if (typeof q.esFn === 'function') return q.esFn(answers);
@@ -415,7 +518,7 @@ window.applyI18n = function(lang) {
   if (ll) {
     var loc = window.LS_LOCALES.find(function(l) { return l.lang === window.I18N_CURRENT; });
     if (loc) {
-      ll.innerHTML = window.renderFlag('US') + ' ' + loc.country + ' · ' + loc.label;
+      ll.innerHTML = window.renderFlag(loc.code) + ' ' + loc.country + ' · ' + loc.label;
     }
   }
   // Update dropdown options with JS flags
@@ -450,7 +553,8 @@ document.addEventListener('DOMContentLoaded', function() { window.applyI18n(); }
 
   // SVG flag for USA (simple fallback)
   var FLAG_SVG = {
-    US: '<svg viewBox="0 0 60 40" width="24" height="16" style="vertical-align:middle;margin-right:4px;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.1)"><rect width="60" height="40" fill="#fff"/><g fill="#bf0a30"><rect y="0" width="60" height="3.08"/><rect y="6.15" width="60" height="3.08"/><rect y="12.31" width="60" height="3.08"/><rect y="18.46" width="60" height="3.08"/><rect y="24.62" width="60" height="3.08"/><rect y="30.77" width="60" height="3.08"/><rect y="36.92" width="60" height="3.08"/></g><rect width="24" height="21.54" fill="#002868"/><g fill="#fff" font-size="3" font-family="Arial"><text x="2" y="4">★★★★★★</text><text x="4" y="7">★★★★★</text><text x="2" y="10">★★★★★★</text><text x="4" y="13">★★★★★</text><text x="2" y="16">★★★★★★</text><text x="4" y="19">★★★★★</text></g></svg>'
+    US: '<svg viewBox="0 0 60 40" width="24" height="16" style="vertical-align:middle;margin-right:4px;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.1)"><rect width="60" height="40" fill="#fff"/><g fill="#bf0a30"><rect y="0" width="60" height="3.08"/><rect y="6.15" width="60" height="3.08"/><rect y="12.31" width="60" height="3.08"/><rect y="18.46" width="60" height="3.08"/><rect y="24.62" width="60" height="3.08"/><rect y="30.77" width="60" height="3.08"/><rect y="36.92" width="60" height="3.08"/></g><rect width="24" height="21.54" fill="#002868"/><g fill="#fff" font-size="3" font-family="Arial"><text x="2" y="4">★★★★★★</text><text x="4" y="7">★★★★★</text><text x="2" y="10">★★★★★★</text><text x="4" y="13">★★★★★</text><text x="2" y="16">★★★★★★</text><text x="4" y="19">★★★★★</text></g></svg>',
+    PH: '<svg viewBox="0 0 60 30" width="24" height="12" style="vertical-align:middle;margin-right:4px;border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,0.1)"><rect width="60" height="15" fill="#0038A8"/><rect y="15" width="60" height="15" fill="#CE1126"/><polygon points="0,0 30,15 0,30" fill="#fff"/><circle cx="11" cy="15" r="3.5" fill="#FCD116"/><g fill="#FCD116"><polygon points="11,3 11.7,5.2 14,5.2 12.2,6.5 12.8,8.8 11,7.5 9.2,8.8 9.8,6.5 8,5.2 10.3,5.2"/><polygon points="11,27 11.7,24.8 14,24.8 12.2,23.5 12.8,21.2 11,22.5 9.2,21.2 9.8,23.5 8,24.8 10.3,24.8"/><polygon points="2,15 4.2,14.3 4.2,12 5.5,13.8 7.8,13.2 6.5,15 7.8,16.8 5.5,16.2 4.2,18 4.2,15.7"/></g></svg>'
   };
 
   // Render flag - returns HTML string
@@ -459,16 +563,18 @@ document.addEventListener('DOMContentLoaded', function() { window.applyI18n(); }
       return FLAG_SVG[code] || '<span style="display:inline-block;width:24px;height:16px;background:#e2e8f0;border-radius:2px;vertical-align:middle;margin-right:4px"></span>';
     }
     // Use emoji with proper styling
-    var emoji = code === 'US' ? '🇺🇸' : '🌐';
+    var emojiMap = { US: '🇺🇸', PH: '🇵🇭' };
+    var emoji = emojiMap[code] || '🌐';
     return '<span style="font-size:20px;line-height:1;vertical-align:middle;margin-right:4px;font-family:\'Apple Color Emoji\',\'Segoe UI Emoji\',\'Noto Color Emoji\',\'Twemoji Mozilla\',sans-serif">' + emoji + '</span>';
   };
 
-  // Locale data - all use US flag
+  // Locale data — order: USA English, USA Spanish, USA Simplified Chinese, USA Traditional Chinese, Philippines English
   window.LS_LOCALES = [
-    { lang: 'en-US', code: 'US', country: 'USA', label: 'English' },
-    { lang: 'es-US', code: 'US', country: 'USA', label: 'Español' },
-    { lang: 'zh-CN', code: 'US', country: 'USA', label: '简体中文' },
-    { lang: 'zh-TW', code: 'US', country: 'USA', label: '繁體中文' },
+    { lang: 'en-US', code: 'US', country: 'USA',         label: 'English' },
+    { lang: 'es-US', code: 'US', country: 'USA',         label: 'Español' },
+    { lang: 'zh-CN', code: 'US', country: 'USA',         label: 'Simplified Chinese' },
+    { lang: 'zh-TW', code: 'US', country: 'USA',         label: 'Traditional Chinese' },
+    { lang: 'en-PH', code: 'PH', country: 'Philippines', label: 'English' },
   ];
 
   // Update lang dropdown options with JS-rendered flags
@@ -526,8 +632,8 @@ document.addEventListener('DOMContentLoaded', function() { window.applyI18n(); }
     box.className = 'ls-popup-box';
 
     var logoHtml = '<div class="ls-popup-logo"><div class="ls-popup-logo-mark">LS</div></div>';
-    var titleHtml = '<div class="ls-popup-title">' + window.t('popup.title') + '</div>';
-    var subHtml = '<div class="ls-popup-sub">' + window.t('popup.subtitle') + '</div>';
+    var titleHtml = '<div class="ls-popup-title">Choose Your Language</div>';
+    var subHtml = '<div class="ls-popup-sub">You can change your language at any time from the top of the page.</div>';
 
     var listHtml = '<div class="ls-locale-list">';
     window.LS_LOCALES.forEach(function(loc) {

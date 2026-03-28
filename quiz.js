@@ -123,7 +123,7 @@
 
     var qids = pages[pageIdx] || [];
     var lang  = window.I18N_CURRENT || 'zh-CN';
-    var isEn  = (lang === 'en-US');
+    var isEn  = (lang === 'en-US' || lang === 'en-PH');
     var isEs  = (lang === 'es-US');
     var isTW  = (lang === 'zh-TW');
     var letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
@@ -148,7 +148,7 @@
     if (headerFill)    headerFill.style.width    = pct + '%';
     if (headerLabel)   headerLabel.textContent   = pct + '%';
     if (progressCount) {
-      var _isEN2 = (lang === 'en-US' || lang === 'es-US');
+      var _isEN2 = (lang === 'en-US' || lang === 'en-PH' || lang === 'es-US');
       progressCount.textContent = _isEN2
         ? (lang === 'es-US' ? 'Pág. '+(pageIdx+1)+' de '+pages.length : 'Page '+(pageIdx+1)+' of '+pages.length)
         : ('第 '+(pageIdx+1)+' 页 · 共 '+pages.length+' 页');
@@ -185,7 +185,7 @@
         var mc      = (SECTION_META[q.section] || SECTION_META.basic).color;
         var isMulti = !!q.multi;
 
-        var _isEN = (lang === 'en-US' || lang === 'es-US');
+        var _isEN = (lang === 'en-US' || lang === 'en-PH' || lang === 'es-US');
         var noteHtml   = (q.note && !q.noNote && !q.hideNote) ? '<div class="q-note">'+(window.qlang ? window.qlang(q.note) : (lang==='zh-TW'?q.note.tw:q.note.cn))+'</div>' : '';
         var nsBadge    = q.scorable ? '' : '<span class="q-noscore-badge">'+(_isEN ? (lang==='es-US'?'Sin puntaje':'Not scored') : (lang==='zh-TW'?'不計分':'不计分'))+'</span>';
         var multiBadge = isMulti ? '<span class="q-multi-badge">'+(_isEN ? (lang==='es-US'?'Múltiple':'Multi-select') : (lang==='zh-TW'?'多選':'多选'))+'</span>' : '';
@@ -566,7 +566,7 @@
 
     try {
       localStorage.setItem('ls_last_score', finalScore);
-      var _dateLocale = {'zh-TW':'zh-TW','zh-CN':'zh-CN','en-US':'en-US','es-US':'es-US'}[window.I18N_CURRENT] || 'en-US';
+      var _dateLocale = {'zh-TW':'zh-TW','zh-CN':'zh-CN','en-US':'en-US','en-PH':'en-PH','es-US':'es-US'}[window.I18N_CURRENT] || 'en-US';
       localStorage.setItem('ls_last_date', new Date().toLocaleDateString(_dateLocale));
     } catch(e) {}
     var resultPayload = {

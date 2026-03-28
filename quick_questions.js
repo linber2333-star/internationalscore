@@ -37,6 +37,7 @@
 
     { /* QK1 — Age */
       id: 'QK1', section: 'basic', scorable: true, noImprove: true,
+      ph: 'What is your current age group?',
       en: 'What is your current age group?',
       es: '¿Cuál es tu rango de edad actual?',
       cn: '你目前的年龄段是？',
@@ -523,6 +524,7 @@
     { /* QKAB1 — Work shifts / hours */
       id: 'QKAB1', section: 'social', scorable: true,
       showIf: function(s){ return s.QK3 === 1; },
+      ph: 'Which situation describes your current work setup and hours?',
       en: 'Which situation describes your current work shifts and hours?',
       es: '¿Cuál situación describe mejor tus turnos y horas de trabajo actuales?',
       cn: '以下哪种情况符合你目前的工作班次和时长？',
@@ -530,10 +532,12 @@
       options: [
         { en: 'Regular day shift, one day off per week.',              es: 'Turno diurno regular, un día libre por semana.', cn: '正常白班，每周休一天。',           tw: '正常白班，每週休一天。',           score: 3 },
         { en: 'Regular day shift, weekends off.',                      es: 'Turno diurno regular, fines de semana libres.', cn: '正常白班，周末双休。',              tw: '正常白班，週末雙休。',              score: 4 },
-        { en: 'Long-term night shift.',                                es: 'Turno nocturno a largo plazo.', cn: '长期夜班。',                        tw: '長期夜班。',                        score: 1 },
+        { ph: 'Long-term night shift (e.g. BPO/call centre graveyard shift).',
+        en: 'Long-term night shift.',                                es: 'Turno nocturno a largo plazo.', cn: '长期夜班。',                        tw: '長期夜班。',                        score: 1 },
         { en: 'Day and night reversed (irregular schedule).',          es: 'Horario invertido (noche/día irregular).', cn: '昼夜颠倒（不规律）。',              tw: '晝夜顛倒（不規律）。',              score: 1 },
         { en: 'High-intensity overtime — working over 55 hours/week.', es: 'Horas extra de alta intensidad — más de 55 horas/semana.', cn: '高强度加班，每周超过55小时。',      tw: '高強度加班，每週超過55小時。',      score: 0 },
-        { en: 'Free/Flexible schedule.',                               es: 'Horario libre/flexible.', cn: '自由/弹性上班。',                   tw: '自由/彈性上班。',                   score: 4 },
+        { ph: 'WFH / hybrid / freelance — flexible schedule.',
+        en: 'Free/Flexible schedule.',                               es: 'Horario libre/flexible.', cn: '自由/弹性上班。',                   tw: '自由/彈性上班。',                   score: 4 },
       ],
     },
 
@@ -569,6 +573,7 @@
     { /* QKAB4 — Daily income balance */
       id: 'QKAB4', section: 'social', scorable: true,
       showIf: function(s){ return s.QK3 === 1; },
+      ph: 'After deducting rent/amortization and basic daily expenses (food, utilities, load), what does your monthly take-home look like?',
       en: 'What is your daily after-tax income balance after deducting rent/mortgage and basic food?',
       es: '¿Cuál es tu balance diario de ingresos después de impuestos, descontando renta/hipoteca y alimentación básica?',
       cn: '扣除房租/房贷和基本生活开销后，你的每月税后收入结余如何？',
@@ -632,6 +637,7 @@
     { /* QKAC1 — Cash flow stage */
       id: 'QKAC1', section: 'social', scorable: true,
       showIf: function(s){ return s.QK3 === 2; },
+      ph: "What stage is your business/sari-sari store/SME's cash flow in?",
       en: "What stage is your business/project's cash flow in?",
       cn: '你的业务/项目目前处于哪个现金流阶段？',
       tw: '你的業務/項目目前處於哪個現金流階段？',
@@ -678,6 +684,7 @@
     { /* QKAD1 — Savings runway */
       id: 'QKAD1', section: 'social', scorable: true,
       showIf: function(s){ return s.QK3 === 3; },
+      ph: 'Without lowering your current basic living standards, how long can your savings or income from family/abroad support you?',
       en: 'Without lowering your current basic living standards, how long can your savings or passive income support you?',
       es: 'Sin bajar tu estándar de vida básico, ¿cuánto tiempo pueden sostenerte tus ahorros o ingresos pasivos?',
       cn: '在不降低基本生活水准的前提下，你的储蓄或被动收入能支撑多久？',
@@ -904,10 +911,14 @@
       cn: '你的年收入大概是多少（税前，含各类收入）？',
       tw: '你的年收入大概是多少（稅前，含各類收入）？',
       options: [
-        { en: 'Extremely High — top 1% / high net worth.', cn: '极高（前1%，年收入超50万美元或高净值）。', tw: '極高（前1%，年收入超50萬美元或高淨值）。', score: 4 },
-        { en: 'High — solid upper-middle class ($100K–$500K).',  es: 'Alto — clase media-alta sólida ($100K–$500K).',  cn: '高（扎实的中上阶层，年收入10–50万美元）。', tw: '高（扎實的中上階層，年收入10–50萬美元）。', score: 3 },
-        { en: 'Moderate — self-sufficient ($40K–$100K).',  es: 'Moderado — autosuficiente ($40K–$100K).',  cn: '中等（可自给自足，年收入4–10万美元）。', tw: '中等（可自給自足，年收入4–10萬美元）。', score: 2 },
-        { en: 'Low — near the poverty line (under $40K).',  es: 'Bajo — cerca del umbral de pobreza (menos de $40K).',  cn: '较低（接近贫困线，年收入低于4万美元）。', tw: '較低（接近貧困線，年收入低於4萬美元）。', score: 1 },
+        { ph: 'Extremely High — top 1% / high net worth (₱5M+ annual).',
+        en: 'Extremely High — top 1% / high net worth.', cn: '极高（前1%，年收入超50万美元或高净值）。', tw: '極高（前1%，年收入超50萬美元或高淨值）。', score: 4 },
+        { ph: 'High — upper class (₱1M–₱5M annual).',
+        en: 'High — solid upper-middle class ($100K–$500K)',  es: 'Alto — clase media-alta sólida ($100K–$500K).',  cn: '高（扎实的中上阶层，年收入10–50万美元）。', tw: '高（扎實的中上階層，年收入10–50萬美元）。', score: 3 },
+        { ph: 'Moderate — comfortable middle class (₱400K–₱1M annual).',
+        en: 'Moderate — self-sufficient ($40K–$100K)',  es: 'Moderado — autosuficiente ($40K–$100K).',  cn: '中等（可自给自足，年收入4–10万美元）。', tw: '中等（可自給自足，年收入4–10萬美元）。', score: 2 },
+        { ph: 'Low — near the poverty line (under ₱400K annual).',
+        en: 'Low — near the poverty line (under $40K)',  es: 'Bajo — cerca del umbral de pobreza (menos de $40K).',  cn: '较低（接近贫困线，年收入低于4万美元）。', tw: '較低（接近貧困線，年收入低於4萬美元）。', score: 1 },
         { en: 'Extremely Low — severe financial stress.',  es: 'Muy bajo — estrés financiero severo.',  cn: '极低（面临严重经济压力）。', tw: '極低（面臨嚴重經濟壓力）。', score: 0 },
       ],
     },
@@ -944,6 +955,7 @@
 
     { /* QKC5 — Overall health */
       id: 'QKC5', section: 'basic', scorable: true,
+      ph: 'What is your overall health status?',
       en: 'What is your overall health status?',
       es: '¿Cuál es tu estado de salud general?',
       cn: '你目前的整体健康状况如何？',
@@ -959,6 +971,7 @@
 
     { /* QKC6 — Criminal record */
       id: 'QKC6', section: 'social', scorable: true, noImprove: true,
+      ph: 'Do you have any criminal record on file (e.g. NBI clearance issues or legal convictions)?',
       en: 'Do you have any prior criminal record or history of legal convictions?',
       es: '¿Tienes algún antecedente penal o historial de condenas legales?',
       cn: '你是否有犯罪记录？',
@@ -972,24 +985,34 @@
 
     { /* QKC7 — Living environment */
       id: 'QKC7', section: 'basic', scorable: true, noImprove: true,
+      ph: 'What is your current living situation?',
       en: 'What is your current living environment?',
       es: '¿Cuál es tu entorno de vida actual?',
       cn: '你目前的居住环境是？',
       tw: '你目前的居住環境是？',
       options: [
-        { en: 'Multi-person dormitory.',                        es: 'Dormitorio compartido.', cn: '多人合租宿舍或过渡住所。',  tw: '多人合租宿舍或過渡住所。',  score: 1 },
-        { en: 'Single / private dormitory.',                   es: 'Dormitorio individual/privado.', cn: '独居宿舍或临时住所。',  tw: '獨居宿舍或臨時住所。',  score: 2 },
-        { en: 'Shared apartment with strangers.',              es: 'Apartamento compartido con extraños.', cn: '与陌生人合租（含Craigslist/平台租房）。',  tw: '與陌生人合租（含Craigslist/平台租房）。',  score: 2 },
-        { en: 'Shared apartment with acquaintances.',          es: 'Apartamento compartido con conocidos.', cn: '与朋友/熟人合租公寓。',  tw: '與朋友/熟人合租公寓。',  score: 3 },
-        { en: 'Exclusively rented apartment.',                 es: 'Apartamento alquilado en exclusiva.', cn: '独立租住公寓或房屋。',  tw: '獨立租住公寓或房屋。',  score: 3 },
-        { en: 'Self-owned property.',                          es: 'Propiedad propia.', cn: '自有房产（自住）。',  tw: '自有房產（自住）。',  score: 4 },
-        { en: 'Family-owned property.',                        es: 'Propiedad familiar (padres/familiares).', cn: '家庭房产（父母/长辈所有，免费或低价居住）。',  tw: '家庭房產（父母/長輩所有，免費或低價居住）。',  score: 4 },
-        { en: 'Luxury residence.',                             es: 'Residencia de lujo.', cn: '豪华住宅（独栋大宅/高端公寓）。',  tw: '豪華住宅（獨棟大宅/高端公寓）。',  score: 4 },
+        { ph: 'Shared boarding house / dormitory (many rooms, shared facilities).',
+        en: 'Multi-person dormitory.',                        es: 'Dormitorio compartido.', cn: '多人合租宿舍或过渡住所。',  tw: '多人合租宿舍或過渡住所。',  score: 1 },
+        { ph: 'Solo room in a boarding house or bed-space rental.',
+        en: 'Single / private dormitory.',                   es: 'Dormitorio individual/privado.', cn: '独居宿舍或临时住所。',  tw: '獨居宿舍或臨時住所。',  score: 2 },
+        { ph: 'Shared apartment/condo unit with non-family housemates.',
+        en: 'Shared apartment with strangers.',              es: 'Apartamento compartido con extraños.', cn: '与陌生人合租（含Craigslist/平台租房）。',  tw: '與陌生人合租（含Craigslist/平台租房）。',  score: 2 },
+        { ph: 'Shared apartment/house with friends or relatives.',
+        en: 'Shared apartment with acquaintances.',          es: 'Apartamento compartido con conocidos.', cn: '与朋友/熟人合租公寓。',  tw: '與朋友/熟人合租公寓。',  score: 3 },
+        { ph: 'Renting my own apartment, condo, or house independently.',
+        en: 'Exclusively rented apartment.',                 es: 'Apartamento alquilado en exclusiva.', cn: '独立租住公寓或房屋。',  tw: '獨立租住公寓或房屋。',  score: 3 },
+        { ph: 'Own my house and lot (amortized or fully paid).',
+        en: 'Self-owned property.',                          es: 'Propiedad propia.', cn: '自有房产（自住）。',  tw: '自有房產（自住）。',  score: 4 },
+        { ph: 'Living in a family home (parents\' or relatives\' property, low/no rent).',
+        en: 'Family-owned property.',                        es: 'Propiedad familiar (padres/familiares).', cn: '家庭房产（父母/长辈所有，免费或低价居住）。',  tw: '家庭房產（父母/長輩所有，免費或低價居住）。',  score: 4 },
+        { ph: 'Luxury property — high-rise condo in BGC/Makati, large house in a gated village.',
+        en: 'Luxury residence.',                             es: 'Residencia de lujo.', cn: '豪华住宅（独栋大宅/高端公寓）。',  tw: '豪華住宅（獨棟大宅/高端公寓）。',  score: 4 },
       ],
     },
 
     { /* QKC8 — City tier */
       id: 'QKC8', section: 'basic', scorable: true, noImprove: true,
+      ph: 'Which best describes the area where you currently live in the Philippines?',
       en: 'Which best describes the area you currently live in?',
       es: '¿Cómo describirías la zona donde vives actualmente?',
       cn: '你目前居住的城市是哪个层级？',
@@ -1092,6 +1115,7 @@
 
     { /* QKB2 — Relationship with parents */
       id: 'QKB2', section: 'social', scorable: true,
+      ph: 'How is your relationship with your parents (nanay/tatay)?',
       en: 'How is your relationship with your parents?',
       es: '¿Cómo es tu relación con tus padres?',
       cn: '你和父母的关系如何？',
@@ -1155,6 +1179,7 @@
 
     { /* QKB6 — Siblings */
       id: 'QKB6', section: 'social', scorable: true,
+      ph: 'How is your relationship with your siblings (ate, kuya, etc.)?',
       en: 'How is your relationship with your siblings?',
       es: '¿Cómo es tu relación con tus hermanos/as?',
       cn: '你和兄弟姐妹的关系如何？',
@@ -1164,7 +1189,8 @@
         { en: 'Friendly — we catch up during holidays.', es: 'Amigables — nos ponemos al día en días festivos.', cn: '友好，节假日时互相联系。', tw: '友好，節假日時互相聯繫。', score: 3 },
         { en: 'Distant — we rarely speak.', es: 'Distantes — raramente hablamos.', cn: '疏远，很少联系。', tw: '疏遠，很少聯繫。', score: 1 },
         { en: 'Hostile — ongoing conflicts or cut ties.', es: 'Hostil — conflictos continuos o relación cortada.', cn: '敌对，持续冲突或已断绝往来。', tw: '敵對，持續衝突或已斷絕往來。', score: 0 },
-        { en: 'I am an only child.', es: 'Soy hijo/a único/a.', cn: '独生子女（或在美无兄弟姐妹联系）。', tw: '獨生子女（或在美無兄弟姐妹聯繫）。', score: 2 },
+        { ph: 'I am an only child (walang kapatid).',
+        en: 'I am an only child.', es: 'Soy hijo/a único/a.', cn: '独生子女（或在美无兄弟姐妹联系）。', tw: '獨生子女（或在美無兄弟姐妹聯繫）。', score: 2 },
       ],
     },
 
@@ -1175,48 +1201,64 @@
 
     { /* QKD1 — Foreign languages */
       id: 'QKD1', section: 'identity', scorable: true,
+      ph: 'How many languages can you communicate in fluently (beyond your mother tongue / Filipino)?',
       en: 'How many foreign languages do you master?',
       es: '¿Cuántos idiomas extranjeros dominas?',
       cn: '除母语以外，你还掌握几门外语（含英语）？',
       tw: '除母語以外，你還掌握幾門外語（含英語）？',
       options: [
-        { en: '3 or more — can use as working languages.', es: '3 o más — puedo usarlos como idiomas de trabajo.', cn: '3门及以上，可作为工作语言。', tw: '3門及以上，可作為工作語言。', score: 4 },
-        { en: '2 — highly proficient.',                    es: '2 — altamente competente.', cn: '2门，高度熟练。',              tw: '2門，高度熟練。',              score: 3 },
-        { en: '1 — fluent communication.',                 es: '1 — comunicación fluida.', cn: '1门，流利交流。',              tw: '1門，流利交流。',              score: 2 },
-        { en: 'None — only speak my mother tongue.',       es: 'Ninguno — solo hablo mi lengua materna.', cn: '无，只说母语。',               tw: '無，只說母語。',               score: 0 },
+        { ph: '3 or more — e.g. Filipino, English, and one more (e.g. Japanese, Korean, Mandarin, Arabic).',
+        en: '3 or more — can use as working languages.', es: '3 o más — puedo usarlos como idiomas de trabajo.', cn: '3门及以上，可作为工作语言。', tw: '3門及以上，可作為工作語言。', score: 4 },
+        { ph: '2 — fluent in both Filipino and English (including professional/business English).',
+        en: '2 — highly proficient.',                    es: '2 — altamente competente.', cn: '2门，高度熟练。',              tw: '2門，高度熟練。',              score: 3 },
+        { ph: '1 — either Filipino or English only, limited in the other.',
+        en: '1 — fluent communication.',                 es: '1 — comunicación fluida.', cn: '1门，流利交流。',              tw: '1門，流利交流。',              score: 2 },
+        { ph: 'Communicate mainly in a regional dialect only (e.g. Bisaya, Ilocano, Kapampangan).',
+        en: 'None — only speak my mother tongue.',       es: 'Ninguno — solo hablo mi lengua materna.', cn: '无，只说母语。',               tw: '無，只說母語。',               score: 0 },
       ],
     },
 
     { /* QKD2 — Domestic travel */
       id: 'QKD2', section: 'identity', scorable: true,
+      ph: 'What is your travel experience within the Philippines?',
       en: 'What is your domestic travel experience like?',
       es: '¿Cómo es tu experiencia de viajes nacionales?',
       cn: '你在美国国内的旅行经历如何？',
       tw: '你在美國國內的旅行經歷如何？',
       options: [
-        { en: 'Traveled extensively across many regions and cities nationwide.', es: 'He viajado extensamente por muchas regiones y ciudades del país.', cn: '几乎走遍了美国各州/主要城市（东西海岸、中西部、南部等）。', tw: '幾乎走遍了美國各州/主要城市（東西海岸、中西部、南部等）。', score: 4 },
-        { en: 'Visited several major cities or tourist hubs.',             es: 'He visitado varias ciudades principales o centros turísticos.', cn: '去过几个主要城市或知名景点（如纽约、拉斯维加斯、大峡谷等）。', tw: '去過幾個主要城市或知名景點（如紐約、拉斯維加斯、大峽谷等）。', score: 3 },
-        { en: 'Rarely travel — only been to a few nearby places.',        es: 'Raramente viajo — solo he ido a algunos lugares cercanos.', cn: '很少出行，基本只在本州或附近地区活动。', tw: '很少出行，基本只在本州或附近地區活動。', score: 1 },
-        { en: 'Never left my home region.',                                es: 'Nunca he salido de mi región de origen.', cn: '从未离开过所在城市或周边地区。', tw: '從未離開過所在城市或周邊地區。', score: 0 },
+        { ph: 'Traveled extensively — Luzon, Visayas, and Mindanao, including islands and provinces.',
+        en: 'Traveled extensively across many regions and cities nationwide.', es: 'He viajado extensamente por muchas regiones y ciudades del país.', cn: '几乎走遍了美国各州/主要城市（东西海岸、中西部、南部等）。', tw: '幾乎走遍了美國各州/主要城市（東西海岸、中西部、南部等）。', score: 4 },
+        { ph: 'Visited several major cities or popular destinations (e.g. Cebu, Davao, Palawan, BGC).',
+        en: 'Visited several major cities or tourist hubs.',             es: 'He visitado varias ciudades principales o centros turísticos.', cn: '去过几个主要城市或知名景点（如纽约、拉斯维加斯、大峡谷等）。', tw: '去過幾個主要城市或知名景點（如紐約、拉斯維加斯、大峽谷等）。', score: 3 },
+        { ph: 'Rarely travel — mostly stayed in my home region or province.',
+        en: 'Rarely travel — only been to a few nearby places.',        es: 'Raramente viajo — solo he ido a algunos lugares cercanos.', cn: '很少出行，基本只在本州或附近地区活动。', tw: '很少出行，基本只在本州或附近地區活動。', score: 1 },
+        { ph: 'Never left my barangay/municipality.',
+        en: 'Never left my home region.',                                es: 'Nunca he salido de mi región de origen.', cn: '从未离开过所在城市或周边地区。', tw: '從未離開過所在城市或周邊地區。', score: 0 },
       ],
     },
 
     { /* QKD3 — Overseas travel */
       id: 'QKD3', section: 'identity', scorable: true,
+      ph: 'What is your overseas travel experience like (including working abroad as an OFW)?',
       en: 'What is your overseas travel experience like?',
       es: '¿Cómo es tu experiencia de viajes al extranjero?',
       cn: '你的海外旅行经历如何？',
       tw: '你的海外旅行經歷如何？',
       options: [
-        { en: 'Globetrotter — visited multiple continents and diverse cultures.', es: 'Viajero/a del mundo — he visitado múltiples continentes y culturas diversas.', cn: '环球旅行者，到访多个洲和多元文化。', tw: '環球旅行者，到訪多個洲和多元文化。', score: 4 },
-        { en: 'Visited several neighbouring or popular countries.',               es: 'He visitado varios países vecinos o populares.', cn: '去过几个邻国或热门国家。', tw: '去過幾個鄰國或熱門國家。', score: 3 },
-        { en: 'Been abroad once or twice on guided tours.',                        es: 'He viajado al extranjero una o dos veces en tours guiados.', cn: '出境一两次，参加过跟团旅游。', tw: '出境一兩次，參加過跟團旅遊。', score: 2 },
-        { en: "Never been abroad / don't have a passport.",                       cn: '从未出境/没有护照。', tw: '從未出境/沒有護照。', score: 0 },
+        { ph: 'Globetrotter — worked or traveled across multiple countries and continents.',
+        en: 'Globetrotter — visited multiple continents and diverse cultures.', es: 'Viajero/a del mundo — he visitado múltiples continentes y culturas diversas.', cn: '环球旅行者，到访多个洲和多元文化。', tw: '環球旅行者，到訪多個洲和多元文化。', score: 4 },
+        { ph: 'Visited or worked in a few countries (e.g. Hong Kong, Singapore, UAE, Japan).',
+        en: 'Visited several neighbouring or popular countries.',               es: 'He visitado varios países vecinos o populares.', cn: '去过几个邻国或热门国家。', tw: '去過幾個鄰國或熱門國家。', score: 3 },
+        { ph: 'Gone abroad once or twice (holiday travel or short work stint).',
+        en: 'Been abroad once or twice on guided tours.',                        es: 'He viajado al extranjero una o dos veces en tours guiados.', cn: '出境一两次，参加过跟团旅游。', tw: '出境一兩次，參加過跟團旅遊。', score: 2 },
+        { ph: "Never been abroad / don't have a passport yet.",
+        en: "Never been abroad / don't have a passport.",                       cn: '从未出境/没有护照。', tw: '從未出境/沒有護照。', score: 0 },
       ],
     },
 
     { /* QKD4 — Professional skills (multi-select) */
       id: 'QKD4', section: 'identity', scorable: true, multi: true, noAutoAdvance: true,
+      ph: 'Which of the following professional skills or achievements apply to you? (Multiple choice)',
       en: 'Which of the following professional skills or achievements apply to you? (Multiple choice)',
       es: '¿Cuáles de las siguientes habilidades o logros profesionales te aplican? (Opción múltiple)',
       cn: '以下哪些专业技能或成就适用于你？（可多选）',
@@ -1233,6 +1275,7 @@
 
     { /* QKD5 — Confide (multi-select) */
       id: 'QKD5', section: 'identity', scorable: true, multi: true, noAutoAdvance: true,
+      ph: 'When facing difficulties, who can you open up to? (Multiple choice)',
       en: 'When facing difficulties, who can you confide in? (Multiple choice)',
       es: 'Cuando enfrentas dificultades, ¿en quién puedes confiar? (Opción múltiple)',
       cn: '遇到困难时，你可以向谁倾诉？（可多选）',
@@ -1291,6 +1334,7 @@
     { /* QKD9 — Life agency — hidden for under 18 */
       id: 'QKD9', section: 'identity', scorable: true,
       showIf: function(s){ return s.QK1 !== undefined && s.QK1 !== 0; },
+      ph: 'Do you feel your current life is the result of your own choices (hindi lang dahil sa pamilya o circumstances)?',
       en: 'Do you feel your current life is the result of your own choices?',
       es: '¿Sientes que tu vida actual es el resultado de tus propias decisiones?',
       cn: '你是否觉得目前的生活是自己选择的结果？',
@@ -1717,6 +1761,7 @@
 
     /* ── Physical ── */
     QK5m: {
+      ph: 'Ang weight management ay sistema ang kailangan, hindi gutom. Gawin lang ito ngayong linggo: bawasan ang kanin/tinapay ng isang-quarter kada kain, at maglakad ng 20 minuto pagkatapos kumain. I-reassess pagkatapos ng 6 na linggo.',
       en: 'Weight management is about building systems, not starving. This week, do one thing only: reduce your main carb portion by a quarter at each meal and take a 20-minute walk after dinner. Reassess in 6 weeks.',
       cn: '体重管理的核心不是节食，而是建立系统。本周只做一件事：把每天的主食量减少1/4，并在饭后散步20分钟。6周后重新评估体重变化。',
       tw: '體重管理的核心不是節食，而是建立系統。本週只做一件事：把每天的主食量減少1/4，並在飯後散步20分鐘。6週後重新評估體重變化。',
@@ -1849,6 +1894,7 @@
 
     /* ── Finance ── */
     QKC9: {
+      ph: 'Kulang sa ipon ay sistema problem, hindi income problem. Sa susunod na sweldo, mag-transfer agad ng 10–20% sa hiwalay na account bago mo gastusin. I-name mo itong "Pangkabukasan Fund." Gamitin ang 50/30/20 budget rule: 50% basic needs, 30% wants, 20% savings. Ang peso-cost averaging sa UITF o SSS Flexi-Fund ay magandang simula.',
       en: 'Insufficient savings is almost always a systems problem, not an income problem. Starting next payday, auto-transfer 10–20% of your income to a separate savings account the moment it arrives, before you can spend it. Name it "Future Fund." The 50/30/20 budget rule is a proven starting framework.',
       cn: '储蓄不足几乎总是系统性问题，而非收入问题。从下次发薪日起，收到工资的瞬间自动转走10-20%到独立储蓄账户，命名为"未来基金"。50/30/20预算法则是经过验证的入门框架。',
       tw: '儲蓄不足幾乎總是系統性問題，而非收入問題。從下次發薪日起，收到薪資的瞬間自動轉走10-20%到獨立儲蓄帳戶，命名為「未來基金」。50/30/20預算法則是經過驗證的入門框架。',
@@ -1875,7 +1921,7 @@
 
     /* ── Relationships ── */
     QKB1: {
-      en: 'Whatever your relationship status, the most important investment is in your own emotional readiness. This week, reflect on one honest question: "What pattern from my past relationships am I still carrying?" Journalling on this for 15 minutes often reveals more than months of passive waiting.',
+      ph: 'Whatever your relationship status, the most important investment is in your own emotional readiness. In Philippine culture, family pressure to settle down can cloud your own readiness — reflect honestly: what patterns from past relationships are you still carrying? Journalling 15 minutes on this often reveals more than months of waiting. This week, reflect on one honest question: "What pattern from my past relationships am I still carrying?" Journalling on this for 15 minutes often reveals more than months of passive waiting.',
       cn: '无论你的感情状况如何，最重要的投资是你自身的情感准备。本周反思一个诚实的问题："我过去感情中的什么模式我仍在重复？"用15分钟写日记往往比被动等待数月更有收获。',
       tw: '無論你的感情狀況如何，最重要的投資是你自身的情感準備。本週反思一個誠實的問題：「我過去感情中的什麼模式我仍在重複？」用15分鐘寫日記往往比被動等待數月更有收獲。',
       es: 'Whatever your relationship status, the most important investment is in your own emotional readiness. This week, reflect on one honest question: "What pattern from my past relationships am I still carrying?" Journalling on this for 15 minutes often reveals more than months of passive waiting.',

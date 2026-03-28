@@ -33,6 +33,7 @@ function drawRadar(canvas, scores, colors){
   var labels, n=3;
   var lang=window.I18N_CURRENT||'zh-CN';
   if(lang==='en-US')   labels=['Baseline','Social & Life','Personal Identity'];
+  else if(lang==='en-PH') labels=['Baseline','Social & Life','Personal Identity'];
   else if(lang==='es-US') labels=['Base','Social y Vida','Identidad Personal'];
   else if(lang==='zh-TW') labels=['基礎資訊','社會生活方向','個人認同'];
   else labels=['基础信息','社会生活方向','个人认同'];
@@ -171,6 +172,23 @@ var DIM_DEEP={
       high:"Your Personal Identity score is strong, showing clear values, psychological stability, and a defined life direction. This is inner strength in action — and the foundation for sustained action.",
     },
   },
+  'en-PH':{
+    basic:{
+      low:"Your Baseline score is on the lower end — this often reflects real structural challenges: access to healthcare, the school you attended, the barangay you grew up in. These are starting conditions, not life sentences. Many of the Philippines' most successful people started from exactly where you are now.",
+      mid:"Your Baseline is at a solid middle level. You have enough foundation to build on. The key now is intentional leverage — using what you already have as the launchpad for what comes next.",
+      high:"Your Baseline score is strong, showing solid foundational support in health, education, and living environment. This gives you a real platform. The question now is what you build on top of it.",
+    },
+    social:{
+      low:"Your Social & Life score is lower — this may reflect challenges in employment, income, or your network. In the Philippine context, this is often the most structurally constrained dimension, but also the most changeable through deliberate effort. One skill, one connection, one consistent habit can shift this significantly.",
+      mid:"Your Social & Life score is near average. You have real resources and real room to grow. The key question: how do you convert what you currently have into the launchpad for your next phase? One focused upgrade — income, network, or skills — can change the trajectory.",
+      high:"Your Social & Life score is impressive. You show clear advantages in career, finances, or social network. In the Philippine context, this level of social capital is genuinely rare. If you keep converting these advantages, you benefit from compounding effects that accelerate over time.",
+    },
+    identity:{
+      low:"Your Personal Identity score is lower — meaning there is real room to grow in clarity of values, sense of direction, and psychological resilience. In Philippine culture, external pressures — family expectations, peer norms, financial survival — can crowd out the space to figure out who you actually are. Carving out that space is the work.",
+      mid:"Your Personal Identity is in an exploratory phase. You have self-awareness but haven't yet built a fully stable inner system. This is normal and expected — especially when daily life in the Philippines demands so much practical energy. The investment in this dimension pays long-term dividends.",
+      high:"Your Personal Identity score is strong — clear values, psychological stability, and a defined sense of direction. In a culture that sometimes makes it hard to put yourself first, this is a genuine achievement. It is the foundation from which sustained, meaningful action flows.",
+    },
+  },
   'es-US':{
     basic:{
       low:"Tu puntaje Base es bajo, lo que generalmente refleja desafíos en salud, educación o entorno de vida. Estos son puntos de partida, no sentencias. Muchas personas exitosas comenzaron desde condiciones desfavorables.",
@@ -195,17 +213,18 @@ function dimTier(s){ if(s<40)return'low'; if(s<70)return'mid'; return'high'; }
 function buildDimDeep(lang){
   var c=document.getElementById('dimDeepRows'); if(!c) return; c.innerHTML='';
   var conf=[
-    {key:'basic',    label_cn:'基础信息',label_tw:'基礎資訊',label_en:'Baseline',label_es:'Base',  icon:'🧬',color:'#7dd3fc'},
-    {key:'social',   label_cn:'社会生活方向',label_tw:'社會生活方向',label_en:'Social & Life',label_es:'Social y Vida',  icon:'🏙️',color:'#0ea5e9'},
-    {key:'identity', label_cn:'个人认同',label_tw:'個人認同',label_en:'Personal Identity',label_es:'Identidad Personal',  icon:'💡',color:'#10b981'},
+    {key:'basic',    label_cn:'基础信息',label_tw:'基礎資訊',label_en:'Baseline',label_ph:'Baseline',label_es:'Base',  icon:'🧬',color:'#7dd3fc'},
+    {key:'social',   label_cn:'社会生活方向',label_tw:'社會生活方向',label_en:'Social & Life',label_ph:'Social & Life',label_es:'Social y Vida',  icon:'🏙️',color:'#0ea5e9'},
+    {key:'identity', label_cn:'个人认同',label_tw:'個人認同',label_en:'Personal Identity',label_ph:'Personal Identity',label_es:'Identidad Personal',  icon:'💡',color:'#10b981'},
   ];
   conf.forEach(function(d){
     var score=dimPct&&dimPct[d.key]!=null?dimPct[d.key]:0;
     var t=dimTier(score);
-    var deepTexts=(DIM_DEEP[lang]||DIM_DEEP['zh-CN'])[d.key];
+    var deepTexts=(DIM_DEEP[lang]||DIM_DEEP['en-US']||DIM_DEEP['zh-CN'])[d.key];
     var text=deepTexts[t];
     var label;
     if(lang==='en-US') label=d.label_en;
+    else if(lang==='en-PH') label=d.label_ph||d.label_en;
     else if(lang==='es-US') label=d.label_es;
     else if(lang==='zh-TW') label=d.label_tw;
     else label=d.label_cn;
@@ -249,6 +268,7 @@ function buildQSummary(sectionKey, lang){
     /* Use stored optionText from answerMap to avoid undefined */
     var oText;
     if(lang==='en-US') oText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn||item.opt.en||item.opt.cn||'';
+    else if(lang==='en-PH') oText=answerMap[item.q.id].optionText_ph||answerMap[item.q.id].optionText_en||item.opt.ph||item.opt.en||item.opt.cn||'';
     else if(lang==='es-US') oText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||item.opt.es||item.opt.en||item.opt.cn||'';
     else if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw||item.opt.tw||item.opt.cn||'';
     else oText=answerMap[item.q.id].optionText_cn||item.opt.cn||'';
@@ -256,7 +276,7 @@ function buildQSummary(sectionKey, lang){
     var isNoImprove=!!item.q.noImprove;
     var pct=item.max>0 ? Math.round(item.score/item.max*100) : 0;
     var color=pct>=75?'#10b981':pct>=50?'#f59e0b':'#ef4444';
-    var _pts=lang==='en-US'?'pts':(lang==='es-US'?'pts':'分');
+    var _pts=lang==='en-US'||lang==='en-PH'?'pts':(lang==='es-US'?'pts':'分');
     var scoreDisplay = isNoImprove
       ? '<div class="qs-pct qs-raw" style="color:#6366f1">'+item.score+_pts+'</div>'
       : '<div class="qs-bar"><div class="qs-fill" style="width:'+pct+'%;background:'+color+'"></div></div>';
@@ -314,14 +334,14 @@ function buildQBreakdown(lang){
        - Other options: show text only — NO individual scores (per spec: hide all option scores) */
     var optsHtml=q.options.map(function(o,i){
       /* Guard: option text can be undefined for 6/7-option questions if letters array was short */
-      var text=(lang==='en-US'?(o.en||o.cn):(lang==='es-US'?(o.es||o.en||o.cn):(lang==='zh-TW'?o.tw:o.cn)))||'';
+      var text=(lang==='en-US'?(o.en||o.cn):(lang==='en-PH'?(o.ph||o.en||o.cn):(lang==='es-US'?(o.es||o.en||o.cn):(lang==='zh-TW'?o.tw:o.cn))))||'';
       var isSel=i===oi;
       /* Best-option marker only shown on selected item for context; never shows score number */
       var isBest=o.score===maxScore&&o.score>0&&!isNoImprove;
       return '<div class="qb-opt'+(isSel?' qb-opt--sel':'')+(isBest&&isSel?' qb-opt--best':'')+'">'+
         '<span class="qb-letter">'+(letters[i]||'?')+'</span>'+
         '<span class="qb-otext">'+text+'</span>'+
-        (isSel?'<span class="qb-you">'+(lang==='en-US'?'Your pick':(lang==='es-US'?'Tu elección':(lang==='zh-TW'?'你的選擇':'你的选择')))+'</span>':'')+
+        (isSel?'<span class="qb-you">'+(lang==='en-US'||lang==='en-PH'?'Your pick':(lang==='es-US'?'Tu elección':(lang==='zh-TW'?'你的選擇':'你的选择')))+'</span>':'')+
         /* Intentionally omit score numbers per requirement */
         '</div>';
     }).join('');
@@ -330,7 +350,7 @@ function buildQBreakdown(lang){
       '<div class="qb-header">'+
         '<span class="qb-num" style="background:'+mc+'18;color:'+mc+'">'+(shown+1)+'</span>'+
         '<span class="qb-section-dot" style="background:'+mc+'"></span>'+
-        '<span class="qb-section-name">'+(lang==='en-US'?(q.section==='basic'?'Background':q.section==='social'?'Social & Life':'Personal Identity'):(lang==='es-US'?(q.section==='basic'?'Información básica':q.section==='social'?'Social y vida':'Identidad personal'):(lang==='zh-TW'?(q.section==='basic'?'基礎資訊':q.section==='social'?'社會生活方向':'個人認同'):(q.section==='basic'?'基础信息':q.section==='social'?'社会生活方向':'个人认同'))))+'</span>'+
+        '<span class="qb-section-name">'+(lang==='en-US'||lang==='en-PH'?(q.section==='basic'?'Background':q.section==='social'?'Social & Life':'Personal Identity'):(lang==='es-US'?(q.section==='basic'?'Información básica':q.section==='social'?'Social y vida':'Identidad personal'):(lang==='zh-TW'?(q.section==='basic'?'基礎資訊':q.section==='social'?'社會生活方向':'個人認同'):(q.section==='basic'?'基础信息':q.section==='social'?'社会生活方向':'个人认同'))))+'</span>'+
         scoreChipHtml+
       '</div>'+
       '<div class="qb-q">'+qText+'</div>'+
@@ -338,7 +358,7 @@ function buildQBreakdown(lang){
     c.appendChild(card);
     shown++;
   });
-  if(shown===0) c.innerHTML='<div class="empty-note">'+(lang==='en-US'?'No questions match this filter.':(lang==='es-US'?'Ninguna pregunta coincide con este filtro.':(lang==='zh-TW'?'此篩選條件下無題目。':'此筛选条件下无题目。')))+'</div>';
+  if(shown===0) c.innerHTML='<div class="empty-note">'+(lang==='en-US'||lang==='en-PH'?'No questions match this filter.':(lang==='es-US'?'Ninguna pregunta coincide con este filtro.':(lang==='zh-TW'?'此篩選條件下無題目。':'此筛选条件下无题目。')))+'</div>';
 }
 
 /* ── Insights ── */
@@ -697,11 +717,49 @@ var INSIGHTS={
       text:'淨資產超過1億，財富管理的核心命題變了——不再是「如何積累更多」，而是「如何讓財富持續產生意義」。健康、關係和精神資本是任何財富都無法買回的東西——投入精力保護它們。思考你的財富能為社會解決什麼問題。',
     },
   ],
+  'en-PH':[
+    {
+      test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
+      icon:'⚠️', color:'#f59e0b',
+      title:'Untapped Potential',
+      text:'Your baseline conditions are stronger than most — your health, education, and environment give you real starting advantages that many Filipinos don\'t have. But your Social & Life score hasn\'t caught up. The structural foundation is there; what\'s missing is the system for converting it into outcomes. Start with one concrete career or income move this quarter.',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
+      icon:'💭', color:'#0ea5e9',
+      title:'Thinker Who Needs to Act',
+      text:'Strong self-awareness, clear values — but your Social & Life score hasn\'t matched your inner depth yet. In Philippine culture, overthinking and waiting for the "right time" are common traps. Block 30 minutes every week as your non-negotiable execution window for the one thing you already know needs to happen.',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
+      icon:'🏃', color:'#10b981',
+      title:'Running Fast Without a Compass',
+      text:'You\'re achieving externally — income, career, social status — but your Personal Identity score signals your inner compass needs attention. Family pressure and cultural expectations in the Philippines can make it hard to carve out space for your own sense of direction. Set aside one hour per week to ask: what do I actually want my life to look like?',
+    },
+    {
+      test:function(){ return dimPct&&dimPct.basic<40&&dimPct.identity>70; },
+      icon:'💪', color:'#8b5cf6',
+      title:'Rising Against the Odds',
+      text:'Your baseline is challenging — structural disadvantages in health, education, or environment are real. But your personal identity score shows strong values, resilience, and self-direction. In the Philippines, many of the most respected success stories started exactly here. Your greatest asset is not your starting conditions; it\'s how you interpret and act on them.',
+    },
+    {
+      test:function(){ return finalScore>100; },
+      icon:'🌟', color:'#f59e0b',
+      title:'Elite Territory',
+      text:'Scoring above 100 means you\'ve excelled across all standard dimensions and hold externally verifiable elite accomplishments. In the Philippine context, this is genuinely rare. Your biggest risk now is complacency — not lack of ability. Think about how to systematically pass on what you\'ve built.',
+    },
+    {
+      test:function(){ return finalScore<35; },
+      icon:'🌱', color:'#7dd3fc',
+      title:'A Big Starting Line Ahead',
+      text:'A lower score doesn\'t mean you\'re falling behind — it means there\'s significant, concrete room to grow. Don\'t compare yourself to a finish line. Compare yourself to who you were 6 months ago. Every deliberate step you take will show up directly in your next score.',
+    },
+  ],
 };
 
 function buildInsights(lang){
   var c=document.getElementById('insightRows'); if(!c) return; c.innerHTML='';
-  var pool=INSIGHTS[lang]||INSIGHTS['zh-CN'];
+  var pool=INSIGHTS[lang]||INSIGHTS['en-US']||INSIGHTS['zh-CN'];
   var shown=0;
   pool.forEach(function(ins){
     if(!ins.test()) return;
@@ -715,18 +773,20 @@ function buildInsights(lang){
   if(!shown){
     var def=document.createElement('div'); def.className='insight-card';
     def.style.borderLeft='4px solid #94a3b8';
-    def.innerHTML='<div class="ic-header"><span class="ic-icon">📊</span><span class="ic-title">'+( lang==='en-US'?'Well Balanced Overall':(lang==='es-US'?'Bien equilibrado en general':(lang==='zh-TW'?'整體表現均衡':'整体表现均衡')))+'</span></div>'+
-      '<div class="ic-text">'+(lang==='zh-TW'?'Your dimensions are well balanced — no specific patterns were triggered. Keep up the balance and pick the area you\'re most excited about to go deeper.':'Your dimensions are well balanced — no specific patterns were triggered. Mantén este equilibrio y elige la dimensión que más te emocione para profundizar.')+'</div>';
+    var _wbTitle=lang==='en-US'||lang==='en-PH'?'Well Balanced Overall':lang==='es-US'?'Bien equilibrado en general':lang==='zh-TW'?'整體表現均衡':'整体表现均衡';
+    var _wbText=lang==='zh-TW'?'你的三個維度整體均衡，沒有觸發特定模式。保持這種平衡，選一個你最感興趣的維度繼續深耕。':lang==='zh-CN'?'你的三个维度整体均衡，没有触发特定模式。保持这种平衡，选一个你最感兴趣的维度继续深耕。':lang==='es-US'?'Mantén este equilibrio y elige la dimensión que más te emocione para profundizar.':'Your dimensions are well balanced — no specific patterns were triggered. Keep up the balance and pick the area you\'re most excited about to go deeper.';
+    def.innerHTML='<div class="ic-header"><span class="ic-icon">📊</span><span class="ic-title">'+_wbTitle+'</span></div>'+
+      '<div class="ic-text">'+_wbText+'</div>';
     c.appendChild(def);
   }
 }
 
 /* ── Payment modal (same config as result.js) ── */
 var PAYMENT_CONFIG_AN = {
-  wechat:  { name_cn:'微信支付', name_tw:'微信支付', color:'#07c160', fallback:'💚', logoSrc:'assets/logo-wechat.png', qrSrc:'assets/qr-wechat.png' },
-  alipay:  { name_cn:'支付宝',   name_tw:'支付寶',   color:'#1677ff', fallback:'💙', logoSrc:'assets/logo-alipay.png', qrSrc:'assets/qr-alipay.png' },
-  crypto:  { name_cn:'加密支付', name_tw:'加密支付', color:'#f0b90b', fallback:'🟡', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
-  qq:      { name_cn:'QQ 钱包',  name_tw:'QQ 錢包',  color:'#12b7f5', fallback:'💜', logoSrc:'assets/logo-qq.png',    qrSrc:'assets/qr-qq.png' },
+  paypal:  { name_cn:'PayPal',      name_tw:'PayPal',      name_en:'PayPal',        color:'#003087', fallback:'🅿',  logoSrc:'assets/logo-paypal.png', qrSrc:'assets/qr-paypal.png' },
+  crypto:  { name_cn:'USDT 加密',   name_tw:'USDT 加密',   name_en:'USDT Crypto',   color:'#26a17b', fallback:'💎', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
+  wise:    { name_cn:'Wise 转账',   name_tw:'Wise 轉帳',   name_en:'Wise Transfer', color:'#9fe870', fallback:'🌿', logoSrc:'assets/logo-wise.png',   qrSrc:'assets/qr-wise.png' },
+  bank:    { name_cn:'银行转账',    name_tw:'銀行轉帳',    name_en:'Bank Transfer', color:'#1a56db', fallback:'🏦', logoSrc:'assets/logo-bank.png',   qrSrc:'assets/qr-bank.png' },
 };
 
 function setupPaymentModal(){
@@ -745,7 +805,7 @@ function setupPaymentModal(){
     var lang = window.I18N_CURRENT||'zh-CN';
     if(pmLogoImg){ pmLogoImg.src=cfg.logoSrc; pmLogoImg.style.display=''; }
     if(pmLogoFb){ pmLogoFb.textContent=cfg.fallback; pmLogoFb.style.background=cfg.color; pmLogoFb.style.display='none'; }
-    if(pmName) pmName.textContent = lang==='zh-TW'?cfg.name_tw:cfg.name_cn;
+    if(pmName) pmName.textContent = (lang==='en-US'||lang==='en-PH'||lang==='es-US')?(cfg.name_en||cfg.name_cn):(lang==='zh-TW'?cfg.name_tw:cfg.name_cn);
     if(pmQrImg){ pmQrImg.src=cfg.qrSrc; pmQrImg.style.display=''; }
     if(pmQrPh) pmQrPh.style.display='none';
     if(pmQrPhPath) pmQrPhPath.textContent=cfg.qrSrc;
@@ -841,7 +901,7 @@ function init(){
   var sn=document.getElementById('anScoreNum'); if(sn) sn.textContent=finalScore;
   var dateEl=document.getElementById('anDate');
   var stored=null; try{stored=localStorage.getItem('ls_last_date');}catch(e){}
-  if(dateEl) dateEl.textContent=(window.I18N_CURRENT==='en-US'?'Test date: ':(window.I18N_CURRENT==='es-US'?'Fecha: ':(window.I18N_CURRENT==='zh-TW'?'測試日期：':'测试日期：')))+(stored||new Date().toLocaleDateString());
+  if(dateEl) dateEl.textContent=(window.I18N_CURRENT==='en-US'||window.I18N_CURRENT==='en-PH'?'Test date: ':(window.I18N_CURRENT==='es-US'?'Fecha: ':(window.I18N_CURRENT==='zh-TW'?'測試日期：':'测试日期：')))+(stored||new Date().toLocaleDateString());
 
   patchI18n(); setupLangSwitcher(); setupMobileNav(); setupParticles(); setupPaymentModal();
   setupFilters(window.I18N_CURRENT||'zh-CN');
