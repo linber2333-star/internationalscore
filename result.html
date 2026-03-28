@@ -239,7 +239,7 @@
 
     <!-- PERSONALIZED INSIGHTS -->
     <div class="result-card" id="insightsCard">
-      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#ec4899,#be185d)"></span><span>个性化洞察</span></div>
+      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#ec4899,#be185d)"></span><span data-i18n="analysis.insights">个性化洞察</span></div>
       <div id="insightRows"></div>
     </div>
 
@@ -420,7 +420,7 @@
           <div class="sc-shimmer"></div>
           <!-- Top row: brand + QR -->
           <div class="sc-top-row">
-            <div class="sc-brand">Life Score · 人生评分测试</div>
+            <div class="sc-brand" data-i18n="share.card.brand">Life Score · 人生评分测试</div>
             <img class="sc-qr"
                  src="assets/share-qr.png"
                  alt="扫码访问"
@@ -435,20 +435,11 @@
           <div class="sc-verdict" id="scVerdict"></div>
           <div class="sc-dims" id="scDims"></div>
           <!-- ════════════════════════════════════════════════════════
-               SHARE CARD FOOTER / CHINESE LOGO
+               SHARE CARD FOOTER
 
-               To change the share link URL:
-               → Open result.js → search for "lifescore.test"
-               → Replace with your actual domain, e.g. "lifescore.com.cn"
-
-               To add a logo image to the share card footer:
-               → Place your logo file at: assets/share-logo.png
-               → Recommended dimensions: 120 × 32 px (PNG, transparent bg)
-               → Then replace this <div> with:
-                  <img src="assets/share-logo.png" alt="人生评分"
-                       style="height:24px;opacity:.85;margin-top:2px"/>
+               Domain: lifescore.space
                ════════════════════════════════════════════════════════ -->
-          <div class="sc-footer"><span>测测你的人生值多少分</span><span class="sc-footer-url">lifescore.com</span></div>
+          <div class="sc-footer"><span data-i18n="share.card.cta">测测你的人生值多少分</span><span class="sc-footer-url">lifescore.space</span></div>
         </div>
       </div>
 

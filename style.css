@@ -159,7 +159,7 @@ img{max-width:100%}
 .footer{background:var(--g-900);color:rgba(255,255,255,.7);padding:64px 0 0;margin-top:40px}
 .footer-inner{max-width:1320px;margin:0 auto;padding:0 64px;display:flex;justify-content:space-between;gap:48px;flex-wrap:wrap}
 .footer-brand{display:flex;align-items:flex-start;gap:14px}
-.footer-logo-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;display:block}
+.footer-logo-mark{width:36px;height:36px;border-radius:10px;object-fit:cover;display:block;filter:invert(1) brightness(1.1)}
 .footer-name{font-size:16px;font-weight:800;color:white}
 .footer-tagline{font-size:13px;color:rgba(255,255,255,.4);margin-top:4px}
 .footer-links{display:flex;gap:64px}
@@ -811,3 +811,38 @@ html { scroll-padding-top: 120px !important; }
 .deep-notice-btns { display:flex; flex-direction:column; align-items:center; gap:10px; position:relative; }
 .deep-notice-btns .btn-start { width:100%; justify-content:center; }
 .deep-notice-btns .btn-secondary { width:100%; justify-content:center; border-radius:var(--radius-pill); }
+
+/* ══════════════════════════════════════════════════════
+   LANG SWITCHER RESTRICTIONS
+   Only visible on homepage (no body class) — hidden on
+   quiz-body, result-body, analysis-body, moretests-body.
+   ══════════════════════════════════════════════════════ */
+.quiz-body .lang-switcher,
+.result-body .lang-switcher,
+.analysis-body .lang-switcher,
+.moretests-body .lang-switcher { display:none !important; }
+
+/* ── Mobile: lang options inside hamburger nav ── */
+.mobile-lang-divider { display:none; }
+.mobile-lang-option { display:none !important; }
+
+@media(max-width:768px){
+  .mobile-lang-divider {
+    display:block;
+    height:1px;
+    background:var(--v-100);
+    margin:8px 0;
+  }
+  .mobile-lang-option {
+    display:flex !important;
+    align-items:center;
+    gap:8px;
+    font-size:14px;
+  }
+  .mobile-lang-option.active {
+    color:var(--v-600);
+    background:var(--v-50);
+  }
+  /* Hide the header lang-switcher on mobile — use the in-nav version instead */
+  .lang-switcher { display:none !important; }
+}

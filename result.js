@@ -2092,7 +2092,7 @@ function setupShareModal(){
 
   var lang = window.I18N_CURRENT||'zh-CN';
   var text = getShareText(lang);
-  var url  = encodeURIComponent('https://lifescore.com.cn');
+  var url  = encodeURIComponent('https://lifescore.space');
   var encodedText = encodeURIComponent(text);
 
   /* 微博 */

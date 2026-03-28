@@ -149,7 +149,7 @@
     }
   </style>
 </head>
-<body>
+<body class="moretests-body">
   <div id="particles" class="particles"></div>
   <header class="header" id="header">
     <div class="header-inner">
@@ -196,7 +196,7 @@
     <div class="mt-grid">
       <!-- Quick Test Card -->
       <div class="mt-card">
-        <div class="mt-card-badge badge-quick">⚡ 快速版</div>
+        <div class="mt-card-badge badge-quick" data-i18n="moretests.badge.quick">⚡ 快速版</div>
         <h2 data-i18n="moretests.quick.title">快速人生评分</h2>
         <p data-i18n="moretests.quick.desc">包含约50道核心问题，覆盖健康、财富、人际关系与个人价值观。完成后立即获得综合评分与个性化建议，无需深度访谈。</p>
         <div class="mt-meta">
@@ -221,7 +221,7 @@
 
       <!-- Deep Test Card -->
       <div class="mt-card">
-        <div class="mt-card-badge badge-deep">🔬 深度版</div>
+        <div class="mt-card-badge badge-deep" data-i18n="moretests.badge.deep">🔬 深度版</div>
         <h2 data-i18n="moretests.deep.title">深度人生评分</h2>
         <p data-i18n="moretests.deep.desc">包含100+个问题的完整测试，按你的身份、年龄、职业与生活状态智能展示个性化题目，涵盖亲密关系、职业成就、健康深化等专项模块。</p>
         <div class="mt-meta">
@@ -369,11 +369,11 @@
   <div class="deep-notice-overlay" id="deepNoticeOverlay" onclick="closeDeepNotice()">
     <div class="deep-notice-modal" onclick="event.stopPropagation()">
       <div class="deep-notice-icon">✨</div>
-      <div class="deep-notice-title">好事值得等待</div>
-      <div class="deep-notice-text">深度测试正在经历一次重要的升级。<br><br>我们的团队正在逐题打磨100多道深度问题，重新校准评分模型，并设计全新的个性化分析维度——因为你值得一份真正有深度、有温度的人生报告。<br><br>这不是一次简单的维护，而是一次让你"被更好地理解"的升级。<br><br>请放心，快速测试已经能够为你提供一份准确且有洞察力的综合评分。等深度版本重新上线时，你将获得一次远超预期的体验。<br><br>感谢你的耐心等待，我们不会让你失望 💛</div>
+      <div class="deep-notice-title" data-i18n="deepnotice.title">好事值得等待</div>
+      <div class="deep-notice-text" data-i18n="deepnotice.text">深度测试正在经历一次重要的升级。<br><br>我们的团队正在逐题打磨100多道深度问题，重新校准评分模型，并设计全新的个性化分析维度——因为你值得一份真正有深度、有温度的人生报告。<br><br>这不是一次简单的维护，而是一次让你"被更好地理解"的升级。<br><br>请放心，快速测试已经能够为你提供一份准确且有洞察力的综合评分。等深度版本重新上线时，你将获得一次远超预期的体验。<br><br>感谢你的耐心等待，我们不会让你失望 💛</div>
       <div class="deep-notice-btns">
-        <button class="btn-start" onclick="window.location.href='quiz-quick.html'" style="font-size:14px;padding:12px 28px">先体验快速测试 →</button>
-        <button class="btn-secondary" onclick="closeDeepNotice()" style="font-size:13px;padding:10px 22px">好的，我等着</button>
+        <button class="btn-start" onclick="window.location.href='quiz-quick.html'" style="font-size:14px;padding:12px 28px" data-i18n="deepnotice.cta">先体验快速测试 →</button>
+        <button class="btn-secondary" onclick="closeDeepNotice()" style="font-size:13px;padding:10px 22px" data-i18n="deepnotice.wait">好的，我等着</button>
       </div>
     </div>
   </div>

@@ -93,7 +93,30 @@
     });
   }
 
-  /* ── Lang switcher ── */
+  /* ── Lang switcher (homepage — the only page where language can be changed) ── */
+  function hasQuizData() {
+    try {
+      return !!(localStorage.getItem('ls_result_quick') || localStorage.getItem('ls_result_deep') || localStorage.getItem('ls_result_latest'));
+    } catch(e) { return false; }
+  }
+  function clearQuizData() {
+    try {
+      ['ls_result_quick','ls_result_deep','ls_result_latest','ls_last_score','ls_last_date'].forEach(function(k) {
+        localStorage.removeItem(k);
+      });
+    } catch(e) {}
+  }
+  function handleLangChange(newLang, callback) {
+    if (newLang === window.I18N_CURRENT) return;
+    if (hasQuizData()) {
+      var msg = window.t('lang.clearWarning');
+      if (!confirm(msg)) return;
+      clearQuizData();
+    }
+    window.applyI18n(newLang);
+    if (callback) callback();
+  }
+
   function setupLangSwitcher() {
     var ls = document.getElementById('langSwitcher');
     if (!ls) return;
@@ -102,10 +125,43 @@
     document.querySelectorAll('.lang-option').forEach(function(opt) {
       opt.addEventListener('click', function(e) {
         e.stopPropagation();
-        window.applyI18n(opt.dataset.lang);
-        ls.classList.remove('open');
-        renderScoreBadge();
+        handleLangChange(opt.dataset.lang, function() {
+          ls.classList.remove('open');
+          renderScoreBadge();
+          animateArc();
+        });
       });
+    });
+
+    /* ── Mobile: add lang options inside the mobile nav menu ── */
+    var nav = document.getElementById('nav');
+    if (!nav) return;
+    var divider = document.createElement('div');
+    divider.className = 'mobile-lang-divider';
+    nav.appendChild(divider);
+    window.LS_LOCALES.forEach(function(loc) {
+      var btn = document.createElement('a');
+      btn.href = '#';
+      btn.className = 'nav-link mobile-lang-option';
+      btn.dataset.lang = loc.lang;
+      btn.innerHTML = window.renderFlag(loc.code) + ' ' + loc.country + ' · ' + loc.label;
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleLangChange(loc.lang, function() {
+          nav.classList.remove('mobile-open');
+          var mt = document.getElementById('menuToggle');
+          if (mt) mt.setAttribute('aria-expanded', 'false');
+          renderScoreBadge();
+          animateArc();
+          // Update active state on mobile lang options
+          nav.querySelectorAll('.mobile-lang-option').forEach(function(b) {
+            b.classList.toggle('active', b.dataset.lang === window.I18N_CURRENT);
+          });
+        });
+      });
+      if (loc.lang === window.I18N_CURRENT) btn.classList.add('active');
+      nav.appendChild(btn);
     });
   }
 
