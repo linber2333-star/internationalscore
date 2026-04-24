@@ -1,290 +1,1902 @@
 /* ============================================================
-   questions.js — Full question bank with conditional branching
+   questions.js — Deep Test (migrated from Quick Test v4 + retained Deep Test questions)
 
-   SCORING:
-   - scorable:false   → never scored, used for branching only
-   - noImprove:true   → fixed facts; never appear in improvement UI
-   - bonus:true       → added on top of base score (max +20)
-   - multi:true       → array answers; scored by computeMultiScore
-   - improve:false    → scorable, but skip in improvement section
-                        (e.g. multi-step questions like net worth
-                         where showing max is unrealistic)
+   Changelog v4:
+   - Full structural rewrite per new question spec
+   - Status options expanded: A(Studying) B(Employed) C(Entrepreneur)
+     D(Unemployed) E(Retired) F(Seriously Ill) G(Post-Accident)
+     H(Restricted Movement) I(Full-time Caregiver)
+   - Academic sub-branch (AA): HS / College / Bachelor / Masters+
+   - English (en) field added to all questions and options
+   - Bonus questions fully replaced with SSR-level spec
+   - IMPROVE_ADVICE updated with en field
 
-   STATUS KEY (A_st — used extensively in showIf):
-     0 = 在校学生   1 = 职场在职   2 = 自由职业/创业   3 = 待业/其他   4 = 退休
+   Status index map (QK3):
+     0 = Studying (A)      1 = Employed (B)       2 = Entrepreneur (C)
+     3 = Unemployed (D)    4 = Retired (E)         5 = Seriously Ill (F)
+     6 = Post-Accident (G) 7 = Restricted (H)      8 = Caregiver (I)
+
+   Academic stage index (QKA_STAGE, shown if QK3===0):
+     0 = High School & below   1 = College/Vocational
+     2 = Bachelor's            3 = Master's & above
+
+   Age index (QK1):
+     0 = ≤18   1 = 18-25   2 = 26-35   3 = 36-45   4 = 46-55
+     5 = 56-65  6 = 66-75  7 = 76-85   8 = 85-100  9 = 101+
+
+   Note: "Retired" option should be hidden by quiz engine when QK1 ≤ 2.
    ============================================================ */
+(function () {
+  'use strict';
 
-window.QUESTION_BANK = [
+  window.QUESTION_BANK = [
 
-  /* ══════════════════════════════════
-     SECTION A — 基础信息 (Basic Info)
-     ══════════════════════════════════ */
-  {
-    id:'A1', section:'basic', scorable:true, noImprove:true,
-    cn:'你目前的年龄段是？', tw:'你目前的年齡段是？',
-    options:[
-      {cn:'18岁以下',  tw:'18歲以下',  score:3},
-      {cn:'18～25岁',  tw:'18～25歲',  score:2},
-      {cn:'26～35岁',  tw:'26～35歲',  score:4},
-      {cn:'36～45岁',  tw:'36～45歲',  score:3},
-      {cn:'46～60岁',  tw:'46～60歲',  score:2},
-      {cn:'60岁以上',  tw:'60歲以上',  score:2},
-    ],
-  },
-  {
-    /* A_st — 身份状态：驱动学生/职场/创业分支，不计分 */
-    id:'A0', section:'basic', scorable:false, noImprove:true,
-    cn:'你目前的主要身份是？', tw:'你目前的主要身份是？',
-    note:{cn:'此选项影响后续问题，不计入评分', tw:'此選項影響後續問題，不計入評分'},
-    options:[
-      {cn:'在校学生（含研究生）',       tw:'在校學生（含研究生）',       score:0},
-      {cn:'职场在职（含兼职）',         tw:'職場在職（含兼職）',         score:0},
-      {cn:'自由职业 / 创业',            tw:'自由職業 / 創業',            score:0},
-      {cn:'待业 / 求职中',              tw:'待業 / 求職中',              score:0},
-      {cn:'退休 / 半退休',              tw:'退休 / 半退休',              score:0},
-    ],
-  },
-  {
-    id:'A2', section:'basic', scorable:false, noImprove:true,
-    cn:'你的性别是？', tw:'你的性別是？',
-    note:{cn:'性别不计入评分，仅用于个性化题目', tw:'性別不計入評分，僅用於個性化題目'},
-    options:[
-      {cn:'男性',tw:'男性',score:0},{cn:'女性',tw:'女性',score:0},
-      {cn:'非二元',tw:'非二元',score:0},{cn:'不愿透露',tw:'不願透露',score:0},
-    ],
-  },
-  {
-    id:'A3h', section:'basic', scorable:true, noImprove:true,
-    showIf:(s)=>s.A2===0,
-    cn:'你的身高大概在哪个范围？（男性）', tw:'你的身高大概在哪個範圍？（男性）',
-    options:[
-      {cn:'165cm以下',   tw:'165cm以下',   score:0},
-      {cn:'165～169cm', tw:'165～169cm', score:1},
-      {cn:'170～174cm', tw:'170～174cm', score:2},
-      {cn:'175～179cm', tw:'175～179cm', score:3},
-      {cn:'180～184cm', tw:'180～184cm', score:4},
-      {cn:'185cm以上',   tw:'185cm以上',   score:4},
-    ],
-  },
-  {
-    id:'A3hf', section:'basic', scorable:true, noImprove:true,
-    showIf:(s)=>s.A2===1,
-    cn:'你的身高大概在哪个范围？（女性）', tw:'你的身高大概在哪個範圍？（女性）',
-    options:[
-      {cn:'153cm以下',   tw:'153cm以下',   score:0},
-      {cn:'153～157cm', tw:'153～157cm', score:1},
-      {cn:'158～162cm', tw:'158～162cm', score:2},
-      {cn:'163～167cm', tw:'163～167cm', score:3},
-      {cn:'168～172cm', tw:'168～172cm', score:4},
-      {cn:'173cm以上',   tw:'173cm以上',   score:4},
-    ],
-  },
-  {
-    id:'A3', section:'basic', scorable:true,
-    cn:'你的体型与体脂状态自我评估？', tw:'你的體型與體脂狀態自我評估？',
-    options:[
-      {cn:'明显肥胖或过瘦，感到不适',  tw:'明顯肥胖或過瘦，感到不適',  score:0},
-      {cn:'略偏重或偏轻，有些介意',     tw:'略偏重或偏輕，有些介意',     score:1},
-      {cn:'基本正常，没有特别困扰',     tw:'基本正常，沒有特別困擾',     score:2},
-      {cn:'体型匀称，状态良好',         tw:'體型勻稱，狀態良好',         score:3},
-      {cn:'体型优越，长期锻炼维持',     tw:'體型優越，長期鍛煉維持',     score:4},
-    ],
-  },
+    /* ═══════════════════════════════════════════
+       SECTION 1 — DEMOGRAPHICS & PHYSICAL
+       ═══════════════════════════════════════════ */
 
-  /* A_vis — 视力状况 */
-  {
-    id:'A_vis', section:'basic', scorable:true, noImprove:true,
-    cn:'你的视力状况（裸眼或矫正后）如何？', tw:'你的視力狀況（裸眼或矯正後）如何？',
-    options:[
-      {cn:'严重视力问题，已影响日常生活',      tw:'嚴重視力問題，已影響日常生活',      score:0},
-      {cn:'高度近视（600度以上）',             tw:'高度近視（600度以上）',             score:1},
-      {cn:'中度近视（200～600度）',             tw:'中度近視（200～600度）',             score:2},
-      {cn:'轻度近视（200度以下）或已手术矫正', tw:'輕度近視（200度以下）或已手術矯正', score:3},
-      {cn:'视力正常，无需矫正',                tw:'視力正常，無需矯正',                score:4},
-    ],
-  },
-  /* A_dent — 口腔牙齿健康 */
-  {
+    { /* QK1 — Age */
+      id: 'QK1', section: 'basic', scorable: false, noImprove: true,
+      cn: '你目前的年龄段是？',
+      tw: '你目前的年齡段是？',
+      note: {
+        cn: '年龄用于个性化评估，不直接计分',
+        tw: '年齡用於個性化評估，不直接計分',
+      },
+      options: [
+        { cn: '18岁及以下',    tw: '18歲及以下',    score: 0 },
+        { cn: '18 - 25岁',     tw: '18 - 25歲',     score: 0 },
+        { cn: '26 - 35岁',     tw: '26 - 35歲',     score: 0 },
+        { cn: '36 - 45岁',     tw: '36 - 45歲',     score: 0 },
+        { cn: '46 - 55岁',     tw: '46 - 55歲',     score: 0 },
+        { cn: '56 - 65岁',     tw: '56 - 65歲',     score: 0 },
+        { cn: '66 - 75岁',     tw: '66 - 75歲',     score: 0 },
+        { cn: '76 - 85岁',     tw: '76 - 85歲',     score: 0 },
+        { cn: '85 - 100岁',    tw: '85 - 100歲',    score: 0 },
+        { cn: '101岁及以上',   tw: '101歲及以上',   score: 0 },
+      ],
+    },
+
+    { /* QK2 — Gender */
+      id: 'QK2', section: 'basic', scorable: false, noImprove: true,
+      cn: '你的性别是？',
+      tw: '你的性別是？',
+      note: {
+        cn: '性别不计入评分，仅用于个性化题目',
+        tw: '性別不計入評分，僅用於個性化題目',
+      },
+      options: [
+        { cn: '男性', tw: '男性', score: 0 },
+        { cn: '女性', tw: '女性', score: 0 },
+      ],
+    },
+
+    { /* QK4m — Height Male */
+      id: 'QK4m', section: 'basic', scorable: false, noImprove: true,
+      showIf: function(s){ return s.QK2 === 0; },
+      cn: '你的身高大概在哪个范围？（男性）',
+      tw: '你的身高大概在哪個範圍？（男性）',
+      note: {
+        cn: '身高用于BMI评估，不直接计分',
+        tw: '身高用於BMI評估，不直接計分',
+      },
+      options: [
+        { cn: '165cm 以下',      tw: '165cm 以下',      score: 0 },
+        { cn: '165 - 170cm',     tw: '165 - 170cm',     score: 0 },
+        { cn: '170 - 175cm',     tw: '170 - 175cm',     score: 0 },
+        { cn: '175 - 180cm',     tw: '175 - 180cm',     score: 0 },
+        { cn: '180 - 185cm',     tw: '180 - 185cm',     score: 0 },
+        { cn: '185cm 以上',      tw: '185cm 以上',      score: 0 },
+      ],
+    },
+
+    { /* QK4f — Height Female */
+      id: 'QK4f', section: 'basic', scorable: false, noImprove: true,
+      showIf: function(s){ return s.QK2 === 1; },
+      cn: '你的身高大概在哪个范围？（女性）',
+      tw: '你的身高大概在哪個範圍？（女性）',
+      note: {
+        cn: '身高用于BMI评估，不直接计分',
+        tw: '身高用於BMI評估，不直接計分',
+      },
+      options: [
+        { cn: '155cm 以下',      tw: '155cm 以下',      score: 0 },
+        { cn: '155 - 160cm',     tw: '155 - 160cm',     score: 0 },
+        { cn: '160 - 165cm',     tw: '160 - 165cm',     score: 0 },
+        { cn: '165 - 170cm',     tw: '165 - 170cm',     score: 0 },
+        { cn: '170 - 175cm',     tw: '170 - 175cm',     score: 0 },
+        { cn: '175cm 以上',      tw: '175cm 以上',      score: 0 },
+      ],
+    },
+
+    { /* QK5m — Weight Male */
+      id: 'QK5m', section: 'basic', scorable: false,
+      showIf: function(s){ return s.QK2 === 0; },
+      cn: '你目前的体重大概在哪个范围？（男性）',
+      tw: '你目前的體重大概在哪個範圍？（男性）',
+      note: {
+        cn: '体重用于BMI评估，不直接计分',
+        tw: '體重用於BMI評估，不直接計分',
+      },
+      options: [
+        { cn: '55kg 以下',     tw: '55kg 以下',     score: 0 },
+        { cn: '55 - 70kg',     tw: '55 - 70kg',     score: 0 },
+        { cn: '70 - 85kg',     tw: '70 - 85kg',     score: 0 },
+        { cn: '85 - 100kg',    tw: '85 - 100kg',    score: 0 },
+        { cn: '100kg 以上',    tw: '100kg 以上',    score: 0 },
+      ],
+    },
+
+    { /* QK5f — Weight Female */
+      id: 'QK5f', section: 'basic', scorable: false,
+      showIf: function(s){ return s.QK2 === 1; },
+      cn: '你目前的体重大概在哪个范围？（女性）',
+      tw: '你目前的體重大概在哪個範圍？（女性）',
+      note: {
+        cn: '体重用于BMI评估，不直接计分',
+        tw: '體重用於BMI評估，不直接計分',
+      },
+      options: [
+        { cn: '45kg 以下 — 偏瘦',        tw: '45kg 以下 — 偏瘦',        score: 0 },
+        { cn: '45 - 55kg — 偏轻 / 正常', tw: '45 - 55kg — 偏輕 / 正常', score: 0 },
+        { cn: '55 - 65kg — 正常 / 健康', tw: '55 - 65kg — 正常 / 健康', score: 0 },
+        { cn: '65 - 80kg — 偏重',         tw: '65 - 80kg — 偏重',         score: 0 },
+        { cn: '80kg 以上 — 超重',         tw: '80kg 以上 — 超重',         score: 0 },
+      ],
+    },
+
+    /* ═══════════════════════════════════════════
+       SECTION 2 — CURRENT STATUS (branching root)
+       ═══════════════════════════════════════════ */
+
+    { /* QK3 — Primary status */
+      id: 'QK3', section: 'basic', scorable: false, noImprove: true,
+      cn: '你目前的主要身份是？',
+      tw: '你目前的主要身份是？',
+      note: {
+        cn: '此选项影响后续问题，不计入评分',
+        tw: '此選項影響後續問題，不計入評分',
+      },
+      options: [
+        /* 0 */ { cn: '在校学生',              tw: '在校學生',              score: 0 },
+        /* 1 */ { cn: '在职（全职/兼职）',     tw: '在職（全職/兼職）',     score: 0 },
+        /* 2 */ { cn: '创业者 / 企业主',       tw: '創業者 / 企業主',       score: 0 },
+        /* 3 */ { cn: '待业中（暂时离职休整）', tw: '待業中（暫時離職休整）', score: 0 },
+        /* 4 */ { cn: '求职中（积极寻找工作）', tw: '求職中（積極尋找工作）', score: 0 },
+        /* 5 */ { cn: '退休',                  tw: '退休',                  score: 0 },
+        /* 6 */ { cn: '重病中',                tw: '重病中',                score: 0 },
+        /* 7 */ { cn: '重大事故后治疗中',      tw: '重大事故後治療中',      score: 0 },
+        /* 8 */ { cn: '行动受限中',            tw: '行動受限中',            score: 0 },
+        /* 9 */ { cn: '全职照护者',            tw: '全職照護者',            score: 0 },
+      ],
+      // Note for quiz engine: hide option index 5 (Retired) when QK1 <= 2
+    },
+
+
+    /* ═══════════════════════════════════════════
+       SECTION 3A — STUDYING (A): ACADEMIC STAGE
+       ═══════════════════════════════════════════ */
+
+    { /* QKA_STAGE — Academic stage — NO SCORING */
+      id: 'QKA_STAGE', section: 'basic', scorable: false, noImprove: true,
+      showIf: function(s){ return s.QK3 === 0; },
+      cn: '你目前就读的学业阶段是？',
+      tw: '你目前就讀的學業階段是？',
+      note: {
+        cn: '学业阶段不计入评分，仅用于个性化题目',
+        tw: '學業階段不計入評分，僅用於個性化題目',
+      },
+      options: [
+        /* 0 */ { cn: '高中及以下',          tw: '高中及以下',          score: 0 },
+        /* 1 */ { cn: '大专 / 职业技术学校',  tw: '大專 / 職業技術學校',  score: 0 },
+        /* 2 */ { en: "C. Bachelor's degree",                    cn: '全日制本科（学士）',   tw: '全日制本科（學士）',   score: 0 },
+        /* 3 */ { en: "D. Master's degree and above",            cn: '硕士及以上',           tw: '碩士及以上',           score: 0 },
+      ],
+    },
+
+
+    /* ─── AAA: High School & below ─── */
+
+    { /* QKA_HS1 */
+      id: 'QKA_HS1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你觉得自己的学习生活有趣吗？',
+      tw: '你覺得自己的學習生活有趣嗎？',
+      options: [
+        { cn: '充满热情，我主动探索课本以外的知识。', tw: '充滿熱情，我主動探索課本以外的知識。', score: 4 },
+        { cn: '适应良好，在部分科目或活动中能找到乐趣。', tw: '適應良好，在部分科目或活動中能找到樂趣。', score: 3 },
+        { cn: '枯燥机械，只是为了考试和毕业而学。', tw: '枯燥機械，只是為了考試和畢業而學。', score: 1 },
+        { cn: '极度痛苦，长期精神疲惫，时常想放弃。', tw: '極度痛苦，長期精神疲憊，時常想放棄。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS2 */
+      id: 'QKA_HS2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你目前是否遭受校园暴力（包括情感伤害/被孤立）？',
+      tw: '你目前是否遭受校園暴力（包括情感傷害/被孤立）？',
+      options: [
+        { cn: '完全没有，社交环境安全友善。', tw: '完全沒有，社交環境安全友善。', score: 4 },
+        { cn: '偶有小摩擦或玩笑，尚在可控范围。', tw: '偶有小摩擦或玩笑，尚在可控範圍。', score: 3 },
+        { cn: '正遭受长期情感霸凌、孤立或谣言。', tw: '正遭受長期情感霸凌、孤立或謠言。', score: 1 },
+        { cn: '正遭受身体暴力、敲诈或严重网络霸凌。', tw: '正遭受身體暴力、敲詐或嚴重網路霸凌。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS3 */
+      id: 'QKA_HS3', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你每周通过运动或爱好减压的频率是？',
+      tw: '你每週透過運動或愛好減壓的頻率是？',
+      options: [
+        { cn: '每周4次及以上。', tw: '每週4次及以上。', score: 4 },
+        { cn: '每周2-3次。',     tw: '每週2-3次。',     score: 3 },
+        { cn: '每周1次。',       tw: '每週1次。',       score: 2 },
+        { cn: '几乎从不。',      tw: '幾乎從不。',      score: 0 },
+      ],
+    },
+
+    { /* QKA_HS4 */
+      id: 'QKA_HS4', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你所在学校的管理是否严格？',
+      tw: '你所在學校的管理是否嚴格？',
+      options: [
+        { cn: '非常自由，类似大学自主管理。', tw: '非常自由，類似大學自主管理。', score: 4 },
+        { cn: '正常管理，基本纪律但保留个人空间。', tw: '正常管理，基本紀律但保留個人空間。', score: 3 },
+        { cn: '严格高压（如军事化、密集时间表）。', tw: '嚴格高壓（如軍事化、密集時間表）。', score: 1 },
+        { cn: '极度压制，严重侵犯隐私并全程监控。', tw: '極度壓制，嚴重侵犯隱私並全程監控。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS5 */
+      id: 'QKA_HS5', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你在同学中受欢迎吗？',
+      tw: '你在同學中受歡迎嗎？',
+      options: [
+        { cn: '我是社交核心，朋友众多，常被邀约。', tw: '我是社交核心，朋友眾多，常被邀約。', score: 4 },
+        { cn: '我有稳定的小圈子，整体相处融洽。', tw: '我有穩定的小圈子，整體相處融洽。', score: 3 },
+        { cn: '我被边缘化，大家不讨厌我但很少关注我。', tw: '我被邊緣化，大家不討厭我但很少關注我。', score: 1 },
+        { cn: '我被主动排斥或刻意孤立。', tw: '我被主動排斥或刻意孤立。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS6 */
+      id: 'QKA_HS6', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你的家人尊重你的隐私吗？',
+      tw: '你的家人尊重你的隱私嗎？',
+      options: [
+        { cn: '完全尊重，敲门进来，从不翻手机或日记。', tw: '完全尊重，敲門進來，從不翻手機或日記。', score: 4 },
+        { cn: '大多数时候尊重，偶尔以关心之名过问。', tw: '大多數時候尊重，偶爾以關心之名過問。', score: 3 },
+        { cn: '经常翻我的物品或干涉我的朋友关系。', tw: '經常翻我的物品或干涉我的朋友關係。', score: 1 },
+        { cn: '零隐私，被全面监控和管控。', tw: '零隱私，被全面監控和管控。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS7 */
+      id: 'QKA_HS7', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你的爱好被学校或家人允许吗？',
+      tw: '你的愛好被學校或家人允許嗎？',
+      options: [
+        { cn: '完全支持，甚至提供资金或资源。', tw: '完全支持，甚至提供資金或資源。', score: 4 },
+        { cn: '不干涉，只要不影响学习就行。', tw: '不干涉，只要不影響學習就行。', score: 3 },
+        { cn: '被认为是浪费时间，经常被言语否定。', tw: '被認為是浪費時間，經常被言語否定。', score: 1 },
+        { cn: '被严禁，物品曾被没收或损毁。', tw: '被嚴禁，物品曾被沒收或損毀。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS8 */
+      id: 'QKA_HS8', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你愿意花时间陪伴家人吗？',
+      tw: '你願意花時間陪伴家人嗎？',
+      options: [
+        { cn: '非常愿意，家是我的避风港。', tw: '非常願意，家是我的避風港。', score: 4 },
+        { cn: '一般，有温馨时刻，也有代沟摩擦。', tw: '一般，有溫馨時刻，也有代溝摩擦。', score: 3 },
+        { cn: '尽量回避，相处会有压力或争吵。', tw: '盡量回避，相處會有壓力或爭吵。', score: 1 },
+        { cn: '极度抗拒，想方设法尽早离开家。', tw: '極度抗拒，想方設法盡早離開家。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS9 */
+      id: 'QKA_HS9', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你一周有几天睡眠不足7小时？',
+      tw: '你一週有幾天睡眠不足7小時？',
+      options: [
+        { cn: '0天，每天睡满7小时以上。', tw: '0天，每天睡滿7小時以上。', score: 4 },
+        { cn: '1-2天。',                 tw: '1-2天。',                 score: 3 },
+        { cn: '3-5天。',                 tw: '3-5天。',                 score: 1 },
+        { cn: '6-7天（严重慢性睡眠剥夺）。', tw: '6-7天（嚴重慢性睡眠剝奪）。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS10 */
+      id: 'QKA_HS10', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你愿意和朋友分享你的家庭生活吗？',
+      tw: '你願意和朋友分享你的家庭生活嗎？',
+      options: [
+        { cn: '愿意，我开心地分享家庭情况。', tw: '願意，我開心地分享家庭情況。', score: 4 },
+        { cn: '有时，分享一些一般内容，私事保留。', tw: '有時，分享一些一般內容，私事保留。', score: 3 },
+        { cn: '很少，我刻意把家庭生活与朋友隔开。', tw: '很少，我刻意把家庭生活與朋友隔開。', score: 2 },
+        { cn: '从不，家庭是我的羞耻或深深的痛苦。', tw: '從不，家庭是我的羞恥或深深的痛苦。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS11 */
+      id: 'QKA_HS11', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你是否经常感到厌学？',
+      tw: '你是否經常感到厭學？',
+      options: [
+        { cn: '很少，我动力很强。',             tw: '很少，我動力很強。',             score: 4 },
+        { cn: '偶尔，但能调整后继续。',       tw: '偶爾，但能調整後繼續。',         score: 3 },
+        { cn: '经常，学习感觉是沉重的负担。',    tw: '經常，學習感覺是沉重的負擔。',    score: 1 },
+        { cn: '持续，我已经完全放弃学业。', tw: '持續，我已經完全放棄學業。', score: 0 },
+      ],
+    },
+
+    { /* QKA_HS12 */
+      id: 'QKA_HS12', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 0; },
+      cn: '你是否对未来感到完全迷茫？',
+      tw: '你是否對未來感到完全迷茫？',
+      options: [
+        { cn: '完全不，我有清晰的目标和计划。', tw: '完全不，我有清晰的目標和計劃。', score: 4 },
+        { cn: '有点迷茫，但大方向还是清楚的。', tw: '有點迷茫，但大方向還是清楚的。', score: 3 },
+        { cn: '非常焦虑，完全不知道自己该做什么。', tw: '非常焦慮，完全不知道自己該做什麼。', score: 1 },
+        { cn: '对未来的恐惧完全让我瘫痪，已放弃规划。', tw: '對未來的恐懼完全讓我癱瘓，已放棄規劃。', score: 0 },
+      ],
+    },
+
+
+    /* ─── AAB / AAC: College + Bachelor (shared questions) ─── */
+
+    { /* QKA_BC1 — Depression */
+      id: 'QKA_BC1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && (s.QKA_STAGE === 1 || s.QKA_STAGE === 2 || s.QKA_STAGE === 3); },
+      cn: '你是否曾经历过抑郁状态？',
+      tw: '你是否曾經歷過憂鬱狀態？',
+      options: [
+        { cn: '从未，我的心理状态非常健康。', tw: '從未，我的心理狀態非常健康。', score: 4 },
+        { cn: '偶尔情绪低落，但能很快恢复。', tw: '偶爾情緒低落，但能很快恢復。', score: 3 },
+        { cn: '频繁出现持续性低落情绪。', tw: '頻繁出現持續性低落情緒。', score: 1 },
+        { cn: '是，我曾经历或正经历临床抑郁症。', tw: '是，我曾經歷或正在經歷臨床憂鬱症。', score: 0 },
+      ],
+    },
+
+    { /* QKA_BC2 — Study status */
+      id: 'QKA_BC2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && (s.QKA_STAGE === 1 || s.QKA_STAGE === 2 || s.QKA_STAGE === 3); },
+      cn: '你目前的学业状况如何？',
+      tw: '你目前的學業狀況如何？',
+      options: [
+        { cn: '名列前茅，几乎全面领先。', tw: '名列前茅，幾乎全面領先。', score: 4 },
+        { cn: '中上水平，表现稳定扎实。', tw: '中上水平，表現穩定扎實。', score: 3 },
+        { cn: '一般，勉强及格。', tw: '一般，勉強及格。', score: 2 },
+        { cn: '严重吃力，面临不及格或退学风险。', tw: '嚴重吃力，面臨不及格或退學風險。', score: 0 },
+      ],
+    },
+
+    { /* QKA_BC3 — Job relevance */
+      id: 'QKA_BC3', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && (s.QKA_STAGE === 1 || s.QKA_STAGE === 2 || s.QKA_STAGE === 3); },
+      cn: '你的学业能帮你找到合适的工作吗？',
+      tw: '你的學業能幫你找到合適的工作嗎？',
+      options: [
+        { cn: '肯定，我的专业需求旺盛且职业路径清晰。', tw: '肯定，我的專業需求旺盛且職業路徑清晰。', score: 4 },
+        { cn: '大概率，能为多个领域打好基础。', tw: '大概率，能為多個領域打好基礎。', score: 3 },
+        { cn: '不太可能，技能与市场需求不匹配。', tw: '不太可能，技能與市場需求不匹配。', score: 1 },
+        { cn: '完全不可能，我的学位对就业几乎毫无用处。', tw: '完全不可能，我的學位對就業幾乎毫無用處。', score: 0 },
+      ],
+    },
+
+    { /* QKA_BC4 — Scholarship */
+      id: 'QKA_BC4', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && (s.QKA_STAGE === 1 || s.QKA_STAGE === 2 || s.QKA_STAGE === 3); },
+      cn: '你是否获得过奖学金？',
+      tw: '你是否獲得過獎學金？',
+      options: [
+        { cn: '有，顶级或国家级奖学金。', tw: '有，頂級或國家級獎學金。', score: 4 },
+        { cn: '有，普通或小额奖学金。', tw: '有，普通或小額獎學金。', score: 3 },
+        { cn: '没有，但成绩还不错。', tw: '沒有，但成績還不錯。', score: 2 },
+        { cn: '没有，成绩太低无法获得资格。', tw: '沒有，成績太低無法獲得資格。', score: 0 },
+      ],
+    },
+
+    { /* QKA_BC5 — Leadership role */
+      id: 'QKA_BC5', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && (s.QKA_STAGE === 1 || s.QKA_STAGE === 2 || s.QKA_STAGE === 3); },
+      cn: '你是否担任重要职务（如学生会、社团会长等）？',
+      tw: '你是否擔任重要職務（如學生會、社團會長等）？',
+      options: [
+        { cn: '有，我担任核心领导职务。', tw: '有，我擔任核心領導職務。', score: 4 },
+        { cn: '有，我担任小型或院系级职务。', tw: '有，我擔任小型或院系級職務。', score: 3 },
+        { cn: '没有，但我积极参与为成员。', tw: '沒有，但我積極參與為成員。', score: 2 },
+        { cn: '没有，我不参与任何课外活动。', tw: '沒有，我不參與任何課外活動。', score: 1 },
+      ],
+    },
+
+    { /* QKA_BC6 — Mental clarity */
+      id: 'QKA_BC6', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && (s.QKA_STAGE === 1 || s.QKA_STAGE === 2 || s.QKA_STAGE === 3); },
+      cn: '你学习时思维是否足够清晰？',
+      tw: '你學習時思維是否足夠清晰？',
+      options: [
+        { cn: '极度清晰，我能快速掌握知识点。', tw: '極度清晰，我能快速掌握知識點。', score: 4 },
+        { cn: '总体清晰，遇到复杂知识需要时间消化。', tw: '總體清晰，遇到複雜知識需要時間消化。', score: 3 },
+        { cn: '经常脑雾，难以集中注意力。', tw: '經常腦霧，難以集中注意力。', score: 1 },
+        { cn: '完全空白，根本无法处理学业信息。', tw: '完全空白，根本無法處理學業資訊。', score: 0 },
+      ],
+    },
+
+    { /* QKA_BC7 — Foreign language proficiency */
+      id: 'QKA_BC7', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && (s.QKA_STAGE === 1 || s.QKA_STAGE === 2 || s.QKA_STAGE === 3); },
+      cn: '你的外语（如英语）水平如何？',
+      tw: '你的外語（如英語）水平如何？',
+      options: [
+        { cn: '流利，能读原版文献并进行深度学术/商业交流。', tw: '流利，能讀原版文獻並進行深度學術/商業交流。', score: 4 },
+        { cn: '熟练，持有高级证书，能应对日常专业任务。', tw: '熟練，持有高級證書，能應對日常專業任務。', score: 3 },
+        { cn: '基础，通过了考试但实际交流困难。', tw: '基礎，通過了考試但實際交流困難。', score: 2 },
+        { cn: '零基础/很差，完全无法用该语言获取信息。', tw: '零基礎/很差，完全無法用該語言獲取資訊。', score: 0 },
+      ],
+    },
+
+
+    /* ─── AAD: Master's & above (extra questions, then merges with BC) ─── */
+
+    { /* QKA_D1 — Research direction */
+      id: 'QKA_D1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 3; },
+      cn: '你目前有清晰的研究方向、论文题目或课题吗？',
+      tw: '你目前有清晰的研究方向、論文題目或課題嗎？',
+      options: [
+        { cn: '有，已确定且进展顺利。', tw: '有，已確定且進展順利。', score: 4 },
+        { cn: '正在探索，有大致方向。', tw: '正在探索，有大致方向。', score: 3 },
+        { cn: '完全迷茫，尚无方向。', tw: '完全迷茫，尚無方向。', score: 1 },
+        { cn: '面临严重阻碍，考虑换题或退学。', tw: '面臨嚴重阻礙，考慮換題或退學。', score: 0 },
+      ],
+    },
+
+    { /* QKA_D2 — Funding / supervisor support */
+      id: 'QKA_D2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 3; },
+      cn: '你的科研项目是否有稳定的经费或导师支持？',
+      tw: '你的科研項目是否有穩定的經費或導師支持？',
+      options: [
+        { cn: '充裕经费和顶尖设备。', tw: '充裕經費和頂尖設備。', score: 4 },
+        { cn: '支持足够，勉强能推进。', tw: '支持足夠，勉強能推進。', score: 3 },
+        { cn: '缺乏支持，需自费或频繁延误。', tw: '缺乏支持，需自費或頻繁延誤。', score: 1 },
+        { cn: '零支持，被导师或体制完全放弃。', tw: '零支持，被導師或體制完全放棄。', score: 0 },
+      ],
+    },
+
+    { /* QKA_D3 — Publications / patents */
+      id: 'QKA_D3', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 0 && s.QKA_STAGE === 3; },
+      cn: '你是否发表过核心期刊论文或产出重要专利？',
+      tw: '你是否發表過核心期刊論文或產出重要專利？',
+      options: [
+        { cn: '有，顶级刊物第一作者。', tw: '有，頂級刊物第一作者。', score: 4 },
+        { cn: '有，达到毕业要求的普通发表。', tw: '有，達到畢業要求的普通發表。', score: 3 },
+        { cn: '没有，但正在投稿或撰写中。', tw: '沒有，但正在投稿或撰寫中。', score: 2 },
+        { cn: '没有，且暂无发表前景。', tw: '沒有，且暫無發表前景。', score: 0 },
+      ],
+    },
+
+
+    /* ─── AB: Employed ─── */
+
+    /* QKAB8 (specific-profession question) moved to bonus section —
+       see QKBON_AB8 later in this file. */
+
+    { /* QKAB1 — Work shifts / hours */
+      id: 'QKAB1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 1; },
+      cn: '以下哪种情况符合你目前的工作班次和时长？',
+      tw: '以下哪種情況符合你目前的工作班次和時長？',
+      options: [
+        { cn: '每天工作8-10小时，周末双休。',                                       tw: '每天工作8-10小時，週末雙休。',                                       score: 4 },
+        { cn: '每天工作8-10小时，每周只休息一天。',                                  tw: '每天工作8-10小時，每週只休息一天。',                                  score: 3 },
+        { cn: '休息对我来说极为少见。',                                              tw: '休息對我來說極為少見。',                                              score: 1 },
+        { cn: '几乎不间断地工作。',                                                  tw: '幾乎不間斷地工作。',                                                  score: 0 },
+        { cn: '极度轻松，每天工作很少，有大量个人时间。',                            tw: '極度輕鬆，每天工作很少，有大量個人時間。',                            score: 4 },
+      ],
+    },
+
+    { /* QKAB2 — Job-skill match */
+      id: 'QKAB2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 1; },
+      cn: '你的工作内容是否与你的核心技能匹配？',
+      tw: '你的工作內容是否與你的核心技能匹配？',
+      options: [
+        { cn: '高度匹配，能充分发挥我的优势。', tw: '高度匹配，能充分發揮我的優勢。', score: 4 },
+        { cn: '部分匹配，边做边学。', tw: '部分匹配，邊做邊學。', score: 2 },
+        { cn: '完全不匹配，纯粹机械劳动。', tw: '完全不匹配，純粹機械勞動。', score: 0 },
+      ],
+    },
+
+    { /* QKAB4 — Daily income balance */
+      id: 'QKAB4', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 1; },
+      cn: '扣除房租/房贷和基本餐食后，你每日税后收入结余如何？',
+      tw: '扣除房租/房貸和基本餐食後，你每日稅後收入結餘如何？',
+      options: [
+        { cn: '大量结余，可自由储蓄和投资。',                   tw: '大量結餘，可自由儲蓄和投資。',                   score: 4 },
+        { cn: '够用，也能存下钱应对未来开销。',                  tw: '夠用，也能存下錢應對未來開銷。',                  score: 3 },
+        { cn: '月光，勉强维持生存。', tw: '月光，勉強維持生存。', score: 1 },
+        { cn: '入不敷出，负债中。', tw: '入不敷出，負債中。', score: 0 },
+      ],
+    },
+
+    { /* QKAB5 — Exercise and nutrition */
+      id: 'QKAB5', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 1; },
+      cn: '你能保证在业余时间定期进行中高强度运动并注重饮食营养吗？',
+      tw: '你能保證在業餘時間定期進行中高強度運動並注重飲食營養嗎？',
+      options: [
+        { cn: '每周3次以上，有系统性饮食管理。', tw: '每週3次以上，有系統性飲食管理。', score: 4 },
+        { cn: '偶尔运动，饮食随心情而定。', tw: '偶爾運動，飲食隨心情而定。', score: 2 },
+        { cn: '很少运动，严重依赖外卖快餐。', tw: '很少運動，嚴重依賴外賣快餐。', score: 1 },
+        { cn: '业余时间太紧，根本没余力顾及。', tw: '業餘時間太緊，根本沒餘力顧及。', score: 0 },
+      ],
+    },
+
+    { /* QKAB6 — Promotion / growth opportunity */
+      id: 'QKAB6', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 1; },
+      cn: '过去一年，你的职位或行业是否出现清晰的晋升、加薪或技能提升机会？',
+      tw: '過去一年，你的職位或行業是否出現清晰的晉升、加薪或技能提升機會？',
+      options: [
+        { cn: '有，我已经获得晋升或大幅加薪。', tw: '有，我已經獲得晉升或大幅加薪。', score: 4 },
+        { cn: '有，路径清晰，我正积极努力中。', tw: '有，路徑清晰，我正積極努力中。', score: 3 },
+        { cn: '停滞不前，无加薪机会，重复性工作。', tw: '停滯不前，無加薪機會，重複性工作。', score: 1 },
+        { cn: '行业萎缩，面临即将裁员或降薪。', tw: '行業萎縮，面臨即將裁員或降薪。', score: 0 },
+      ],
+    },
+
+    { /* QKAB7 — Job market resilience */
+      id: 'QKAB7', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 1; },
+      cn: '如果明天失去这份工作，你目前的能力能让你从容应对吗？',
+      tw: '如果明天失去這份工作，你目前的能力能讓你從容應對嗎？',
+      options: [
+        { cn: '毫无压力，能轻松找到更好的工作或有强大的副业。', tw: '毫無壓力，能輕鬆找到更好的工作或有強大的副業。', score: 4 },
+        { cn: '需要1-3个月过渡，但对找到好工作有信心。', tw: '需要1-3個月過渡，但對找到好工作有信心。', score: 3 },
+        { cn: '非常焦虑，很难在别处匹配现有收入。', tw: '非常焦慮，很難在別處匹配現有收入。', score: 1 },
+        { cn: '致命打击，我的技能缺乏市场价值，生活会立即停摆。', tw: '致命打擊，我的技能缺乏市場價值，生活會立即停擺。', score: 0 },
+      ],
+    },
+
+
+    /* ─── AC: Entrepreneur ─── */
+
+    { /* QKAC1 — Cash flow stage */
+      id: 'QKAC1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 2; },
+      cn: '你的业务/项目目前处于哪个现金流阶段？',
+      tw: '你的業務/項目目前處於哪個現金流階段？',
+      options: [
+        { cn: '稳定盈利并保持增长。', tw: '穩定盈利並保持增長。', score: 4 },
+        { cn: '基本实现收支平衡。', tw: '基本實現收支平衡。', score: 2 },
+        { cn: '暂未正式盈利结算（仍在产品研发、市场验证或前期投入阶段）。', tw: '暫未正式盈利結算（仍在產品研發、市場驗證或前期投入階段）。', score: 1 },
+        { cn: '亏损中，靠积蓄或融资维持。', tw: '虧損中，靠積蓄或融資維持。', score: 1 },
+        { cn: '极高负债，面临资金链断裂风险。', tw: '極高負債，面臨資金鏈斷裂風險。', score: 0 },
+      ],
+    },
+
+    { /* QKAC2 — Weekly hours */
+      id: 'QKAC2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 2; },
+      cn: '你平均每周为自己的业务工作多少小时？',
+      tw: '你平均每週為自己的業務工作多少小時？',
+      options: [
+        { cn: '40小时以内。', tw: '40小時以內。', score: 4 },
+        { cn: '40-60小时。', tw: '40-60小時。', score: 3 },
+        { cn: '60-80小时。', tw: '60-80小時。', score: 1 },
+        { cn: '80小时以上（全年无休，高度绑定业务）。', tw: '80小時以上（全年無休，高度綁定業務）。', score: 0 },
+      ],
+    },
+
+    { /* QKAC3 — Customer stickiness */
+      id: 'QKAC3', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 2; },
+      cn: '你的产品/服务目前是否有稳定的核心客户群或定期复购？',
+      tw: '你的產品/服務目前是否有穩定的核心客戶群或定期復購？',
+      options: [
+        { cn: '客户粘性极高，拥有忠实粉丝群体，复购率超过50%，口碑传播效果显著。', tw: '客戶黏性極高，擁有忠實粉絲群體，復購率超過50%，口碑傳播效果顯著。', score: 4 },
+        { cn: '客户粘性高，有稳定的核心客户群，定期复购，正向反馈和转化稳定。', tw: '客戶黏性高，有穩定的核心客戶群，定期復購，正向反饋和轉化穩定。', score: 3 },
+        { cn: '有一定客户基础，但流失率较高，需要持续投入获客成本。', tw: '有一定客戶基礎，但流失率較高，需要持續投入獲客成本。', score: 2 },
+        { cn: '刚获得首批客户，仍在验证产品市场契合度，复购情况尚不明确。', tw: '剛獲得首批客戶，仍在驗證產品市場契合度，復購情況尚不明確。', score: 1 },
+        { cn: '仍处于冷启动阶段，几乎没有实际交易，主要靠Demo或意向客户。', tw: '仍處於冷啟動階段，幾乎沒有實際交易，主要靠Demo或意向客戶。', score: 0 },
+      ],
+    },
+
+    { /* QKAC4 — Entrepreneur type */
+      id: 'QKAC4', section: 'social', scorable: true, noImprove: true,
+      showIf: function(s){ return s.QK3 === 2; },
+      cn: '你正在建立的组织或秩序，属于以下哪个通道？',
+      tw: '你正在建立的組織或秩序，屬於以下哪個通道？',
+      options: [
+        { cn: '被认证的企业家，资本市场绝对认可商业大鳄。', tw: '被認證的企業家，資本市場絕對認可商業大鱷。', score: 4 },
+        { cn: '任意行业创始人，未知或传统商业领域拓荒者。', tw: '任意行業創始人，未知或傳統商業領域拓荒者。', score: 3 },
+        { cn: '小型个体经营者，独立服务提供者。', tw: '小型個體經營者，獨立服務提供者。', score: 2 },
+        { cn: '副业尝试者，尚未全职投入。', tw: '副業嘗試者，尚未全職投入。', score: 1 },
+      ],
+    },
+
+
+    /* ─── AD: Unemployed ─── */
+
+    { /* QKAD1 — Savings runway */
+      id: 'QKAD1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 3 || s.QK3 === 4; },
+      cn: '在不降低基本生活水准的前提下，你的储蓄或被动收入能支撑多久？',
+      tw: '在不降低基本生活水準的前提下，你的儲蓄或被動收入能支撐多久？',
+      options: [
+        { cn: '2年以上。',                                  tw: '2年以上。',                                  score: 4 },
+        { cn: '半年到2年。',                                tw: '半年到2年。',                                score: 3 },
+        { cn: '3个月到半年。',                               tw: '3個月到半年。',                               score: 2 },
+        { cn: '1个月到3个月。',                              tw: '1個月到3個月。',                              score: 1 },
+        { cn: '随时可能断炊，高度依赖他人资助。',            tw: '隨時可能斷炊，高度依賴他人資助。',            score: 0 },
+      ],
+    },
+
+    { /* QKAD2 — Regular schedule */
+      id: 'QKAD2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 3 || s.QK3 === 4; },
+      cn: '你目前是否保持规律作息并为白天安排固定任务？',
+      tw: '你目前是否保持規律作息並為白天安排固定任務？',
+      options: [
+        { cn: '非常规律，每天有清晰的待办清单。', tw: '非常規律，每天有清晰的待辦清單。', score: 4 },
+        { cn: '偶尔规律，大多数时候随意。', tw: '偶爾規律，大多數時候隨意。', score: 2 },
+        { cn: '作息不规律。', tw: '作息不規律。', score: 0 },
+      ],
+    },
+
+    { /* QKAD3 — Unemployed status type */
+      id: 'QKAD3', section: 'social', scorable: true, noImprove: true,
+      showIf: function(s){ return s.QK3 === 3 || s.QK3 === 4; },
+      cn: '你当前的无业状态，本质上属于以下哪种处境？',
+      tw: '你目前的無業狀態，本質上屬於以下哪種處境？',
+      options: [
+        { cn: '大型财富继承人', tw: '大型財富繼承人', score: 4 },
+        { cn: '正在积极求职中，有明确的职业规划', tw: '正在積極求職中，有明確的職業規劃', score: 3 },
+        { cn: '暂时休息调整，有充足的储蓄支撑', tw: '暫時休息調整，有充足的儲蓄支撐', score: 3 },
+        { cn: '处于职业转型期，正在学习新技能', tw: '處於職業轉型期，正在學習新技能', score: 2 },
+        { cn: '长期找不到工作，经济压力较大', tw: '長期找不到工作，經濟壓力較大', score: 1 },
+        { cn: '潜藏中的违法者', tw: '潛藏中的違法者', score: 0 },
+        { cn: '正在服刑的罪犯', tw: '正在服刑的罪犯', score: 0 },
+        { cn: '无家可归的流浪者', tw: '無家可歸的流浪者', score: 0 },
+      ],
+    },
+
+
+    /* ─── AE: Retired ─── */
+
+    { /* QKAE1 — Pension adequacy */
+      id: 'QKAE1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 5; },
+      cn: '你每月的固定养老金/被动收入是否能覆盖日常医疗和生活支出？',
+      tw: '你每月的固定養老金/被動收入是否能覆蓋日常醫療和生活支出？',
+      options: [
+        { cn: '充裕，还能支持旅游和兴趣爱好。', tw: '充裕，還能支持旅遊和興趣愛好。', score: 4 },
+        { cn: '刚好覆盖基本生活和基本医疗。', tw: '剛好覆蓋基本生活和基本醫療。', score: 3 },
+        { cn: '需要子女定期补贴。', tw: '需要子女定期補貼。', score: 1 },
+        { cn: '比较紧张，看病都有压力。', tw: '比較緊張，看病都有壓力。', score: 0 },
+      ],
+    },
+
+    { /* QKAE2 — Physical independence */
+      id: 'QKAE2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 5; },
+      cn: '你目前的身体状况对日常自理生活的影响有多大？',
+      tw: '你目前的身體狀況對日常自理生活的影響有多大？',
+      options: [
+        { cn: '完全自理，可参加中等强度活动（快走、跳舞）。', tw: '完全自理，可參加中等強度活動（快走、跳舞）。', score: 4 },
+        { cn: '有慢性病但药物控制良好，完全自理。', tw: '有慢性病但藥物控制良好，完全自理。', score: 3 },
+        { cn: '日常生活需要他人协助。', tw: '日常生活需要他人協助。', score: 1 },
+        { cn: '长期卧床。', tw: '長期臥床。', score: 0 },
+      ],
+    },
+
+
+    /* ─── AF / AG: Seriously Ill / Post-Accident ─── */
+
+    { /* QKAF1 — Sleep disruption from pain */
+      id: 'QKAF1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 6 || s.QK3 === 7; },
+      cn: '你一周有几天因身体疼痛或严重不适而无法安睡（少于5小时）？',
+      tw: '你一週有幾天因身體疼痛或嚴重不適而無法安睡（少於5小時）？',
+      options: [
+        { cn: '几乎没有，疼痛得到良好控制。', tw: '幾乎沒有，疼痛得到良好控制。', score: 4 },
+        { cn: '1-2天。',                    tw: '1-2天。',                    score: 3 },
+        { cn: '3-5天。',                    tw: '3-5天。',                    score: 1 },
+        { cn: '几乎每天。',                 tw: '幾乎每天。',                 score: 0 },
+      ],
+    },
+
+    { /* QKAF2 — Caregiver presence */
+      id: 'QKAF2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 6 || s.QK3 === 7; },
+      cn: '在治疗或行动受限期间，你身边是否有固定的照护者？',
+      tw: '在治療或行動受限期間，你身邊是否有固定的照護者？',
+      options: [
+        { cn: '有，专业或全职家人照护。', tw: '有，專業或全職家人照護。', score: 4 },
+        { cn: '有，轮班照护，勉强维持。', tw: '有，輪班照護，勉強維持。', score: 2 },
+        { cn: '缺乏照护，大多数时候独自忍受。', tw: '缺乏照護，大多數時候獨自忍受。', score: 0 },
+      ],
+    },
+
+    { /* QKAF3 — Physical independence (same as AE) */
+      id: 'QKAF3', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 6 || s.QK3 === 7; },
+      cn: '你目前的身体状况对日常自理生活的影响有多大？',
+      tw: '你目前的身體狀況對日常自理生活的影響有多大？',
+      options: [
+        { cn: '完全自理，可参加中等强度活动。', tw: '完全自理，可參加中等強度活動。', score: 4 },
+        { cn: '有慢性病但药物控制良好，完全自理。', tw: '有慢性病但藥物控制良好，完全自理。', score: 3 },
+        { cn: '日常生活需要他人协助。', tw: '日常生活需要他人協助。', score: 1 },
+        { cn: '长期卧床。', tw: '長期臥床。', score: 0 },
+      ],
+    },
+
+
+    /* ─── AH: Restricted Movement ─── */
+
+    { /* QKAH1 — Duration */
+      id: 'QKAH1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 8; },
+      cn: '这次行动受限的状态预计会持续多久？',
+      tw: '這次行動受限的狀態預計會持續多久？',
+      options: [
+        { cn: '短期，数月内可恢复正常。', tw: '短期，數月內可恢復正常。', score: 3 },
+        { cn: '中长期，从一年到数年不等。', tw: '中長期，從一年到數年不等。', score: 1 },
+        { cn: '永久或无限期受限。', tw: '永久或無限期受限。', score: 0 },
+      ],
+    },
+
+    { /* QKAH2 — Communication frequency */
+      id: 'QKAH2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 8; },
+      cn: '在受限期间，你与外界（社会、亲属或网络）的有效沟通频率如何？',
+      tw: '在受限期間，你與外界（社會、親屬或網路）的有效溝通頻率如何？',
+      options: [
+        { cn: '每天顺畅沟通，持续获取新信息。', tw: '每天順暢溝通，持續獲取新資訊。', score: 4 },
+        { cn: '每周几次固定机会进行有限沟通。', tw: '每週幾次固定機會進行有限溝通。', score: 3 },
+        { cn: '偶尔书信或每月极简短联系。', tw: '偶爾書信或每月極簡短聯繫。', score: 1 },
+        { cn: '与外界完全隔绝，处于信息真空中。', tw: '與外界完全隔絕，處於資訊真空中。', score: 0 },
+      ],
+    },
+
+
+    /* ─── AI: Full-time Caregiver ─── */
+
+    { /* QKAI1 — Off-duty rest */
+      id: 'QKAI1', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 9; },
+      cn: '你每周是否有至少一两天完全"下班"的休息时间？',
+      tw: '你每週是否有至少一兩天完全「下班」的休息時間？',
+      options: [
+        { cn: '有，伴侣/长辈完全接手，我有绝对自由的天数。', tw: '有，伴侶/長輩完全接手，我有絕對自由的天數。', score: 4 },
+        { cn: '只有每天的零散几小时（如孩子睡着时）。', tw: '只有每天的零散幾小時（如孩子睡著時）。', score: 2 },
+        { cn: '极少，偶尔有人短暂帮忙。', tw: '極少，偶爾有人短暫幫忙。', score: 1 },
+        { cn: '完全没有，全年24/7随时待命。', tw: '完全沒有，全年24/7隨時待命。', score: 0 },
+      ],
+    },
+
+    { /* QKAI2 — Additional income */
+      id: 'QKAI2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 9; },
+      cn: '你是否有额外的收入渠道？',
+      tw: '你是否有額外的收入渠道？',
+      options: [
+        { cn: '稳定副业/投资，部分财务独立。', tw: '穩定副業/投資，部分財務獨立。', score: 4 },
+        { cn: '婚后仅靠不稳定的副业维持收入。', tw: '婚後僅靠不穩定的副業維持收入。', score: 3 },
+        { cn: '只依靠婚前积蓄。', tw: '只依靠婚前積蓄。', score: 2 },
+        { cn: '零个人收入，每笔开销都要向伴侣/家人开口。', tw: '零個人收入，每筆開銷都要向伴侶/家人開口。', score: 0 },
+      ],
+    },
+
+    { /* QKAI3 — Family support */
+      id: 'QKAI3', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 9; },
+      cn: '家人的支持是否让你的生活更轻松？',
+      tw: '家人的支持是否讓你的生活更輕鬆？',
+      options: [
+        { cn: '极度支持，经济和情感都有充分后盾。', tw: '極度支持，經濟和情感都有充分後盾。', score: 4 },
+        { cn: '有一定支持，叫了才帮但不主动。', tw: '有一定支持，叫了才幫但不主動。', score: 3 },
+        { cn: '中立，帮不上忙但也不添麻烦。', tw: '中立，幫不上忙但也不添麻煩。', score: 2 },
+        { cn: '负面支持，持续批评或消耗我的精力。', tw: '負面支持，持續批評或消耗我的精力。', score: 0 },
+      ],
+    },
+
+    { /* QKAI4 — Partner childcare share */
+      id: 'QKAI4', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 9; },
+      cn: '你的伴侣承担了多少育儿和日常家务？',
+      tw: '你的伴侶承擔了多少育兒和日常家務？',
+      options: [
+        { cn: '40%-50%以上，积极参与，情感价值高。', tw: '40%-50%以上，積極參與，情感價值高。', score: 4 },
+        { cn: '20%-30%，下班后帮忙，但核心决策由我做。', tw: '20%-30%，下班後幫忙，但核心決策由我做。', score: 3 },
+        { cn: '5%-10%，偶尔陪孩子玩，几乎不碰家务。', tw: '5%-10%，偶爾陪孩子玩，幾乎不碰家務。', score: 1 },
+        { cn: '0%，缺席型育儿，还增加负担和矛盾。', tw: '0%，缺席型育兒，還增加負擔和矛盾。', score: 0 },
+      ],
+    },
+
+
+    /* ═══════════════════════════════════════════
+       SECTION 4 — COMMON (all statuses)
+       ═══════════════════════════════════════════ */
+
+    { /* QKC1 — Appearance anxiety — hidden for age 56+ */
+      id: 'QKC1', section: 'basic', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 < 5; },
+      cn: '你是否为自己的外表感到焦虑？',
+      tw: '你是否為自己的外表感到焦慮？',
+      options: [
+        { cn: '完全自信，靠健康和体魄说话。', tw: '完全自信，靠健康和體魄說話。', score: 4 },
+        { cn: '偶尔在意，在仪容上适度投入。', tw: '偶爾在意，在儀容上適度投入。', score: 3 },
+        { cn: '经常焦虑，在美容/减肥上大量花费。', tw: '經常焦慮，在美容/減肥上大量花費。', score: 1 },
+        { cn: '极度不安全感，已影响社交生活和心理健康。', tw: '極度不安全感，已影響社交生活和心理健康。', score: 0 },
+      ],
+    },
+
+    { /* QKC2 — Monthly income — open for Employed, Entrepreneur, Retired */
+      id: 'QKC2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK3 === 1 || s.QK3 === 2 || s.QK3 === 5; },
+      cn: '你的月收入属于以下哪个标准？',
+      tw: '你的月收入屬於以下哪個標準？',
+      options: [
+        {
+          cn: '极高（前1% / 高净值）。', tw: '極高（前1% / 高淨值）。', score: 4,
+          desc: {
+            cn: '完全财务自由，可随意支配资产，有底气和能力对一切说不。家人无需为任何社会负担、医疗、就业或教育问题担忧。',
+            tw: '完全財務自由，可隨意支配資產，有底氣和能力對一切說不。家人無需為任何社會負擔、醫療、就業或教育問題擔憂。',
+          },
+        },
+        {
+          cn: '高（扎实的中上阶层）。', tw: '高（扎實的中上階層）。', score: 3,
+          desc: {
+            cn: '生活质量较高，储蓄与投资有余裕，偶发大额支出不构成威胁，整体方向可控。',
+            tw: '生活質量較高，儲蓄與投資有餘裕，偶發大額支出不構成威脅，整體方向可控。',
+          },
+        },
+        {
+          cn: '中等（日常稳定，可自给自足）。', tw: '中等（日常穩定，可自給自足）。', score: 2,
+          desc: {
+            cn: '收支基本平衡，能覆盖日常生活所需，但大额意外支出会带来压力，未来规划空间有限。',
+            tw: '收支基本平衡，能覆蓋日常生活所需，但大額意外支出會帶來壓力，未來規劃空間有限。',
+          },
+        },
+        {
+          cn: '低（徘徊在生存线附近）。', tw: '低（徘徊在生存線附近）。', score: 1,
+          desc: {
+            cn: '收入勉强覆盖基本开销，几乎没有储蓄空间，任何突发状况都可能造成资金缺口。',
+            tw: '收入勉強覆蓋基本開銷，幾乎沒有儲蓄空間，任何突發狀況都可能造成資金缺口。',
+          },
+        },
+        {
+          cn: '极低（面临严重的经济压力）。', tw: '極低（面臨嚴重的經濟壓力）。', score: 0,
+          desc: {
+            cn: '长期入不敷出或依赖他人援助，经济压力严重影响日常决策与心理健康。',
+            tw: '長期入不敷出或依賴他人援助，經濟壓力嚴重影響日常決策與心理健康。',
+          },
+        },
+      ],
+    },
+
+    { /* QKC3 — Bad habits (multi-select) */
+      id: 'QKC3', section: 'basic', scorable: true, multi: true, noAutoAdvance: true,
+      scoreMode: 'multi_negative',
+      cn: '以下不良习惯哪些适用于你？（可多选）',
+      tw: '以下不良習慣哪些適用於你？（可多選）',
+      options: [
+        { cn: '以上均无。',                                     tw: '以上均無。',                                     score: 4, exclusive: true },
+        { cn: '长期大量吸烟或酗酒。',                           tw: '長期大量吸菸或酗酒。',                           score: 0, negative: true },
+        { cn: '长期频繁熬夜。',                                 tw: '長期頻繁熬夜。',                                 score: 0, negative: true },
+        { cn: '沉迷短视频、成人内容或即时多巴胺刺激。',         tw: '沉迷短視頻、成人內容或即時多巴胺刺激。',         score: 0, negative: true },
+        { cn: '饮食极度不规律，严重依赖垃圾食品。',             tw: '飲食極度不規律，嚴重依賴垃圾食品。',             score: 0, negative: true },
+      ],
+    },
+
+    { /* QKC4 — Vision */
+      id: 'QKC4', section: 'basic', scorable: false,
+      cn: '你目前的视力状况如何？',
+      tw: '你目前的視力狀況如何？',
+      note: {
+        cn: '视力状况由评估引擎单独处理',
+        tw: '視力狀況由評估引擎單獨處理',
+      },
+      options: [
+        { cn: '视力完好，无需任何矫正工具。',                                    tw: '視力完好，無需任何矯正工具。',                                    score: 0 },
+        { cn: '轻度近视/散光，佩戴眼镜后日常生活几乎无影响。',                    tw: '輕度近視/散光，佩戴眼鏡後日常生活幾乎無影響。',                    score: 0 },
+        { cn: '重度近视/散光，高度依赖眼镜或隐形眼镜，摘掉后严重模糊。',          tw: '重度近視/散光，高度依賴眼鏡或隱形眼鏡，摘掉後嚴重模糊。',          score: 0 },
+        { cn: '视力明显受损，即使佩戴眼镜仍有困难，已影响日常独立活动。',          tw: '視力明顯受損，即使佩戴眼鏡仍有困難，已影響日常獨立活動。',          score: 0 },
+        { cn: '法定失明或接近完全失明，需要他人协助或辅助设备才能生活。',          tw: '法定失明或接近完全失明，需要他人協助或輔助設備才能生活。',          score: 0 },
+      ],
+    },
+
+    { /* QKC5 — Overall health */
+      id: 'QKC5', section: 'basic', scorable: false,
+      cn: '你目前的整体健康状况如何？',
+      tw: '你目前的整體健康狀況如何？',
+      note: {
+        cn: '健康状况由评估引擎单独处理',
+        tw: '健康狀況由評估引擎單獨處理',
+      },
+      options: [
+        { cn: '极度健壮，精力充沛，极少生病。',                                                 tw: '極度健壯，精力充沛，極少生病。',                                                 score: 0 },
+        { cn: '总体健康，偶有小病。',                                                           tw: '總體健康，偶有小病。',                                                           score: 0 },
+        { cn: '亚健康，如超重、慢性腰背痛、持续性疲劳。',                                         tw: '亞健康，如超重、慢性腰背痛、持續性疲勞。',                                         score: 0 },
+        { cn: '确诊慢性病，需长期用药。',                                                       tw: '確診慢性病，需長期用藥。',                                                       score: 0 },
+        { cn: '目前正在接受重大事故或严重伤害的治疗中（住院/康复中）。',                            tw: '目前正在接受重大事故或嚴重傷害的治療中（住院/康復中）。',                            score: 0 },
+        { cn: '危重疾病，正在与危及生命的疾病抗争（如癌症、器官衰竭、ICU重症等）。',                tw: '危重疾病，正在與危及生命的疾病抗爭（如癌症、器官衰竭、ICU重症等）。',                score: 0 },
+      ],
+    },
+
+    { /* QKC6 — Criminal record (privacy-protected) */
+      id: 'QKC6', section: 'social', scorable: true, noImprove: true,
+      cn: '你是否有违法犯罪记录？',
+      tw: '你是否有違法犯罪記錄？',
+      subText: { cn: '🔒 本题完全匿名，答案仅用于评分计算，不会被存储、分享或关联到你的身份。', tw: '🔒 本題完全匿名，答案僅用於評分計算，不會被儲存、分享或關聯到你的身份。' },
+      options: [
+        { cn: '完全清白，没有任何违法犯罪记录。',                                                                                             tw: '完全清白，沒有任何違法犯罪記錄。',                                                                                             score: 4 },
+        { cn: '仅有轻微违规，对人生没有实质影响（如交通罚款、已结案的小纠纷等）。',                                                             tw: '僅有輕微違規，對人生沒有實質影響（如交通罰款、已結案的小糾紛等）。',                                                             score: 3 },
+        { cn: '有过严重违法行为但未被发现/没有官方记录。',                                                                                     tw: '有過嚴重違法行為但未被發現/沒有官方記錄。',                                                                                     score: 2 },
+        { cn: '有轻微违法记录，并对生活产生了一定影响（如证件吊销、驾照吊销、资格证书撤销等）。',                                                tw: '有輕微違法記錄，並對生活產生了一定影響（如證件吊銷、駕照吊銷、資格證書撤銷等）。',                                                score: 1 },
+        { cn: '有严重违法犯罪记录，对人生产生了重大影响（如入狱经历、职业发展受限、影响子女未来发展路径等）。',                                    tw: '有嚴重違法犯罪記錄，對人生產生了重大影響（如入獄經歷、職業發展受限、影響子女未來發展路徑等）。',                                    score: 0 },
+      ],
+    },
+
+    { /* QKC7 — Living environment */
+      id: 'QKC7', section: 'basic', scorable: true, noImprove: true,
+      cn: '你目前的居住环境是？',
+      tw: '你目前的居住環境是？',
+      options: [
+        { cn: '庄园级独栋建筑（别墅庄园、私人庄园等）。', tw: '莊園級獨棟建築（別墅莊園、私人莊園等）。', score: 4 },
+        { cn: '豪华住宅。',              tw: '豪華住宅。',              score: 4 },
+        { cn: '自有房产。',              tw: '自有房產。',              score: 4 },
+        { cn: '家庭房产（父母/长辈）。',  tw: '家庭房產（父母/長輩）。',  score: 4 },
+        { cn: '独立租住公寓。',          tw: '獨立租住公寓。',          score: 3 },
+        { cn: '与熟人合租公寓。',        tw: '與熟人合租公寓。',        score: 3 },
+        { cn: '与陌生人合租公寓。',      tw: '與陌生人合租公寓。',      score: 2 },
+        { cn: '单人宿舍。',              tw: '單人宿舍。',              score: 2 },
+        { cn: '多人宿舍。',              tw: '多人宿舍。',              score: 1 },
+        { cn: '借住亲友家。',            tw: '借住親友家。',            score: 1 },
+        { cn: '目前住在帐篷里。',        tw: '目前住在帳篷裡。',        score: 0 },
+        { cn: '医院病房（长期住院中）。', tw: '醫院病房（長期住院中）。', score: 0 },
+        { cn: '露宿街头（无家可归）。',   tw: '露宿街頭（無家可歸）。',   score: 0 },
+      ],
+    },
+
+    { /* QKC8 — City tier */
+      id: 'QKC8', section: 'basic', scorable: true, noImprove: true,
+      cn: '你目前居住的地区属于哪种类型？',
+      tw: '你目前居住的地區屬於哪種類型？',
+      options: [
+        { cn: '交通不便的偏远乡村。',                     tw: '交通不便的偏遠鄉村。',                     score: 0 },
+        { cn: '交通便利的现代化村镇。',                   tw: '交通便利的現代化村鎮。',                   score: 1 },
+        { cn: '小城镇/县城，或较偏远的城市区域。',         tw: '小城鎮/縣城，或較偏遠的城市區域。',         score: 2 },
+        { cn: '大型县城或一般城市城区。',                 tw: '大型縣城或一般城市城區。',                 score: 2 },
+        { cn: '省会城区或大型城市城区。',                 tw: '省會城區或大型城市城區。',                 score: 3 },
+        { cn: '一线城市。',                                     tw: '一線城市。',                                     score: 4 },
+      ],
+    },
+
+    { /* QKC8b — Diet & nutrition structure */
+      id: 'QKC8b', section: 'basic', scorable: true,
+      cn: '你是否关注饮食的营养结构？',
+      tw: '你是否關注飲食的營養結構？',
+      options: [
+        { cn: '非常关注，会围绕均衡的宏量营养素、维生素和微量元素来规划饮食。', tw: '非常關注，會圍繞均衡的宏量營養素、維生素和微量元素來規劃飲食。', score: 4 },
+        { cn: '比较关注，尽量吃得均衡但不会刻意计算。',                           tw: '比較關注，盡量吃得均衡但不會刻意計算。',                           score: 3 },
+        { cn: '偶尔关注，了解基本知识但很少落实。',                                tw: '偶爾關注，了解基本知識但很少落實。',                                score: 1 },
+        { cn: '完全不关注，怎么方便或好吃就怎么来。',                              tw: '完全不關注，怎麼方便或好吃就怎麼來。',                              score: 0 },
+      ],
+    },
+
+    { /* QKC8c — Eating out core factors — hidden for 76+ */
+      id: 'QKC8c', section: 'basic', scorable: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 < 7; },
+      cn: '你每次外出就餐时，核心考虑因素是什么？',
+      tw: '你每次外出就餐時，核心考慮因素是什麼？',
+      options: [
+        { cn: '价格，优先考虑实惠和性价比。',             tw: '價格，優先考慮實惠和性價比。',             score: 1 },
+        { cn: '口味，追求最好吃的，其他因素次要。',       tw: '口味，追求最好吃的，其他因素次要。',       score: 1 },
+        { cn: '健康，根据营养、食材和烹饪方式来选择。',   tw: '健康，根據營養、食材和烹飪方式來選擇。',   score: 2 },
+        { cn: '均衡，追求口味、健康和合理价格的综合平衡。', tw: '均衡，追求口味、健康和合理價格的綜合平衡。', score: 3 },
+      ],
+    },
+
+    { /* QKC9 — Savings level for employed/entrepreneur/retired */
+      id: 'QKC9', section: 'social', scorable: true,
+      showIf: function(s){ return (s.QKC5 === undefined || s.QKC5 < 4) && s.QK3 !== 3; },
+      cn: '除了每月的收入，你是否有额外的储备资金？',
+      tw: '除了每月的收入，你是否有額外的儲備資金？',
+      options: [
+        { cn: '储备非常充足，长期突发情况和家庭大额支出都能从容应对。', tw: '儲備非常充足，長期突發情況和家庭大額支出都能從容應對。', score: 4 },
+        { cn: '储备健康，日常稳定，遇到中大型意外开支也能承受。',         tw: '儲備健康，日常穩定，遇到中大型意外開支也能承受。',         score: 3 },
+        { cn: '有基础储备，可应对短期波动，但难以承受长期压力。',         tw: '有基礎儲備，可應對短期波動，但難以承受長期壓力。',         score: 2 },
+        { cn: '储备偏少，常接近月光状态。',                               tw: '儲備偏少，常接近月光狀態。',                               score: 1 },
+        { cn: '处于净负债状态。',                                       tw: '處於淨負債狀態。',                                       score: 0 },
+      ],
+    },
+
+    { /* QKC9_unemployed — Savings level for unemployed */
+      id: 'QKC9_unemployed', section: 'social', scorable: true,
+      showIf: function(s){ return (s.QKC5 === undefined || s.QKC5 < 4) && (s.QK3 === 3 || s.QK3 === 4); },
+      cn: '储备资金情况如何？',
+      tw: '儲備資金情況如何？',
+      options: [
+        { cn: '储备非常充足，长期突发情况和家庭大额支出都能从容应对。', tw: '儲備非常充足，長期突發情況和家庭大額支出都能從容應對。', score: 4 },
+        { cn: '储备健康，日常稳定，遇到中大型意外开支也能承受。',         tw: '儲備健康，日常穩定，遇到中大型意外開支也能承受。',         score: 3 },
+        { cn: '有基础储备，可应对短期波动，但难以承受长期压力。',         tw: '有基礎儲備，可應對短期波動，但難以承受長期壓力。',         score: 2 },
+        { cn: '储备偏少，常接近月光状态。',                               tw: '儲備偏少，常接近月光狀態。',                               score: 1 },
+        { cn: '处于净负债状态。',                                       tw: '處於淨負債狀態。',                                       score: 0 },
+      ],
+    },
+
+    { /* QKC9_med — Savings vs medical expenses (shown only when critically ill or major accident) */
+      id: 'QKC9_med', section: 'social', scorable: true,
+      showIf: function(s){ return s.QKC5 !== undefined && s.QKC5 >= 4; },
+      cn: '面对当前的治疗，你的储蓄是否足以覆盖医疗费用？',
+      tw: '面對當前的治療，你的儲蓄是否足以覆蓋醫療費用？',
+      options: [
+        { cn: '完全覆盖，储蓄和/或保险可以从容应对全部治疗费用，没有经济压力。',          tw: '完全覆蓋，儲蓄和/或保險可以從容應對全部治療費用，沒有經濟壓力。',          score: 4 },
+        { cn: '大部分可覆盖，能维持当前治疗，但长期或高端治疗可能造成经济紧张。',         tw: '大部分可覆蓋，能維持當前治療，但長期或高端治療可能造成經濟緊張。',         score: 3 },
+        { cn: '部分可覆盖，需要向亲友借款或贷款才能继续治疗。',                           tw: '部分可覆蓋，需要向親友借款或貸款才能繼續治療。',                           score: 2 },
+        { cn: '勉强支撑，医疗费用已造成严重经济困难，正在考虑放弃部分治疗。',              tw: '勉強支撐，醫療費用已造成嚴重經濟困難，正在考慮放棄部分治療。',              score: 1 },
+        { cn: '无力承担，已负债或无法继续必要的医疗。',                                   tw: '無力承擔，已負債或無法繼續必要的醫療。',                                   score: 0 },
+      ],
+    },
+
+    { /* QKC11 — Insurance — hidden for 85+ (commercial insurance age-limited) */
+      id: 'QKC11', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 < 8; },
+      cn: '你是否有保障性保险？（健康险、重疾险、意外险等）',
+      tw: '你是否有保障性保險？（健康險、重疾險、意外險等）',
+      options: [
+        { cn: '顶级商业保险，高端私立医疗、全球覆盖、VIP医院通道等。',               tw: '頂級商業保險，高端私立醫療、全球覆蓋、VIP醫院通道等。',               score: 4 },
+        { cn: '全面覆盖，含重疾、医疗、意外和寿险。',                               tw: '全面覆蓋，含重疾、醫療、意外和壽險。',                               score: 4 },
+        { cn: '基础商业险，医疗险或重疾险。',                                       tw: '基礎商業險，醫療險或重疾險。',                                       score: 3 },
+        { cn: '仅有基本医疗保险（政府/社会医保，无商业补充）。',                      tw: '僅有基本醫療保險（政府/社會醫保，無商業補充）。',                      score: 1 },
+        { cn: '完全没有保险。',                                                     tw: '完全沒有保險。',                                                     score: 0 },
+      ],
+    },
+
+
+
+    /* ═══════════════════════════════════════════
+       SECTION B — RELATIONSHIPS
+       ═══════════════════════════════════════════ */
+
+    { /* QKB1 — Relationship / marriage status */
+      id: 'QKB1', section: 'social', scorable: true,
+      cn: '你目前的感情与婚姻状况是？',
+      tw: '你目前的感情與婚姻狀況是？',
+      options: [
+        /* 0 BA */ { cn: '从未谈过恋爱。',           tw: '從未談過戀愛。',           score: 1 },
+        /* 1 BB */ { cn: '正在恋爱中。',             tw: '正在戀愛中。',             score: 3 },
+        /* 2 BC */ { cn: '曾恋爱过，目前单身。',     tw: '曾戀愛過，目前單身。',     score: 2 },
+        /* 3 BD */ { cn: '已婚，关系甜蜜幸福。',     tw: '已婚，關係甜蜜幸福。',     score: 4 },
+        /* 4 BE */ { cn: '已婚，关系平淡例行。',     tw: '已婚，關係平淡例行。',     score: 3 },
+        /* 5 BF */ { cn: '已婚，濒临破裂。',         tw: '已婚，瀕臨破裂。',         score: 1 },
+        /* 6 BG */ { cn: '我曾出轨。',               tw: '我曾出軌。',               score: 0 },
+        /* 7 BH */ { cn: '我曾出轨且被发现。',       tw: '我曾出軌且被發現。',       score: 0 },
+        /* 8 BI */ { cn: '我的伴侣曾出轨。',         tw: '我的伴侶曾出軌。',         score: 1 },
+        /* 9 BJ */ { cn: '离异，目前未婚。',         tw: '離異，目前未婚。',         score: 1 },
+        /* 10 BK*/ { cn: '再婚。',                   tw: '再婚。',                   score: 3 },
+        /* 11 BL*/ { cn: '丧偶。',                   tw: '喪偶。',                   score: 1 },
+      ],
+    },
+
+    { /* QKB2 — Family relationship (under 76) */
+      id: 'QKB2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 < 7; },
+      cn: '你和家人（父母或其他监护人）的关系如何？',
+      tw: '你和家人（父母或其他監護人）的關係如何？',
+      options: [
+        { cn: '非常好，相互尊重，像成熟的朋友。', tw: '非常好，相互尊重，像成熟的朋友。', score: 4 },
+        { cn: '不错，定期联系关心，但缺乏深度连接。', tw: '不錯，定期聯繫關心，但缺乏深度連接。', score: 3 },
+        { cn: '疏远，维持表面和平，尽量不见面。', tw: '疏遠，維持表面和平，盡量不見面。', score: 1 },
+        { cn: '令人窒息，充满控制、操纵或持续消耗。', tw: '令人窒息，充滿控制、操縱或持續消耗。', score: 0 },
+        { cn: '家人已离世，生前关系良好。', tw: '家人已離世，生前關係良好。', score: 3 },
+        { cn: '家人已离世，生前关系一般。', tw: '家人已離世，生前關係一般。', score: 2 },
+      ],
+    },
+
+    { /* QKB2_elder — Family relationship (76+ retrospective — parents almost certainly deceased) */
+      id: 'QKB2_elder', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 >= 7; },
+      cn: '回顾你与子女/最亲近家人的关系，你觉得如何？',
+      tw: '回顧你與子女/最親近家人的關係，你覺得如何？',
+      options: [
+        { cn: '非常亲密，子女/家人经常陪伴，彼此尊重。', tw: '非常親密，子女/家人經常陪伴，彼此尊重。', score: 4 },
+        { cn: '关系不错，偶有联系，但见面不多。', tw: '關係不錯，偶有聯繫，但見面不多。', score: 3 },
+        { cn: '比较疏远，主要靠电话维持基本联系。', tw: '比較疏遠，主要靠電話維持基本聯繫。', score: 1 },
+        { cn: '几乎没有联系，或关系紧张冷淡。', tw: '幾乎沒有聯繫，或關係緊張冷淡。', score: 0 },
+        { cn: '没有在世的亲近家人。', tw: '沒有在世的親近家人。', score: 1 },
+      ],
+    },
+
+    { /* QKB3 — Sex life — conditional on relationship status, hidden for 76+ */
+      id: 'QKB3', section: 'social', scorable: true,
+      showIf: function(s){
+        if(s.QK1 !== undefined && s.QK1 >= 7) return false;
+        return s.QKB1 !== undefined && [1,3,4,5,6,7,8,10].indexOf(s.QKB1) !== -1;
+      },
+      cn: '你对自己的性生活满意吗？',
+      tw: '你對自己的性生活滿意嗎？',
+      options: [
+        { cn: '非常满意，频率和质量都很好。', tw: '非常滿意，頻率和質量都很好。', score: 4 },
+        { cn: '大体满意，但还有提升空间。',   tw: '大體滿意，但還有提升空間。',   score: 3 },
+        { cn: '不满意，频繁不匹配或频率极低。', tw: '不滿意，頻繁不匹配或頻率極低。', score: 1 },
+        { cn: '基本没有，或是重大冲突/痛苦的来源。', tw: '基本沒有，或是重大衝突/痛苦的來源。', score: 0 },
+      ],
+    },
+
+    { /* QKB4 — Children */
+      id: 'QKB4', section: 'social', scorable: false, noImprove: true,
+      showIf: function(s){
+        return s.QKB1 !== undefined && s.QKB1 !== 0;
+      },
+      cn: '你有孩子吗？',
+      tw: '你有孩子嗎？',
+      options: [
+        { cn: '有。', tw: '有。', score: 0 },
+        { cn: '没有。', tw: '沒有。', score: 0 },
+      ],
+    },
+
+    { /* QKB5b — Relationship with children */
+      id: 'QKB5b', section: 'social', scorable: true,
+      showIf: function(s){ return s.QKB4 === 0; },
+      cn: '你和孩子的关系如何？',
+      tw: '你和孩子的關係如何？',
+      options: [
+        { cn: '非常亲密，彼此信任、无话不谈，像朋友一样。', tw: '非常親密，彼此信任、無話不談，像朋友一樣。', score: 4 },
+        { cn: '关系不错，有基本的关心和沟通，但不算特别亲近。', tw: '關係不錯，有基本的關心和溝通，但不算特別親近。', score: 3 },
+        { cn: '关系一般，交流较少，感觉有距离感。', tw: '關係一般，交流較少，感覺有距離感。', score: 1 },
+        { cn: '关系紧张或冷淡，经常冲突或几乎不联系。', tw: '關係緊張或冷淡，經常衝突或幾乎不聯繫。', score: 0 },
+        { cn: '孩子还太小，暂时不涉及这个问题。', tw: '孩子還太小，暫時不涉及這個問題。', score: 3 },
+      ],
+    },
+
+    { /* QKB5d — Behavioral logic toward children — hidden for 76+ (children are adults) */
+      id: 'QKB5d', section: 'social', scorable: true, noImprove: true,
+      showIf: function(s){ return s.QKB4 === 0 && (s.QK1 === undefined || s.QK1 < 7); },
+      cn: '你觉得自己对孩子的行为逻辑更接近哪一种？',
+      tw: '你覺得自己對孩子的行為邏輯更接近哪一種？',
+      options: [
+        { cn: '引导型，尊重孩子的独立性，以引导和启发为主，给予充分的成长空间。', tw: '引導型，尊重孩子的獨立性，以引導和啟發為主，給予充分的成長空間。', score: 4 },
+        { cn: '民主型，与孩子平等沟通，共同协商决定，注重培养责任感。', tw: '民主型，與孩子平等溝通，共同協商決定，注重培養責任感。', score: 4 },
+        { cn: '保护型，关爱有加，但有时会过度保护或包办，担心孩子受挫。', tw: '保護型，關愛有加，但有時會過度保護或包辦，擔心孩子受挫。', score: 2 },
+        { cn: '权威型，严格管教，要求服从，注重纪律和规矩。', tw: '權威型，嚴格管教，要求服從，注重紀律和規矩。', score: 2 },
+        { cn: '放任型，基本不管，让孩子自己解决一切问题。', tw: '放任型，基本不管，讓孩子自己解決一切問題。', score: 1 },
+        { cn: '控制型，强烈干预孩子的每个选择，将自己的意愿强加于孩子。', tw: '控制型，強烈干預孩子的每個選擇，將自己的意願強加於孩子。', score: 0 },
+      ],
+    },
+
+    { /* QKB6 — Siblings */
+      id: 'QKB6', section: 'social', scorable: true,
+      cn: '你和兄弟姐妹的关系如何？',
+      tw: '你和兄弟姊妹的關係如何？',
+      options: [
+        { cn: '非常亲密，持续相互支持。', tw: '非常親密，持續相互支持。', score: 4 },
+        { cn: '友好，节假日时互相联系。', tw: '友好，節假日時互相聯繫。', score: 3 },
+        { cn: '疏远，很少联系。', tw: '疏遠，很少聯繫。', score: 1 },
+        { cn: '敌对，持续冲突或已断绝往来。', tw: '敵對，持續衝突或已斷絕往來。', score: 0 },
+        { cn: '独生子女。', tw: '獨生子女。', score: 2 },
+      ],
+    },
+
+
+    /* ═══════════════════════════════════════════
+       SECTION C — SKILLS, EXPERIENCES & PSYCHOLOGY
+       ═══════════════════════════════════════════ */
+
+    { /* QKD1 — Foreign language proficiency — hidden for 76+ */
+      id: 'QKD1', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 < 7; },
+      cn: '你的外语能力处于什么水平？',
+      tw: '你的外語能力處於什麼水平？',
+      options: [
+        { cn: '我是语言天才，可以轻松驾驭多门语言，完全没有压力。', tw: '我是語言天才，可以輕鬆駕馭多門語言，完全沒有壓力。', score: 4 },
+        { cn: '我可以用第二语言进行深度讨论（如涉及政治、哲学或科学话题）。', tw: '我可以用第二語言進行深度討論（如涉及政治、哲學或科學話題）。', score: 4 },
+        { cn: '我可以完全掌握第二语言来应对学习任务或商务安排。', tw: '我可以完全掌握第二語言來應對學習任務或商務安排。', score: 3 },
+        { cn: '我勉强可以用第二语言进行日常聊天和处理生活问题。', tw: '我勉強可以用第二語言進行日常聊天和處理生活問題。', score: 2 },
+        { cn: '虽然学过第二语言，但完全不敢开口对话和听力交流。', tw: '雖然學過第二語言，但完全不敢開口對話和聽力交流。', score: 1 },
+        { cn: '只会说母语，没有掌握其他语言的能力。', tw: '只會說母語，沒有掌握其他語言的能力。', score: 0 },
+        { cn: '连普通话都说不好。', tw: '連國語都說不好。', score: 0 },
+      ],
+    },
+
+    { /* QKD2 — Travel time (no children / children unknown) */
+      id: 'QKD2', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QKB4 === undefined || s.QKB4 !== 0; },
+      cn: '你过去或现在，是否有足够的时间去旅行？',
+      tw: '你過去或現在，是否有足夠的時間去旅行？',
+      options: [
+        { cn: '我目前保持着旅行习惯，每年都会安排出行。', tw: '我目前保持著旅行習慣，每年都會安排出行。', score: 4 },
+        { cn: '我过去去过国内很多地方，但现在已经没有足够时间继续旅行了。', tw: '我過去去過國內很多地方，但現在已經沒有足夠時間繼續旅行了。', score: 3 },
+        { cn: '我一直想去旅行，但被各种原因拖住了。', tw: '我一直想去旅行，但被各種原因拖住了。', score: 1 },
+        { cn: '完全没有长途旅行经历（出省）。', tw: '完全沒有長途旅行經歷（出省）。', score: 0 },
+        { cn: '我对旅行完全没有兴趣。', tw: '我對旅行完全沒有興趣。', score: 1 },
+      ],
+    },
+
+    { /* QKD2_parent — Travel time (has children) */
+      id: 'QKD2_parent', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QKB4 === 0; },
+      cn: '你过去或现在，是否有足够的时间去旅行？',
+      tw: '你過去或現在，是否有足夠的時間去旅行？',
+      options: [
+        { cn: '我有足够的时间旅行，而且总是带着妻子、孩子和老人一起出行。', tw: '我有足夠的時間旅行，而且總是帶著妻子、孩子和老人一起出行。', score: 4 },
+        { cn: '我目前保持着旅行习惯，每年都会安排出行。', tw: '我目前保持著旅行習慣，每年都會安排出行。', score: 4 },
+        { cn: '我过去去过国内很多地方，但现在已经没有足够时间继续旅行了。', tw: '我過去去過國內很多地方，但現在已經沒有足夠時間繼續旅行了。', score: 3 },
+        { cn: '我一直想去旅行，但被各种原因拖住了。', tw: '我一直想去旅行，但被各種原因拖住了。', score: 1 },
+        { cn: '完全没有长途旅行经历（出省）。', tw: '完全沒有長途旅行經歷（出省）。', score: 0 },
+        { cn: '我对旅行完全没有兴趣。', tw: '我對旅行完全沒有興趣。', score: 1 },
+      ],
+    },
+
+    { /* QKD3_minor — Overseas travel (under 18, no work option) */
+      id: 'QKD3_minor', section: 'identity', scorable: true, multi: true, noAutoAdvance: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 === 0; },
+      cn: '你的海外旅行经历如何？（可多选，部分选项为单选）',
+      tw: '你的海外旅行經歷如何？（可多選，部分選項為單選）',
+      options: [
+        { cn: '我是环球旅行者，足迹遍布世界各地。', tw: '我是環球旅行者，足跡遍佈世界各地。', score: 4, exclusive: true },
+        { cn: '我去过1-3个需要签证的发达国家。', tw: '我去過1-3個需要簽證的發達國家。', score: 2 },
+        { cn: '我有海外留学经历。', tw: '我有海外留學經歷。', score: 2 },
+        { cn: '我持有签证或满足其他门槛国家的旅行条件，但尚未出发。', tw: '我持有簽證或滿足其他門檻國家的旅行條件，但尚未出發。', score: 1 },
+        { cn: '我去过一些免签国家。', tw: '我去過一些免簽國家。', score: 1 },
+        { cn: '我从未出过国。', tw: '我從未出過國。', score: 0, exclusive: true },
+        { cn: '我不喜欢任何海外旅行。', tw: '我不喜歡任何海外旅行。', score: 0, exclusive: true },
+      ],
+    },
+
+    { /* QKD3 — Overseas travel (18+, includes work option) */
+      id: 'QKD3', section: 'identity', scorable: true, multi: true, noAutoAdvance: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 >= 1; },
+      cn: '你的海外旅行经历如何？（可多选，部分选项为单选）',
+      tw: '你的海外旅行經歷如何？（可多選，部分選項為單選）',
+      options: [
+        { cn: '我是环球旅行者，足迹遍布世界各地。', tw: '我是環球旅行者，足跡遍佈世界各地。', score: 4, exclusive: true },
+        { cn: '我去过1-3个需要签证的发达国家。', tw: '我去過1-3個需要簽證的發達國家。', score: 2 },
+        { cn: '我有海外工作经历。', tw: '我有海外工作經歷。', score: 2 },
+        { cn: '我有海外留学经历。', tw: '我有海外留學經歷。', score: 2 },
+        { cn: '我持有签证或满足其他门槛国家的旅行条件，但尚未出发。', tw: '我持有簽證或滿足其他門檻國家的旅行條件，但尚未出發。', score: 1 },
+        { cn: '我去过一些免签国家。', tw: '我去過一些免簽國家。', score: 1 },
+        { cn: '我从未出过国。', tw: '我從未出過國。', score: 0, exclusive: true },
+        { cn: '我不喜欢任何海外旅行。', tw: '我不喜歡任何海外旅行。', score: 0, exclusive: true },
+      ],
+    },
+
+    { /* QKD4 — Professional skills (multi-select) — hidden for 76+ (no longer career-relevant) */
+      id: 'QKD4', section: 'identity', scorable: true, multi: true, noAutoAdvance: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 < 7; },
+      cn: '以下哪些专业技能或成就适用于你？（可多选）',
+      tw: '以下哪些專業技能或成就適用於你？（可多選）',
+      options: [
+        { cn: '持有职业资质或专业证书（如会计、法律、医疗、教师、工程类）。', tw: '持有職業資質或專業證書（如會計、法律、醫療、教師、工程類）。', score: 4 },
+        { cn: '可独立完成有偿项目，并有可验证作品（编程/设计/运营/内容等）。', tw: '可獨立完成有償項目，並有可驗證作品（編程/設計/運營/內容等）。', score: 3 },
+        { cn: '掌握稳定市场需求的实用技能（维修、餐饮、美业、物流等）。', tw: '掌握穩定市場需求的實用技能（維修、餐飲、美業、物流等）。', score: 3 },
+        { cn: '具备蓝领技术专长（焊接、电工、水暖、机械操作、建筑施工等），靠手艺吃饭。', tw: '具備藍領技術專長（焊接、電工、水暖、機械操作、建築施工等），靠手藝吃飯。', score: 3 },
+        { cn: '运营自媒体且拥有一定量的粉丝/关注者。', tw: '運營自媒體且擁有一定量的粉絲/關注者。', score: 3 },
+        { cn: '能够独立产出原创高质量内容（文章、视频、音乐、艺术作品等）。', tw: '能夠獨立產出原創高品質內容（文章、影片、音樂、藝術作品等）。', score: 3 },
+        { cn: '具备稳定职场基础能力（Excel、演示、沟通协作等）。', tw: '具備穩定職場基礎能力（Excel、演示、溝通協作等）。', score: 2 },
+        { cn: '具备基础数字化/AI辅助工作能力（办公自动化、基础数据处理）。', tw: '具備基礎數位化/AI輔助工作能力（辦公自動化、基礎數據處理）。', score: 2 },
+        { cn: '没有特定的市场化技能。', tw: '沒有特定的市場化技能。', score: 0, exclusive: true },
+      ],
+    },
+
+    { /* QKD7 — Persistence */
+      id: 'QKD7', section: 'identity', scorable: true,
+      cn: '你能坚持做一件事超过六个月吗？',
+      tw: '你能堅持做一件事超過六個月嗎？',
+      options: [
+        { cn: '轻松，我有钢铁般的自律，目标成为不可妥协的习惯。', tw: '輕鬆，我有鋼鐵般的自律，目標成為不可妥協的習慣。', score: 4 },
+        { cn: '通常可以，如果能看到正向反馈或结果。', tw: '通常可以，如果能看到正向反饋或結果。', score: 3 },
+        { cn: '很少，我依靠动力，但动力消退得很快。', tw: '很少，我依靠動力，但動力消退得很快。', score: 1 },
+        { cn: '从不，每个新计划都在几周内放弃。', tw: '從不，每個新計劃都在幾週內放棄。', score: 0 },
+      ],
+    },
+
+    { /* QKD8 — Emotional management */
+      id: 'QKD8', section: 'identity', scorable: true,
+      cn: '你的情绪管理能力如何？',
+      tw: '你的情緒管理能力如何？',
+      options: [
+        { cn: '极度稳定，危机中保持冷静和客观。', tw: '極度穩定，危機中保持冷靜和客觀。', score: 4 },
+        { cn: '总体良好，能快速处理负面情绪。', tw: '總體良好，能快速處理負面情緒。', score: 3 },
+        { cn: '易激动，容易被触发，但事后会道歉。', tw: '易激動，容易被觸發，但事後會道歉。', score: 1 },
+        { en: "Destructive — my anger/sadness regularly damages my life and relationships.", cn: '破坏性，我的愤怒/悲伤经常损害生活和关系。', tw: '破壞性，我的憤怒/悲傷經常損害生活和關係。', score: 0 },
+      ],
+    },
+
+    { /* QKD9 — Life agency — hidden for under 18 */
+      id: 'QKD9', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 !== 0; },
+      cn: '你是否觉得目前的生活是自己选择的结果？',
+      tw: '你是否覺得目前的生活是自己選擇的結果？',
+      options: [
+        { cn: '100%是，我完全掌控自己的人生路径。', tw: '100%是，我完全掌控自己的人生路徑。', score: 4 },
+        { cn: '大部分是，尽管环境也起了一定作用。', tw: '大部分是，儘管環境也起了一定作用。', score: 3 },
+        { cn: '大部分不是，感觉被社会和家庭推着走。', tw: '大部分不是，感覺被社會和家庭推著走。', score: 1 },
+        { cn: '完全不是，我是环境/命运的受害者。', tw: '完全不是，我是環境/命運的受害者。', score: 0 },
+      ],
+    },
+
+    { /* QKD12 — Sustained focus — hidden for 76+ (cognitive decline sensitivity) */
+      id: 'QKD12', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 < 7; },
+      cn: '你能否在做事时持续保持专注而不分心？',
+      tw: '你能否在做事時持續保持專注而不分心？',
+      options: [
+        { cn: '完全可以，能连续深度专注数小时，几乎不受干扰。',   tw: '完全可以，能連續深度專注數小時，幾乎不受干擾。',   score: 4 },
+        { cn: '大部分时候可以，但需要偶尔短暂休息。',               tw: '大部分時候可以，但需要偶爾短暫休息。',               score: 3 },
+        { cn: '一般，经常走神，需要反复把自己拉回来。',             tw: '一般，經常走神，需要反覆把自己拉回來。',             score: 1 },
+        { cn: '很难，几乎无法长时间集中注意力。',                   tw: '很難，幾乎無法長時間集中注意力。',                   score: 0 },
+      ],
+    },
+
+    { /* QKD14 — Risk appetite — hidden for 76+ (investment/career oriented) */
+      id: 'QKD14', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QK1 === undefined || s.QK1 < 7; },
+      cn: '你是否热衷于挑战高风险的事情？',
+      tw: '你是否熱衷於挑戰高風險的事情？',
+      options: [
+        { cn: '是的，我主动寻求经过评估的风险，享受突破边界。',                   tw: '是的，我主動尋求經過評估的風險，享受突破邊界。',                   score: 4 },
+        { cn: '有时候，当回报明显大于风险时我会尝试。',                           tw: '有時候，當回報明顯大於風險時我會嘗試。',                           score: 3 },
+        { cn: '很少，我更喜欢稳定，只在必要时才冒险。',                           tw: '很少，我更喜歡穩定，只在必要時才冒險。',                           score: 2 },
+        { cn: '从不，我回避一切风险，只做安全熟悉的事。',                         tw: '從不，我迴避一切風險，只做安全熟悉的事。',                         score: 1 },
+      ],
+    },
+
+    { /* QKD15 — Information acquisition habits */
+      id: 'QKD15', section: 'identity', scorable: true, noImprove: true,
+      cn: '你是否具备高价值的信息获取习惯？',
+      tw: '你是否具備高價值的資訊獲取習慣？',
+      options: [
+        { cn: '我善于从各种媒体和日常生活中寻找信息，并具备辨别真伪的能力。', tw: '我善於從各種媒體和日常生活中尋找資訊，並具備辨別真偽的能力。', score: 4 },
+        { cn: '我能接受来自不同角度的信息，对我来说，一个问题有两种不同的声音是正常的。', tw: '我能接受來自不同角度的資訊，對我來說，一個問題有兩種不同的聲音是正常的。', score: 4 },
+        { cn: '我对所有信息都非常谨慎，逻辑推理对我来说很重要。', tw: '我對所有資訊都非常謹慎，邏輯推理對我來說很重要。', score: 3 },
+        { cn: '相比争议性的意见，我最可能接受权威认证的信息。', tw: '相比爭議性的意見，我最可能接受權威認證的資訊。', score: 2 },
+        { cn: '我信奉"眼见为实"。', tw: '我信奉「眼見為實」。', score: 1 },
+        { cn: '我倾向于相信非官方的说法。', tw: '我傾向於相信非官方的說法。', score: 0 },
+        { cn: '我从不关心这些，也从来没有想过。', tw: '我從不關心這些，也從來沒有想過。', score: 0 },
+      ],
+    },
+
+    { /* QKB7 — Social circle rescue capability (moved from bonus) */
+      id: 'QKB7', section: 'social', scorable: true,
+      cn: '你社交圈的"硬核救援能力"如何？',
+      tw: '你社交圈的「硬核救援能力」如何？',
+      options: [
+        { cn: '如果明天需要一大笔应急资金（如约30万元人民币），我能很快从可信的人际关系中借到。', tw: '如果明天需要一大筆應急資金（如約30萬元人民幣），我能很快從可信的人際關係中借到。', score: 4 },
+        { cn: '我能从亲戚处凑到一笔体面的应急资金。', tw: '我能從親戚處湊到一筆體面的應急資金。', score: 3 },
+        { cn: '可能能借到一小笔钱，但远不足以应对重大紧急情况。', tw: '可能能借到一小筆錢，但遠不足以應對重大緊急情況。', score: 1 },
+        { cn: '如果我落难，没人愿意借给我一分钱。', tw: '如果我落難，沒人願意借給我一分錢。', score: 0 },
+      ],
+    },
+
+
+    /* ═══════════════════════════════════════════
+       SECTION C-TRAITS — Personal Traits & Conditions (all statuses)
+       ═══════════════════════════════════════════ */
+
+    { /* QKT1 — Self-harm tendency */
+      id: 'QKT1', section: 'identity', scorable: true,
+      cn: '你是否有自残倾向？',
+      tw: '你是否有自殘傾向？',
+      options: [
+        { cn: '从未有过，我珍视并爱护自己的身体。', tw: '從未有過，我珍視並愛護自己的身體。', score: 4 },
+        { cn: '偶尔会有伤害自己的念头，但从未付诸行动。', tw: '偶爾會有傷害自己的念頭，但從未付諸行動。', score: 2 },
+        { cn: '曾经有过自残行为，但现在已经停止。', tw: '曾經有過自殘行為，但現在已經停止。', score: 1 },
+        { cn: '目前有自残行为，或经常想要伤害自己。', tw: '目前有自殘行為，或經常想要傷害自己。', score: 0 },
+      ],
+    },
+
+    { /* QKT2 — Allergies */
+      id: 'QKT2', section: 'basic', scorable: true,
+      cn: '你是否对某些食物、物质或环境存在过敏反应？',
+      tw: '你是否對某些食物、物質或環境存在過敏反應？',
+      options: [
+        { cn: '没有任何已知的过敏。', tw: '沒有任何已知的過敏。', score: 4 },
+        { cn: '有轻微过敏（如花粉、尘螨），但症状可控。', tw: '有輕微過敏（如花粉、塵蟎），但症狀可控。', score: 3 },
+        { cn: '有中度过敏（如某些食物、药物），需要避免接触。', tw: '有中度過敏（如某些食物、藥物），需要避免接觸。', score: 2 },
+        { cn: '有严重过敏（如花生、海鲜、青霉素），可能危及生命。', tw: '有嚴重過敏（如花生、海鮮、青黴素），可能危及生命。', score: 0 },
+      ],
+    },
+
+    { /* QKT3 — Mental health conditions */
+      id: 'QKT3', section: 'identity', scorable: true,
+      cn: '你是否被诊断或怀疑自己存在某种精神或心理健康问题？',
+      tw: '你是否被診斷或懷疑自己存在某種精神或心理健康問題？',
+      options: [
+        { cn: '没有，我的心理健康状态良好。', tw: '沒有，我的心理健康狀態良好。', score: 4 },
+        { cn: '偶尔会有焦虑或情绪低落，但属于正常范围。', tw: '偶爾會有焦慮或情緒低落，但屬於正常範圍。', score: 3 },
+        { cn: '被诊断有轻度心理问题（如轻度焦虑、抑郁倾向），正在管理。', tw: '被診斷有輕度心理問題（如輕度焦慮、憂鬱傾向），正在管理。', score: 2 },
+        { cn: '被诊断有中度心理问题，需要持续治疗或药物辅助。', tw: '被診斷有中度心理問題，需要持續治療或藥物輔助。', score: 1 },
+        { cn: '被诊断有严重精神疾病（如双相、精神分裂、重度抑郁），严重影响生活。', tw: '被診斷有嚴重精神疾病（如雙相、精神分裂、重度憂鬱），嚴重影響生活。', score: 0 },
+      ],
+    },
+
+    { /* QKT4 — Sense of humor */
+      id: 'QKT4', section: 'identity', scorable: true,
+      cn: '你认为自己是一个有幽默感的人吗？',
+      tw: '你認為自己是一個有幽默感的人嗎？',
+      options: [
+        { cn: '是的，我擅长发现生活中的趣味，能让周围的人开心。', tw: '是的，我擅長發現生活中的趣味，能讓周圍的人開心。', score: 4 },
+        { cn: '还可以，我能理解大多数笑话，偶尔也能逗笑别人。', tw: '還可以，我能理解大多數笑話，偶爾也能逗笑別人。', score: 3 },
+        { cn: '一般，我不太擅长讲笑话，但能欣赏别人的幽默。', tw: '一般，我不太擅長講笑話，但能欣賞別人的幽默。', score: 2 },
+        { cn: '不太有，我经常get不到笑点，或被认为太严肃。', tw: '不太有，我經常get不到笑點，或被認為太嚴肅。', score: 1 },
+        { cn: '完全没有，我对幽默无感，甚至觉得很多笑话很无聊。', tw: '完全沒有，我對幽默無感，甚至覺得很多笑話很無聊。', score: 0 },
+      ],
+    },
+
+    { /* QKT5 — Attractiveness to opposite sex */
+      id: 'QKT5', section: 'identity', scorable: true,
+      cn: '你自认为对异性的吸引力如何？',
+      tw: '你自認為對異性的吸引力如何？',
+      options: [
+        { cn: '非常有吸引力，经常收到明确的示好和追求。', tw: '非常有吸引力，經常收到明確的示好和追求。', score: 4 },
+        { cn: '有一定吸引力，偶尔会被搭讪或表达好感。', tw: '有一定吸引力，偶爾會被搭訕或表達好感。', score: 3 },
+        { cn: '一般水平，不算出众但也不差。', tw: '一般水平，不算出眾但也不差。', score: 2 },
+        { cn: '吸引力较弱，很少收到异性的主动关注。', tw: '吸引力較弱，很少收到異性的主動關注。', score: 1 },
+        { cn: '几乎没有吸引力，长期缺乏异性的关注和兴趣。', tw: '幾乎沒有吸引力，長期缺乏異性的關注和興趣。', score: 0 },
+      ],
+    },
+
+    { /* QKT14 — Color blindness */
+      id: 'QKT14', section: 'basic', scorable: true,
+      cn: '你是否患有色弱或色盲？',
+      tw: '你是否患有色弱或色盲？',
+      options: [
+        { cn: '完全没有，色彩辨别能力正常。', tw: '完全沒有，色彩辨別能力正常。', score: 4 },
+        { cn: '轻微色弱，某些相近颜色区分有困难，但不影响生活。', tw: '輕微色弱，某些相近顏色區分有困難，但不影響生活。', score: 3 },
+        { cn: '中度色弱/色盲，部分颜色无法区分，某些场景会受影响。', tw: '中度色弱/色盲，部分顏色無法區分，某些場景會受影響。', score: 2 },
+        { cn: '较严重色盲，红绿色或其他常见颜色组合无法区分。', tw: '較嚴重色盲，紅綠色或其他常見顏色組合無法區分。', score: 1 },
+        { cn: '严重色盲，几乎无法分辨颜色，只能看到明暗。', tw: '嚴重色盲，幾乎無法分辨顏色，只能看到明暗。', score: 0 },
+      ],
+    },
+
+    { /* QKT16 — Language expression ability */
+      id: 'QKT16', section: 'identity', scorable: true,
+      cn: '你的语言表达能力如何？',
+      tw: '你的語言表達能力如何？',
+      options: [
+        { cn: '非常出色，表达清晰有条理，能准确传达复杂想法。', tw: '非常出色，表達清晰有條理，能準確傳達複雜想法。', score: 4 },
+        { cn: '良好，能正常表达，偶尔会有词不达意的情况。', tw: '良好，能正常表達，偶爾會有詞不達意的情況。', score: 3 },
+        { cn: '一般，有时表达不够清晰，需要重复或解释。', tw: '一般，有時表達不夠清晰，需要重複或解釋。', score: 2 },
+        { cn: '较差，经常说不清楚，别人难以理解我的意思。', tw: '較差，經常說不清楚，別人難以理解我的意思。', score: 1 },
+        { cn: '很差，有口吃或严重的表达障碍，沟通很困难。', tw: '很差，有口吃或嚴重的表達障礙，溝通很困難。', score: 0 },
+      ],
+    },
+
+    /* ═══════════════════════════════════════════
+       SECTION C-AGE — 56–75 / 76–100 targeted modules
+       ═══════════════════════════════════════════ */
+    { /* QKS56_1 — 56-75: chronic condition management */
+      id: 'QKS56_1', section: 'basic', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 >= 5 && s.QK1 <= 6; },
+      cn: '你目前对慢性健康指标（血压、血糖、血脂等）的管理情况如何？',
+      tw: '你目前對慢性健康指標（血壓、血糖、血脂等）的管理情況如何？',
+      options: [
+        { cn: '管理非常到位，规律监测且指标稳定。', tw: '管理非常到位，規律監測且指標穩定。', score: 4 },
+        { cn: '总体可控，偶有波动。', tw: '總體可控，偶有波動。', score: 3 },
+        { cn: '管理较弱，检查不规律且波动频繁。', tw: '管理較弱，檢查不規律且波動頻繁。', score: 1 },
+        { cn: '管理较差，无稳定方案，已明显影响生活。', tw: '管理較差，無穩定方案，已明顯影響生活。', score: 0 },
+      ],
+    },
+    { /* QKS56_2 — 56-75: retirement/career transition security */
+      id: 'QKS56_2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 >= 5 && s.QK1 <= 6; },
+      cn: '你当前的退休过渡安排（收入、保障与家庭角色）稳健程度如何？',
+      tw: '你當前的退休過渡安排（收入、保障與家庭角色）穩健程度如何？',
+      options: [
+        { cn: '高度稳健，长期安排清晰，不确定性低。', tw: '高度穩健，長期安排清晰，不確定性低。', score: 4 },
+        { cn: '基本稳健，核心安排已覆盖，仍有少量缺口。', tw: '基本穩健，核心安排已覆蓋，仍有少量缺口。', score: 3 },
+        { cn: '部分稳健，仍有多项关键事项未落实。', tw: '部分穩健，仍有多項關鍵事項未落實。', score: 1 },
+        { cn: '不稳健，在收入/保障/角色方面存在明显不确定性。', tw: '不穩健，在收入/保障/角色方面存在明顯不確定性。', score: 0 },
+      ],
+    },
+    { /* QKS56_3 — 56-75: social vitality */
+      id: 'QKS56_3', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 >= 5 && s.QK1 <= 6; },
+      cn: '你在这一年龄阶段的社交与生活节律活跃度如何？',
+      tw: '你在這一年齡階段的社交與生活節律活躍度如何？',
+      options: [
+        { cn: '非常活跃，关系稳定且有规律的高质量活动。', tw: '非常活躍，關係穩定且有規律的高品質活動。', score: 4 },
+        { cn: '中等活跃，仍保持一定社交与个人安排。', tw: '中等活躍，仍保持一定社交與個人安排。', score: 3 },
+        { cn: '活跃度偏低，社交圈收缩，生活节奏变弱。', tw: '活躍度偏低，社交圈收縮，生活節奏變弱。', score: 1 },
+        { cn: '活跃度很低，经常孤立且日常缺乏结构。', tw: '活躍度很低，經常孤立且日常缺乏結構。', score: 0 },
+      ],
+    },
+    { /* QKS76_1 — 76-100: functional independence */
+      id: 'QKS76_1', section: 'basic', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 >= 7 && s.QK1 <= 8; },
+      cn: '你当前在日常生活中的自理与行动独立程度如何？',
+      tw: '你當前在日常生活中的自理與行動獨立程度如何？',
+      options: [
+        { cn: '独立性很高，可安全完成大多数日常活动。', tw: '獨立性很高，可安全完成大多數日常活動。', score: 4 },
+        { cn: '基本独立，个别事项需协助。', tw: '基本獨立，個別事項需協助。', score: 3 },
+        { cn: '独立性受限，多项日常事务需要固定协助。', tw: '獨立性受限，多項日常事務需要固定協助。', score: 1 },
+        { cn: '独立性较低，长期依赖照护支持。', tw: '獨立性較低，長期依賴照護支持。', score: 0 },
+      ],
+    },
+    { /* QKS76_2 — 76-100: safety and medical continuity */
+      id: 'QKS76_2', section: 'social', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 >= 7 && s.QK1 <= 8; },
+      cn: '你当前在居家安全与医疗连续性（防跌倒、紧急联系人、规律复诊）方面是否完善？',
+      tw: '你當前在居家安全與醫療連續性（防跌倒、緊急聯絡人、規律複診）方面是否完善？',
+      options: [
+        { cn: '体系完善且稳定，有明确流程和应急预案。', tw: '體系完善且穩定，有明確流程和應急預案。', score: 4 },
+        { cn: '大体完善，关键事项已覆盖，仍有少量缺口。', tw: '大體完善，關鍵事項已覆蓋，仍有少量缺口。', score: 3 },
+        { cn: '部分完善，关键环节仍较薄弱。', tw: '部分完善，關鍵環節仍較薄弱。', score: 1 },
+        { cn: '尚不完善，存在明显安全或就医连续性风险。', tw: '尚不完善，存在明顯安全或就醫連續性風險。', score: 0 },
+      ],
+    },
+    { /* QKS76_3 — 76-100: emotional security */
+      id: 'QKS76_3', section: 'identity', scorable: true,
+      showIf: function(s){ return s.QK1 !== undefined && s.QK1 >= 7 && s.QK1 <= 8; },
+      cn: '你在当前人生阶段的情绪安稳感与内在平和度如何？',
+      tw: '你在當前人生階段的情緒安穩感與內在平和度如何？',
+      options: [
+        { cn: '非常稳定，内心平和，意义感与归属感明确。', tw: '非常穩定，內心平和，意義感與歸屬感明確。', score: 4 },
+        { cn: '总体稳定，偶有担忧但可调节。', tw: '總體穩定，偶有擔憂但可調節。', score: 3 },
+        { cn: '安稳感偏弱，孤独/焦虑/低落出现频率较高。', tw: '安穩感偏弱，孤獨/焦慮/低落出現頻率較高。', score: 1 },
+        { cn: '安稳感较弱，持续情绪困扰已影响生活质量。', tw: '安穩感較弱，持續情緒困擾已影響生活品質。', score: 0 },
+      ],
+    },
+
+
+    /* ═══════════════════════════════════════════
+       SECTION BONUS — SSR LEVEL
+       ═══════════════════════════════════════════ */
+
+    /* ── General Bonus (all users) ── */
+
+    { /* QKBON_AB8 — Specific profession bonus (employed users only).
+         Converted from former QKAB8 main-flow question. */
+      id: 'QKBON_AB8', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 1 || s.QK3 === 2 || s.QK3 === 3; },
+      cn: '你是否属于以下特定职业？',
+      tw: '你是否屬於以下特定職業？',
+      options: [
+        /* A */ { cn: '航天事业工作者', tw: '太空人事業工作者', score: 50 },
+        /* B */ { cn: '国家级别公务人员', tw: '國家級別公務人員', score: 20 },
+        /* C */ { cn: '法官', tw: '法官', score: 20 },
+        /* D */ { cn: '计算机顶级研发人员', tw: '計算機頂級研發人員', score: 20 },
+        /* E */ { cn: '医生', tw: '醫生', score: 10 },
+        /* F */ { cn: '教授', tw: '教授', score: 10 },
+        /* G */ { cn: '科研人员', tw: '科研人員', score: 10 },
+        /* H */ { cn: '大型企业部门高层', tw: '大型企業部門高層', score: 20 },
+        /* I */ { cn: '持有合法飞行执照的飞行员', tw: '持有合法飛行執照的飛行員', score: 20 },
+        /* J */ { cn: '高门槛体育行业资深教练', tw: '高門檻體育行業資深教練', score: 10 },
+        /* K */ { cn: '警官', tw: '警官', score: 10 },
+        /* L */ { cn: '高级经理', tw: '高級經理', score: 10 },
+        /* M */ { cn: '工商管理硕士', tw: '工商管理碩士', score: 10 },
+        /* N */ { cn: '知名公众人物（艺术、娱乐行业）', tw: '知名公眾人物（藝術、娛樂行業）', score: 30 },
+        /* O */ { cn: '音乐制作人/歌手', tw: '音樂製作人/歌手', score: 10 },
+        /* P */ { cn: '职业运动员', tw: '職業運動員', score: 10 },
+        /* Q */ { cn: '有粉丝基础的自媒体', tw: '有粉絲基礎的自媒體', score: 10 },
+        /* R */ { cn: '政府职员', tw: '政府職員', score: 10 },
+        /* S */ { cn: '戏曲行业从业者', tw: '戲曲行業從業者', score: 10 },
+        /* T */ { cn: '美术行业从业者', tw: '美術行業從業者', score: 10 },
+        /* U */ { cn: '影视制作人员', tw: '影視製作人員', score: 10 },
+        /* V */ { cn: '我不从事以上任何职业。', tw: '我不從事以上任何職業。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_G1', section: 'bonus', scorable: true, bonus: true,
+      cn: '你是否曾成为一个被广泛讨论的公众人物？',
+      tw: '你是否曾成為一個被廣泛討論的公眾人物？',
+      options: [
+        { cn: '是，我在全球或全国范围内广为人知（如知名企业家、政治人物、国际明星等）。', tw: '是，我在全球或全國範圍內廣為人知（如知名企業家、政治人物、國際明星等）。', score: 10 },
+        { cn: '是，我在某个行业或领域内有很高的知名度和影响力。', tw: '是，我在某個行業或領域內有很高的知名度和影響力。', score: 6 },
+        { cn: '是，我在地方/区域范围内有一定的公众知名度（如地方媒体报道、区域性公众人物）。', tw: '是，我在地方/區域範圍內有一定的公眾知名度（如地方媒體報導、區域性公眾人物）。', score: 4 },
+        { cn: '是，我在网络上有一定影响力（如自媒体大V、拥有大量粉丝的内容创作者）。', tw: '是，我在網路上有一定影響力（如自媒體大V、擁有大量粉絲的內容創作者）。', score: 4 },
+        { cn: '曾短暂受到公众关注（如因某事件被报道、短暂走红），但已回归普通生活。', tw: '曾短暫受到公眾關注（如因某事件被報導、短暫走紅），但已回歸普通生活。', score: 2 },
+        { cn: '没有，我是普通市民。', tw: '沒有，我是普通市民。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_G3', section: 'bonus', scorable: true, bonus: true,
+      cn: '你是否曾凭极大的幸运在致命灾难中幸存？',
+      tw: '你是否曾憑極大的幸運在致命災難中倖存？',
+      options: [
+        { cn: '是，在近乎零生还率的事件中（重大事故、重病危机等）毫发无损。', tw: '是，在近乎零生還率的事件中（重大事故、重病危機等）毫髮無損。', score: 10 },
+        { cn: '安全脱离了高度危险的处境。', tw: '安全脫離了高度危險的處境。', score: 4 },
+        { cn: '没有此类极端经历。', tw: '沒有此類極端經歷。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_G7', section: 'bonus', scorable: true, bonus: true,
+      cn: '你是否对某项高度细分的专业技能投入了大量刻意练习，并取得了客观认可的资质或排名？',
+      tw: '你是否對某項高度細分的專業技能投入了大量刻意練習，並取得了客觀認可的資質或排名？',
+      options: [
+        { cn: '是，我在某细分领域是无可争议的国家级/世界级大师或顶级专家。', tw: '是，我在某細分領域是無可爭議的國家級/世界級大師或頂級專家。', score: 10 },
+        { cn: '我获得了国家级专业认证或在全国性比赛/评选中名列前茅。', tw: '我獲得了國家級專業認證或在全國性比賽/評選中名列前茅。', score: 8 },
+        { cn: '我在省级/区域级别获得了专业认可或奖项。', tw: '我在省級/區域級別獲得了專業認可或獎項。', score: 6 },
+        { cn: '我在行业内被同行公认为资深专家，拥有丰富实战经验和口碑。', tw: '我在行業內被同行公認為資深專家，擁有豐富實戰經驗和口碑。', score: 5 },
+        { cn: '我持有高含金量的行业证书或通过了高难度的专业考试。', tw: '我持有高含金量的行業證書或通過了高難度的專業考試。', score: 4 },
+        { cn: '我技艺精湛，投入了大量练习，但尚未获得正式的高级认可或排名。', tw: '我技藝精湛，投入了大量練習，但尚未獲得正式的高級認可或排名。', score: 2 },
+        { cn: '没有。', tw: '沒有。', score: 0 },
+      ],
+    },
+
+
+    { id: 'QKBON_G8', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return (s.QKC5 === undefined || s.QKC5 < 4) && s.QK3 !== 5; },
+      cn: '你是否完成过极限体能挑战？（如全程马拉松、铁人三项、长距离骑行、百公里越野、登山探险等）',
+      tw: '你是否完成過極限體能挑戰？（如全程馬拉松、鐵人三項、長距離騎行、百公里越野、登山探險等）',
+      options: [
+        { cn: '多次完成极限挑战并获得官方认证（如3次以上全马、完赛大铁、百公里越野等）。', tw: '多次完成極限挑戰並獲得官方認證（如3次以上全馬、完賽大鐵、百公里越野等）。', score: 10 },
+        { cn: '完成过全程马拉松（42.195公里）或同等难度的官方认证赛事。', tw: '完成過全程馬拉松（42.195公里）或同等難度的官方認證賽事。', score: 8 },
+        { cn: '完成过半程马拉松（21公里）或奥运标准铁人三项（51.5公里）。', tw: '完成過半程馬拉松（21公里）或奧運標準鐵人三項（51.5公里）。', score: 6 },
+        { cn: '完成过超长距离骑行（200公里以上）或登山探险（海拔5000米以上）。', tw: '完成過超長距離騎行（200公里以上）或登山探險（海拔5000米以上）。', score: 6 },
+        { cn: '正在系统训练中，已完成10公里以上跑步或短距离铁人三项。', tw: '正在系統訓練中，已完成10公里以上跑步或短距離鐵人三項。', score: 4 },
+        { cn: '有定期运动习惯，但尚未挑战过长距离耐力项目。', tw: '有定期運動習慣，但尚未挑戰過長距離耐力項目。', score: 2 },
+        { cn: '没有进行过系统的体能训练或挑战。', tw: '沒有進行過系統的體能訓練或挑戰。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_G8_pre', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QKC5 !== undefined && s.QKC5 >= 4 && s.QK3 !== 5; },
+      cn: '在你患病/受伤之前，你是否完成过极限体能挑战？（如全程马拉松、铁人三项、长距离骑行、百公里越野、登山探险等）',
+      tw: '在你患病/受傷之前，你是否完成過極限體能挑戰？（如全程馬拉松、鐵人三項、長距離騎行、百公里越野、登山探險等）',
+      options: [
+        { cn: '多次完成极限挑战并获得官方认证（如3次以上全马、完赛大铁、百公里越野等）。', tw: '多次完成極限挑戰並獲得官方認證（如3次以上全馬、完賽大鐵、百公里越野等）。', score: 10 },
+        { cn: '完成过全程马拉松（42.195公里）或同等难度的官方认证赛事。', tw: '完成過全程馬拉松（42.195公里）或同等難度的官方認證賽事。', score: 8 },
+        { cn: '完成过半程马拉松（21公里）或奥运标准铁人三项（51.5公里）。', tw: '完成過半程馬拉松（21公里）或奧運標準鐵人三項（51.5公里）。', score: 6 },
+        { cn: '完成过超长距离骑行（200公里以上）或登山探险（海拔5000米以上）。', tw: '完成過超長距離騎行（200公里以上）或登山探險（海拔5000米以上）。', score: 6 },
+        { cn: '当时正在系统训练中，已完成10公里以上跑步或短距离铁人三项。', tw: '當時正在系統訓練中，已完成10公里以上跑步或短距離鐵人三項。', score: 4 },
+        { cn: '当时有定期运动习惯，但尚未挑战过长距离耐力项目。', tw: '當時有定期運動習慣，但尚未挑戰過長距離耐力項目。', score: 2 },
+        { cn: '当时没有进行过系统的体能训练或挑战。', tw: '當時沒有進行過系統的體能訓練或挑戰。', score: 0 },
+      ],
+    },
+
+    /* ── Student Bonus ── */
+
+    { id: 'QKBON_S1', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 0; },
+      cn: '面对繁重的学业压力，你是否仍能保持极度严格的自律，按计划学习、每周有系统性健身训练、严格管理每日营养等，并持续一年以上？',
+      tw: '面對繁重的學業壓力，你是否仍能保持極度嚴格的自律，按計劃學習、每週有系統性健身訓練、嚴格管理每日營養等，並持續一年以上？',
+      options: [
+        { cn: '是，钢铁纪律，学习、健身、饮食全面自律超过一年，状态远超同龄人。', tw: '是，鋼鐵紀律，學習、健身、飲食全面自律超過一年，狀態遠超同齡人。', score: 8 },
+        { cn: '大部分时间能坚持，偶尔在考试周或压力大时会短暂放松，但很快恢复。', tw: '大部分時間能堅持，偶爾在考試週或壓力大時會短暫放鬆，但很快恢復。', score: 5 },
+        { cn: '我在学习上能保持自律，但健身和饮食管理做得不够好。', tw: '我在學習上能保持自律，但健身和飲食管理做得不夠好。', score: 3 },
+        { cn: '我尝试过自律计划，但总是坚持不到一个月就放弃了。', tw: '我嘗試過自律計劃，但總是堅持不到一個月就放棄了。', score: 1 },
+        { cn: '没有，完全没有自律习惯，学习和生活都比较随意。', tw: '沒有，完全沒有自律習慣，學習和生活都比較隨意。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_S3', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 0; },
+      cn: '你是否在全国或国际核心学术/技能竞赛中击败顶尖高校对手，获得绝对硬核的前十名；或在本科期间以核心作者身份发表顶级学术论文？',
+      tw: '你是否在全國或國際核心學術/技能競賽中擊敗頂尖高校對手，獲得絕對硬核的前十名；或在本科期間以核心作者身份發表頂級學術論文？',
+      options: [
+        { cn: '是，国际级竞赛前十名，或在顶级期刊以第一/通讯作者发表论文。', tw: '是，國際級競賽前十名，或在頂級期刊以第一/通訊作者發表論文。', score: 10 },
+        { cn: '全国级核心竞赛前十名（如ACM-ICPC、数学联赛、蓝桥杯全国决赛等）。', tw: '全國級核心競賽前十名（如ACM-ICPC、數學聯賽、藍橋杯全國決賽等）。', score: 8 },
+        { cn: '在核心期刊或重要会议以共同作者身份发表过学术论文。', tw: '在核心期刊或重要會議以共同作者身份發表過學術論文。', score: 6 },
+        { cn: '全国级竞赛获奖（前十名以外），或省级竞赛前三名。', tw: '全國級競賽獲獎（前十名以外），或省級競賽前三名。', score: 4 },
+        { cn: '获得过省级奖项或普通校际竞赛奖项。', tw: '獲得過省級獎項或普通校際競賽獎項。', score: 2 },
+        { cn: '参与过相关竞赛或科研项目，但未获得正式奖项。', tw: '參與過相關競賽或科研項目，但未獲得正式獎項。', score: 1 },
+        { cn: '没有此类成就。', tw: '沒有此類成就。', score: 0 },
+      ],
+    },
+
+    /* ── Employed Bonus ── */
+
+    /* ── Entrepreneur Bonus ── */
+
+    { id: 'QKBON_AC2', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 2; },
+      cn: '你的产品或服务是否在某细分领域建立了如此强大的"护城河"，以至于资金更雄厚的竞争对手被迫复制你的模式，但仍无法抢走你的核心客户？',
+      tw: '你的產品或服務是否在某細分領域建立了如此強大的「護城河」，以至於資金更雄厚的競爭對手被迫複製你的模式，但仍無法搶走你的核心客戶？',
+      options: [
+        { cn: '是，在我的细分市场拥有绝对主导地位和定价权。', tw: '是，在我的細分市場擁有絕對主導地位和定價權。', score: 10 },
+        { cn: '品牌强，但仍在激烈的价格战中搏杀。', tw: '品牌強，但仍在激烈的價格戰中搏殺。', score: 4 },
+        { cn: '没有护城河，很容易被替代。', tw: '沒有護城河，很容易被替代。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_AC5', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 2; },
+      cn: '你的业务系统是否完善到可以完全断开工作联系休假3个月，而公司不仅存活，收入还能自动持续增长？',
+      tw: '你的業務系統是否完善到可以完全斷開工作聯繫休假3個月，而公司不僅存活，收入還能自動持續增長？',
+      options: [
+        { cn: '是，我打造了真正的自动化资产，享受终极时间自由。', tw: '是，我打造了真正的自動化資產，享受終極時間自由。', score: 10 },
+        { cn: '我可以离开一两周，但3个月肯定会一团糟。', tw: '我可以離開一兩週，但3個月肯定會一團糟。', score: 4 },
+        { cn: '没有，我是终极瓶颈，我停则业务停。', tw: '沒有，我是終極瓶頸，我停則業務停。', score: 0 },
+      ],
+    },
+
+    /* ── Retired Bonus ── */
+
+    { id: 'QKBON_AE1', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 5; },
+      cn: '退休后，你是否保持着极高的竞技体能，甚至能完成全程马拉松、铁人三项，或在系统力量训练中超越未经训练的年轻人？',
+      tw: '退休後，你是否保持著極高的競技體能，甚至能完成全程馬拉松、鐵人三項，或在系統力量訓練中超越未經訓練的年輕人？',
+      options: [
+        { cn: '是，无慢性病，频繁参加运动竞技，体型让年轻人惊叹。', tw: '是，無慢性病，頻繁參加運動競技，體型讓年輕人驚嘆。', score: 8 },
+        { cn: '体魄非常强健，能轻松应对高强度长途旅行或定期中等运动。', tw: '體魄非常強健，能輕鬆應對高強度長途旅行或定期中等運動。', score: 4 },
+        { cn: '基本健康，但仅限于散步、太极等轻柔活动。', tw: '基本健康，但僅限於散步、太極等輕柔活動。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_AE2', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 5; },
+      cn: '你的财务状况是否不仅对自己无忧，还具备强大的"向下兼容"能力，完全覆盖孙辈顶级教育费用、为子女提供无压力的核心资产（如全款房产），甚至建立家族信托或慈善基金？',
+      tw: '你的財務狀況是否不僅對自己無憂，還具備強大的「向下兼容」能力，完全覆蓋孫輩頂級教育費用、為子女提供無壓力的核心資產（如全款房產），甚至建立家族信託或慈善基金？',
+      options: [
+        { cn: '是，我是家族无可争议的财务基石。', tw: '是，我是家族無可爭議的財務基石。', score: 10 },
+        { cn: '我能给予慷慨的礼物/补贴，但无法为他们全款购房。', tw: '我能給予慷慨的禮物/補貼，但無法為他們全款購房。', score: 4 },
+        { cn: '没有，我只够维持自己的退休生活。', tw: '沒有，我只夠維持自己的退休生活。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_AE3', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 5; },
+      cn: '退休后，你是否因极稀缺的专业经验而被顶级机构高薪聘为核心顾问，或你的专业意见仍能直接影响重要领域的决策？',
+      tw: '退休後，你是否因極稀缺的專業經驗而被頂級機構高薪聘為核心顧問，或你的專業意見仍能直接影響重要領域的決策？',
+      options: [
+        { cn: '是，我被视为不可替代的行业智慧源泉。', tw: '是，我被視為不可替代的行業智慧源泉。', score: 8 },
+        { cn: '偶尔被请回做小型咨询或客座讲座。', tw: '偶爾被請回做小型諮詢或客座講座。', score: 3 },
+        { cn: '没有，与以前的职业世界完全脱节。', tw: '沒有，與以前的職業世界完全脫節。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_AE4', section: 'bonus', scorable: true, bonus: true,
+      // Only show for age > 60, i.e. QK1 >= 5 (56-65 and above)
+      showIf: function(s){ return s.QK3 === 5 && s.QK1 !== undefined && s.QK1 >= 5; },
+      cn: '60岁后，你是否彻底抛弃了"老人不能学习"的借口，掌握了最前沿的生产力工具（如熟练使用AI创作或独立运营粉丝数十万的社交媒体账号），并对复杂的新技术和商业模式持有深刻独到的见解？',
+      tw: '60歲後，你是否徹底拋棄了「老人不能學習」的藉口，掌握了最前沿的生產力工具（如熟練使用AI創作或獨立運營粉絲數十萬的社交媒體帳號），並對複雜的新技術和商業模式持有深刻獨到的見解？',
+      options: [
+        { cn: '是，我是资深科技极客，认知敏锐度碾压许多年轻人。', tw: '是，我是資深科技極客，認知敏銳度輾壓許多年輕人。', score: 8 },
+        { cn: '我熟练使用智能手机和基础现代应用，保持与时代同步。', tw: '我熟練使用智慧型手機和基礎現代應用，保持與時代同步。', score: 2 },
+        { cn: '没有，我强烈抵制或惧怕学习复杂的新数字工具。', tw: '沒有，我強烈抵制或懼怕學習複雜的新數位工具。', score: 0 },
+      ],
+    },
+
+    { id: 'QKBON_AE5', section: 'bonus', scorable: true, bonus: true,
+      showIf: function(s){ return s.QK3 === 5; },
+      cn: '你是否已完全摆脱对"子女陪伴"、"他人评价"或"过去成就"的心理依赖，能够绝对自足地生活，每天都充实满足、内心平静喜悦，且完全不干涉年轻一代的生活？',
+      tw: '你是否已完全擺脫對「子女陪伴」、「他人評價」或「過去成就」的心理依賴，能夠絕對自足地生活，每天都充實滿足、內心平靜喜悅，且完全不干涉年輕一代的生活？',
+      options: [
+        { cn: '是，极致的精神自足与内心平静。', tw: '是，極致的精神自足與內心平靜。', score: 8 },
+        { cn: '大多平静，但偶尔会感到孤独或被家事烦扰。', tw: '大多平靜，但偶爾會感到孤獨或被家事煩擾。', score: 3 },
+        { cn: '没有，高度依赖子女的情感认可，被忽视时容易心生怨念。', tw: '沒有，高度依賴子女的情感認可，被忽視時容易心生怨念。', score: 0 },
+      ],
+    },
+
+
+    /* ══════════════════════════════════════════════════════════════
+       MIGRATED FROM DEEP TEST — Retained questions with remapped conditions
+       ══════════════════════════════════════════════════════════════ */
+
+    {
     id:'A_dent', section:'basic', scorable:true,
     cn:'你的口腔和牙齿健康状况如何？', tw:'你的口腔和牙齒健康狀況如何？',
     options:[
       {cn:'有多颗坏牙、牙周病或口腔慢性问题', tw:'有多顆壞牙、牙周病或口腔慢性問題', score:0},
-      {cn:'有1～2颗问题牙，尚未处理',         tw:'有1～2顆問題牙，尚未處理',         score:1},
-      {cn:'基本正常，偶有小问题',             tw:'基本正常，偶有小問題',             score:2},
-      {cn:'牙齿健康，定期看牙医',             tw:'牙齒健康，定期看牙醫',             score:3},
-      {cn:'牙齿健康整齐，口腔状态极佳',       tw:'牙齒健康整齊，口腔狀態極佳',       score:4},
+  {cn:'有1～2颗问题牙，尚未处理',         tw:'有1～2顆問題牙，尚未處理',         score:1},
+  {cn:'基本正常，偶有小问题',             tw:'基本正常，偶有小問題',             score:2},
+  {cn:'牙齿健康，定期看牙医',             tw:'牙齒健康，定期看牙醫',             score:3},
+  {cn:'牙齿健康整齐，口腔状态极佳',       tw:'牙齒健康整齊，口腔狀態極佳',       score:4},
     ],
   },
-  /* A_gene — 遗传病史 */
-  {
+
+    {
     id:'A_gene', section:'basic', scorable:true, noImprove:true,
     cn:'你的直系家族是否有明显的遗传性健康风险？', tw:'你的直系家族是否有明顯的遺傳性健康風險？',
     note:{cn:'不可改变的背景因素，不计入提升建议',tw:'不可改變的背景因素，不計入提升建議'},
     options:[
       {cn:'有多种严重遗传风险（癌症/心脏病/糖尿病等）',tw:'有多種嚴重遺傳風險（癌症/心臟病/糖尿病等）',score:0},
-      {cn:'有1种已知较严重遗传风险',                   tw:'有1種已知較嚴重遺傳風險',                   score:1},
-      {cn:'有轻微遗传倾向，但不严重',                  tw:'有輕微遺傳傾向，但不嚴重',                  score:2},
-      {cn:'家族健康状况良好，无已知遗传风险',          tw:'家族健康狀況良好，無已知遺傳風險',          score:3},
+  {cn:'有1种已知较严重遗传风险',                   tw:'有1種已知較嚴重遺傳風險',                   score:1},
+  {cn:'有轻微遗传倾向，但不严重',                  tw:'有輕微遺傳傾向，但不嚴重',                  score:2},
+  {cn:'家族健康状况良好，无已知遗传风险',          tw:'家族健康狀況良好，無已知遺傳風險',          score:3},
     ],
   },
-  /* A_mil — 兵役（男性成人） */
-  {
+
+    {
     id:'A_mil', section:'basic', scorable:true, noImprove:true,
-    showIf:(s)=>s.A0!==0&&s.A2===0,
+    showIf:(s)=>s.QK3!==0&&s.QK2===0,
     cn:'你是否完成过兵役或军事训练？', tw:'你是否完成過兵役或軍事訓練？',
     note:{cn:'因地区而异，无兵役制度可选"不适用"',tw:'因地區而異，無兵役制度可選「不適用」'},
     options:[
       {cn:'应服未服，存在法律风险',         tw:'應服未服，存在法律風險',         score:0},
-      {cn:'因故未服役（体检不合格等）',     tw:'因故未服役（體檢不合格等）',     score:2},
-      {cn:'已完成义务兵役',                 tw:'已完成義務兵役',                 score:3},
-      {cn:'服役期间有突出表现或荣誉',       tw:'服役期間有突出表現或榮譽',       score:4},
-      {cn:'无意服兵役或所在地区不适用',      tw:'無意服兵役或所在地區不適用',      score:3},
+  {cn:'因故未服役（体检不合格等）',     tw:'因故未服役（體檢不合格等）',     score:2},
+  {cn:'已完成义务兵役',                 tw:'已完成義務兵役',                 score:3},
+  {cn:'服役期间有突出表现或荣誉',       tw:'服役期間有突出表現或榮譽',       score:4},
+  {cn:'无意服兵役或所在地区不适用',      tw:'無意服兵役或所在地區不適用',      score:3},
     ],
   },
-  /* A_rec — 犯罪记录（成人） */
-  {
-    id:'A_rec', section:'basic', scorable:true, noImprove:true,
-    showIf:(s)=>s.A0!==0,
-    cn:'你是否有刑事犯罪记录？', tw:'你是否有刑事犯罪記錄？',
-    note:{cn:'涉及隐私，数据仅本地评分，不上传',tw:'涉及隱私，數據僅本地評分，不上傳'},
-    options:[
-      {cn:'有严重刑事犯罪记录（含缓刑/在押）', tw:'有嚴重刑事犯罪記錄（含緩刑/在押）', score:0},
-      {cn:'有轻微违法行政记录',               tw:'有輕微違法行政記錄',               score:2},
-      {cn:'无任何犯罪或重大违法记录',         tw:'無任何犯罪或重大違法記錄',         score:4},
-    ],
-  },  {
+
+    {
     id:'A4', section:'basic', scorable:true, noImprove:true,
     cn:'你出生成长的地区环境是？', tw:'你出生成長的地區環境是？',
     options:[
       {cn:'乡村（村庄）',         tw:'鄉村（村莊）',         score:0},
-      {cn:'小镇',                 tw:'小鎮',                 score:1},
-      {cn:'地级市',               tw:'地級市',               score:2},
-      {cn:'沿海城市',             tw:'沿海城市',             score:3},
-      {cn:'大城市',               tw:'大城市',               score:3},
-      {cn:'一线城市',             tw:'一線城市',             score:4},
+  {cn:'小镇',                 tw:'小鎮',                 score:1},
+  {cn:'地级市',               tw:'地級市',               score:2},
+  {cn:'沿海城市',             tw:'沿海城市',             score:3},
+  {cn:'大城市',               tw:'大城市',               score:3},
+  {cn:'一线城市',             tw:'一線城市',             score:4},
     ],
-  },  {
-    id:'A5', section:'basic', scorable:true, noImprove:true,
-    cn:'你目前居住的地区环境是？', tw:'你目前居住的地區環境是？',
-    showIf:(s)=>!(s.A1===0&&s.A4===5),
-    options:[
-      {cn:'乡村（村庄）',         tw:'鄉村（村莊）',         score:0},
-      {cn:'小镇',                 tw:'小鎮',                 score:1},
-      {cn:'地级市',               tw:'地級市',               score:2},
-      {cn:'沿海城市',             tw:'沿海城市',             score:3},
-      {cn:'大城市',               tw:'大城市',               score:3},
-      {cn:'一线城市',             tw:'一線城市',             score:4},
-    ],
-  },  {
+  },
+
+    {
     id:'A6', section:'basic', scorable:true,
     cn:'你当前的最高学历或在读学位是？', tw:'你當前的最高學歷或在讀學位是？',
     options:[
       {cn:'初中及以下',    tw:'初中及以下',    score:0},
-      {cn:'高中 / 中专',  tw:'高中 / 中專',  score:1},
-      {cn:'大专',          tw:'大專',          score:2},
-      {cn:'本科',          tw:'本科',          score:3},
-      {cn:'硕士及以上',    tw:'碩士及以上',    score:4},
+  {cn:'高中 / 中专',  tw:'高中 / 中專',  score:1},
+  {cn:'大专',          tw:'大專',          score:2},
+  {cn:'本科',          tw:'本科',          score:3},
+  {cn:'硕士及以上',    tw:'碩士及以上',    score:4},
     ],
   },
-  {
+
+    {
     id:'A7', section:'basic', scorable:true,
-    showIf:(s)=>s.A1===0,
+    showIf:(s)=>s.QK1===0,
     cn:'你在校期间的学业成绩属于？', tw:'你在校期間的學業成績屬於？',
     options:[
       {cn:'班级后20%',    tw:'班級後20%',    score:0},
-      {cn:'班级中下水平', tw:'班級中下水平', score:1},
-      {cn:'班级中等水平', tw:'班級中等水平', score:2},
-      {cn:'班级前30%',    tw:'班級前30%',    score:3},
-      {cn:'班级前10%',    tw:'班級前10%',    score:4},
+  {cn:'班级中下水平', tw:'班級中下水平', score:1},
+  {cn:'班级中等水平', tw:'班級中等水平', score:2},
+  {cn:'班级前30%',    tw:'班級前30%',    score:3},
+  {cn:'班级前10%',    tw:'班級前10%',    score:4},
     ],
   },
-  {
-    id:'A8', section:'basic', scorable:true,
-    cn:'你的健康状况自评如何？', tw:'你的健康狀況自評如何？',
-    options:[
-      {cn:'有慢性病或长期困扰',      tw:'有慢性病或長期困擾',      score:0},
-      {cn:'偶有小病，整体一般',      tw:'偶有小病，整體一般',      score:1},
-      {cn:'基本健康，无大问题',      tw:'基本健康，無大問題',      score:2},
-      {cn:'健康良好，精力充沛',      tw:'健康良好，精力充沛',      score:3},
-      {cn:'非常健康，体检各项优秀',  tw:'非常健康，體檢各項優秀',  score:4},
-    ],
-  },
-  {
+
+    {
     id:'A9', section:'basic', scorable:true,
     cn:'你的睡眠质量如何？', tw:'你的睡眠質量如何？',
     options:[
       {cn:'长期失眠，严重影响生活',  tw:'長期失眠，嚴重影響生活',  score:0},
-      {cn:'睡眠不规律，质量差',      tw:'睡眠不規律，質量差',      score:1},
-      {cn:'基本能睡够，偶有不适',    tw:'基本能睡夠，偶有不適',    score:2},
-      {cn:'睡眠规律，质量不错',      tw:'睡眠規律，質量不錯',      score:3},
-      {cn:'睡眠极佳，每天精力满满',  tw:'睡眠極佳，每天精力滿滿',  score:4},
+  {cn:'睡眠不规律，质量差',      tw:'睡眠不規律，質量差',      score:1},
+  {cn:'基本能睡够，偶有不适',    tw:'基本能睡夠，偶有不適',    score:2},
+  {cn:'睡眠规律，质量不错',      tw:'睡眠規律，質量不錯',      score:3},
+  {cn:'睡眠极佳，每天精力满满',  tw:'睡眠極佳，每天精力滿滿',  score:4},
     ],
   },
-  {
-    id:'A10', section:'basic', scorable:true,
-    cn:'你每周锻炼的频率是？', tw:'你每週鍛煉的頻率是？',
-    options:[
-      {cn:'几乎不锻炼',      tw:'幾乎不鍛煉',      score:0},
-      {cn:'每月1～2次',      tw:'每月1～2次',      score:1},
-      {cn:'每周1次',         tw:'每週1次',         score:2},
-      {cn:'每周2～3次',      tw:'每週2～3次',      score:3},
-      {cn:'每周4次及以上',   tw:'每週4次及以上',   score:4},
-    ],
-  },
-  {
-    id:'A12', section:'basic', scorable:true,
-    cn:'你的日常饮食结构属于哪种类型？', tw:'你的日常飲食結構屬於哪種類型？',
-    options:[
-      {cn:'外卖为主，很少在意营养',             tw:'外賣為主，很少在意營養',             score:0},
-      {cn:'饮食随意，偶尔注意',                 tw:'飲食隨意，偶爾注意',                 score:1},
-      {cn:'基本规律，荤素均衡',                 tw:'基本規律，葷素均衡',                 score:2},
-      {cn:'有意控制饮食，营养搭配合理',         tw:'有意控制飲食，營養搭配合理',         score:3},
-      {cn:'科学饮食，定制化搭配，长期执行',     tw:'科學飲食，定制化搭配，長期執行',     score:4},
-    ],
-  },  {
+
+    {
     id:'B2', section:'social', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
+    showIf:(s)=>s.QK3===0||s.QK1===0,
     cn:'你的家庭经济状况如何？（在校生）', tw:'你的家庭經濟狀況如何？（在校生）',
     options:[
       {cn:'家庭经济较为困难',    tw:'家庭經濟較為困難',    score:0},
-      {cn:'基本够用，略显紧张',  tw:'基本夠用，略顯緊張',  score:1},
-      {cn:'小康水平，生活稳定',  tw:'小康水平，生活穩定',  score:2},
-      {cn:'比较富裕，无忧虑',    tw:'比較富裕，無憂慮',    score:3},
-      {cn:'家境优越，非常富足',  tw:'家境優越，非常富足',  score:4},
+  {cn:'基本够用，略显紧张',  tw:'基本夠用，略顯緊張',  score:1},
+  {cn:'小康水平，生活稳定',  tw:'小康水平，生活穩定',  score:2},
+  {cn:'比较富裕，无忧虑',    tw:'比較富裕，無憂慮',    score:3},
+  {cn:'家境优越，非常富足',  tw:'家境優越，非常富足',  score:4},
     ],
   },
 
-  {
-    /* A11 — 负面生活习惯：扩展更多选项，每项negative:-1 */
-    id:'A11', section:'basic', scorable:true, noAutoAdvance:true,
-    cn:'你有以下哪些生活习惯？（可多选）', tw:'你有以下哪些生活習慣？（可多選）',
-    multi:true,
-    note:{cn:'多选题：选择所有符合的项，均无则选最后一项',tw:'多選題：選擇所有符合的項，均無則選最後一項'},
-    options:[
-      {cn:'吸烟（每周至少一次）',                 tw:'吸菸（每週至少一次）',                 score:0, negative:true},
-      {cn:'饮酒（每周至少一次，超过2杯）',        tw:'飲酒（每週至少一次，超過2杯）',        score:0, negative:true},
-      {cn:'习惯性熬夜（凌晨1点后睡觉）',         tw:'習慣性熬夜（凌晨1點後睡覺）',         score:0, negative:true},
-      {cn:'久坐不动（每天超过8小时，几乎不起）', tw:'久坐不動（每天超過8小時，幾乎不起）', score:0, negative:true},
-      {cn:'频繁使用成瘾性物质或刷手机超过4小时', tw:'頻繁使用成癮性物質或刷手機超過4小時', score:0, negative:true},
-      {cn:'长期不吃早饭或饮食极度不规律',        tw:'長期不吃早飯或飲食極度不規律',        score:0, negative:true},
-      {cn:'以上均无',                             tw:'以上均無',                             score:6, exclusive:true},
-    ],
-    scoreMode:'multi_negative',
-  },
-
-  {
+    {
     id:'A13', section:'basic', scorable:true,
     cn:'你有无慢性疼痛或身体不适？', tw:'你有無慢性疼痛或身體不適？',
     options:[
       {cn:'长期有多处疼痛，严重影响生活', tw:'長期有多處疼痛，嚴重影響生活', score:0},
-      {cn:'有一两处慢性不适',             tw:'有一兩處慢性不適',             score:1},
-      {cn:'偶有轻微不适',                 tw:'偶有輕微不適',                 score:2},
-      {cn:'几乎没有',                     tw:'幾乎沒有',                     score:3},
-      {cn:'完全没有，身体感觉很好',       tw:'完全沒有，身體感覺很好',       score:4},
+  {cn:'有一两处慢性不适',             tw:'有一兩處慢性不適',             score:1},
+  {cn:'偶有轻微不适',                 tw:'偶有輕微不適',                 score:2},
+  {cn:'几乎没有',                     tw:'幾乎沒有',                     score:3},
+  {cn:'完全没有，身体感觉很好',       tw:'完全沒有，身體感覺很好',       score:4},
     ],
   },
 
-  {
+    {
     /* A14 — 动态压力题：根据A0选择动态切换学业/工作措辞 */
     id:'A14', section:'basic', scorable:true,
     cn:'你是否常感到学业/工作压力过大？', tw:'你是否常感到學業/工作壓力過大？',
@@ -292,1226 +1904,779 @@ window.QUESTION_BANK = [
     twFn:function(s){ return s.A0===0?'學業壓力是否讓你感到喘不過氣？':'工作/生活壓力是否讓你感到喘不過氣？'; },
     options:[
       {cn:'是，长期高压，已严重影响身心健康', tw:'是，長期高壓，已嚴重影響身心健康', score:0},
-      {cn:'经常有压力，难以完全排解',         tw:'經常有壓力，難以完全排解',         score:1},
-      {cn:'有时有压力，但基本能自我调节',     tw:'有時有壓力，但基本能自我調節',     score:2},
-      {cn:'偶尔有压力，整体状态比较放松',     tw:'偶爾有壓力，整體狀態比較放鬆',     score:3},
-      {cn:'几乎没有压力，状态充实且愉快',     tw:'幾乎沒有壓力，狀態充實且愉快',     score:4},
+  {cn:'经常有压力，难以完全排解',         tw:'經常有壓力，難以完全排解',         score:1},
+  {cn:'有时有压力，但基本能自我调节',     tw:'有時有壓力，但基本能自我調節',     score:2},
+  {cn:'偶尔有压力，整体状态比较放松',     tw:'偶爾有壓力，整體狀態比較放鬆',     score:3},
+  {cn:'几乎没有压力，状态充实且愉快',     tw:'幾乎沒有壓力，狀態充實且愉快',     score:4},
     ],
   },
 
-  {
-    id:'A15', section:'basic', scorable:true,
-    showIf:(s)=>(s.A0===1||s.A0===4),  /* career field: only for employed/retired, not student/freelance/unemployed */
-    cn:'你的职业领域是？', tw:'你的職業領域是？',
-    options:[
-      {cn:'无业 / 务农 / 打零工',                tw:'無業 / 務農 / 打零工',                score:0},
-      {cn:'制造、建筑、服务业一线',              tw:'製造、建築、服務業一線',              score:1},
-      {cn:'教育、医疗、政府、事业单位',          tw:'教育、醫療、政府、事業單位',          score:2},
-      {cn:'金融、科技、法律、商业专业',          tw:'金融、科技、法律、商業專業',          score:3},
-      {cn:'创业、投资、高级管理、自由职业专家',  tw:'創業、投資、高級管理、自由職業專家',  score:4},
-    ],
-  },
-  {
-    /* B3 — 月收入：扩展到10档 */
-    id:'B3', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你的月收入（税后到手）大致在什么水平？', tw:'你的月收入（稅後到手）大致在什麼水平？',
-    options:[
-      {cn:'1000元以下',          tw:'1000元以下',          score:0},
-      {cn:'1000～3000元',        tw:'1000～3000元',        score:1},
-      {cn:'3001～5000元',        tw:'3001～5000元',        score:2},
-      {cn:'5001～8000元',        tw:'5001～8000元',        score:3},
-      {cn:'8001～12000元',       tw:'8001～12000元',       score:4},
-      {cn:'12001～20000元',      tw:'12001～20000元',      score:5},
-      {cn:'20001～35000元',      tw:'20001～35000元',      score:6},
-      {cn:'35001～60000元',      tw:'35001～60000元',      score:7},
-      {cn:'60001～100000元',     tw:'60001～100000元',     score:8},
-      {cn:'100000元以上',        tw:'100000元以上',        score:9},
-    ],
-  },
-  {
-    id:'B3b', section:'social', scorable:true,
-    showIf:(s)=>s.A0===1||s.A0===2||s.A0===4,  /* hide for student(0) and unemployed(3) */
-    cn:'你的收入来源构成是？', tw:'你的收入來源構成是？',
-    options:[
-      {cn:'仅有工资/薪酬一项（纯雇员）',        tw:'僅有工資/薪酬一項（純雇員）',        score:0},
-      {cn:'工资为主，偶有其他收入',              tw:'工資為主，偶有其他收入',              score:1},
-      {cn:'工资+稳定副业或兼职',                tw:'工資+穩定副業或兼職',                score:2},
-      {cn:'多渠道收入（工资+投资+副业等）',      tw:'多渠道收入（工資+投資+副業等）',      score:3},
-      {cn:'自营/自由职业/创业——无固定工资',      tw:'自營/自由職業/創業——無固定工資',      score:3},
-      {cn:'被动收入为主（投资/版权/分红等）',    tw:'被動收入為主（投資/版權/分紅等）',    score:4},
-    ],
-  },
-  /* B3c — 月均利润，仅对自营/自由职业/创业者显示（B3b===4） */
-  {
-    id:'B3c', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0&&s.B3b===4,
-    cn:'你的平均月利润（扣除所有成本后实际到手）是多少？', tw:'你的平均月利潤（扣除所有成本後實際到手）是多少？',
-    note:{cn:'自营/自由职业/创业者专属，按实际盈利填写',tw:'自營/自由職業/創業者專屬，按實際盈利填寫'},
-    options:[
-      {cn:'长期亏损或盈亏勉强平衡',   tw:'長期虧損或盈虧勉強平衡',   score:0},
-      {cn:'月利润 3000元以下',        tw:'月利潤 3000元以下',        score:1},
-      {cn:'3000～8000元',             tw:'3000～8000元',             score:2},
-      {cn:'8000～20000元',            tw:'8000～20000元',            score:3},
-      {cn:'20000～50000元',           tw:'20000～50000元',           score:4},
-      {cn:'50000～200000元',          tw:'50000～200000元',          score:5},
-      {cn:'20万元以上',               tw:'20萬元以上',               score:6},
-    ],
-  },  {
+    {
     /* B4 — 净资产：14档，improve:false 防止显示不切实际的目标 */
     id:'B4', section:'social', scorable:true, improve:false,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
+    showIf:(s)=>s.QK3!==0&&s.QK1!==0,
     cn:'你目前的资产净值（房、车、存款等）大约是？', tw:'你目前的資產淨值（房、車、存款等）大約是？',
     options:[
       {cn:'负债状态（净值为负）',   tw:'負債狀態（淨值為負）',   score:0},
-      {cn:'0 ～ 100元',             tw:'0 ～ 100元',             score:1},
-      {cn:'100元 ～ 1000元',        tw:'100元 ～ 1000元',        score:2},
-      {cn:'1000元 ～ 5000元',       tw:'1000元 ～ 5000元',       score:3},
-      {cn:'5000元 ～ 1万元',        tw:'5000元 ～ 1萬元',        score:4},
-      {cn:'1万元 ～ 2万元',         tw:'1萬元 ～ 2萬元',         score:5},
-      {cn:'2万元 ～ 10万元',        tw:'2萬元 ～ 10萬元',        score:6},
-      {cn:'10万元 ～ 25万元',       tw:'10萬元 ～ 25萬元',       score:7},
-      {cn:'25万元 ～ 50万元',       tw:'25萬元 ～ 50萬元',       score:8},
-      {cn:'50万元 ～ 100万元',      tw:'50萬元 ～ 100萬元',      score:9},
-      {cn:'100万元 ～ 500万元',     tw:'100萬元 ～ 500萬元',     score:10},
-      {cn:'500万元 ～ 1000万元',    tw:'500萬元 ～ 1000萬元',    score:11},
-      {cn:'1000万元 ～ 1亿元',      tw:'1000萬元 ～ 1億元',      score:12},
-      {cn:'1亿元 ～ 10亿元',        tw:'1億元 ～ 10億元',        score:13},
-      {cn:'10亿元以上',             tw:'10億元以上',             score:13},
+  {cn:'0 ～ 100元',             tw:'0 ～ 100元',             score:1},
+  {cn:'100元 ～ 1000元',        tw:'100元 ～ 1000元',        score:2},
+  {cn:'1000元 ～ 5000元',       tw:'1000元 ～ 5000元',       score:3},
+  {cn:'5000元 ～ 1万元',        tw:'5000元 ～ 1萬元',        score:4},
+  {cn:'1万元 ～ 2万元',         tw:'1萬元 ～ 2萬元',         score:5},
+  {cn:'2万元 ～ 10万元',        tw:'2萬元 ～ 10萬元',        score:6},
+  {cn:'10万元 ～ 25万元',       tw:'10萬元 ～ 25萬元',       score:7},
+  {cn:'25万元 ～ 50万元',       tw:'25萬元 ～ 50萬元',       score:8},
+  {cn:'50万元 ～ 100万元',      tw:'50萬元 ～ 100萬元',      score:9},
+  {cn:'100万元 ～ 500万元',     tw:'100萬元 ～ 500萬元',     score:10},
+  {cn:'500万元 ～ 1000万元',    tw:'500萬元 ～ 1000萬元',    score:11},
+  {cn:'1000万元 ～ 1亿元',      tw:'1000萬元 ～ 1億元',      score:12},
+  {cn:'1亿元 ～ 10亿元',        tw:'1億元 ～ 10億元',        score:13},
+  {cn:'10亿元以上',             tw:'10億元以上',             score:13},
     ],
   },
-  {
-    id:'B4b', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你的应急备用金能覆盖几个月开销？', tw:'你的應急備用金能覆蓋幾個月開銷？',
-    options:[
-      {cn:'不足1个月',   tw:'不足1個月',   score:0},
-      {cn:'1～3个月',    tw:'1～3個月',    score:1},
-      {cn:'3～6个月',    tw:'3～6個月',    score:2},
-      {cn:'6～12个月',   tw:'6～12個月',   score:3},
-      {cn:'12个月以上',  tw:'12個月以上',  score:4},
-    ],
-  },
-  {
-    id:'B4c', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你目前的负债情况如何？（房贷、车贷、信用卡等）', tw:'你目前的負債情況如何？',
-    options:[
-      {cn:'多种负债叠加，压力巨大',        tw:'多種負債疊加，壓力巨大',        score:0},
-      {cn:'有1～2项较重负债，有压力',      tw:'有1～2項較重負債，有壓力',      score:1},
-      {cn:'有合理负债（如房贷），可控',    tw:'有合理負債（如房貸），可控',    score:2},
-      {cn:'负债很少，基本无压力',          tw:'負債很少，基本無壓力',          score:3},
-      {cn:'完全无负债',                    tw:'完全無負債',                    score:4},
-    ],
-  },
-  {
-    id:'B4e', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你的闲置资金通常放在哪里？', tw:'你的閒置資金通常放在哪裡？',
-    options:[
-      {cn:'活期存款或压在手边',                    tw:'活期存款或壓在手邊',                    score:0},
-      {cn:'余额宝/货币基金',                       tw:'餘額寶/貨幣基金',                       score:1},
-      {cn:'定期存款或国债',                        tw:'定期存款或國債',                        score:2},
-      {cn:'基金 / 股票等权益类资产',               tw:'基金 / 股票等權益類資產',               score:3},
-      {cn:'多元化配置（股权+固收+另类资产）',      tw:'多元化配置（股權+固收+另類資產）',      score:4},
-    ],
-  },
-  {
-    id:'B4f', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你的风险偏好与实际投资表现的匹配度如何？', tw:'你的風險偏好與實際投資表現的匹配度如何？',
-    options:[
-      {cn:'从不投资，不了解',                      tw:'從不投資，不了解',                      score:0},
-      {cn:'曾经投资但亏损较大',                    tw:'曾經投資但虧損較大',                    score:1},
-      {cn:'基本持平，轻微亏损或盈利',              tw:'基本持平，輕微虧損或盈利',              score:2},
-      {cn:'长期正收益，和预期基本一致',            tw:'長期正收益，和預期基本一致',            score:3},
-      {cn:'收益明显超出市场平均，策略成熟',        tw:'收益明顯超出市場平均，策略成熟',        score:4},
-    ],
-  },
-  {
-    /* B4g — 扩展：新增"仅有医保"选项 */
-    id:'B4g', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你是否购买了保障类保险？', tw:'你是否購買了保障類保險？',
-    options:[
-      {cn:'完全没有，任何险种都没有',          tw:'完全沒有，任何險種都沒有',          score:0},
-      {cn:'仅有基本医保（社保医疗）',          tw:'僅有基本醫保（社保醫療）',          score:1},
-      {cn:'医保+意外险',                       tw:'醫保+意外險',                       score:2},
-      {cn:'医保+百万医疗险（含住院保障）',     tw:'醫保+百萬醫療險（含住院保障）',     score:3},
-      {cn:'医疗+重疾+意外+寿险/年金全面覆盖', tw:'醫療+重疾+意外+壽險/年金全面覆蓋', score:4},
-    ],
-  },
-  {
-    id:'B5', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你的婚姻 / 伴侣状态是？', tw:'你的婚姻 / 伴侶狀態是？',
-    options:[
-      {cn:'单身，且对现状不满意',    tw:'單身，且對現狀不滿意',    score:0},
-      {cn:'单身，暂时满意',          tw:'單身，暫時滿意',          score:2},
-      {cn:'恋爱中',                  tw:'戀愛中',                  score:3},
-      {cn:'已婚，关系一般',          tw:'已婚，關係一般',          score:2},
-      {cn:'已婚，关系亲密幸福',      tw:'已婚，關係親密幸福',      score:4},
-    ],
-  },
-  {
-    id:'B6', section:'social', scorable:true,
-    showIf:(s)=>s.A1>=2&&(s.B5===3||s.B5===4),
-    cn:'你的子女情况是？', tw:'你的子女情況是？',
-    options:[
-      {cn:'没有子女，不打算要',  tw:'沒有子女，不打算要',  score:2},
-      {cn:'没有子女，希望要',    tw:'沒有子女，希望要',    score:2},
-      {cn:'有1个子女',           tw:'有1個子女',           score:3},
-      {cn:'有2个及以上子女',     tw:'有2個及以上子女',     score:4},
-      {cn:'子女已独立成才',      tw:'子女已獨立成才',      score:4},
-    ],
-  },
-  {
-    id:'B7', section:'social', scorable:true,
-    cn:'你拥有几种可变现的专业技能或证书？', tw:'你擁有幾種可變現的專業技能或證書？',
-    options:[
-      {cn:'暂无可变现技能/证书',               tw:'暫無可變現技能/證書',               score:0},
-      {cn:'1项基础技能（可完成基础工作）',      tw:'1項基礎技能（可完成基礎工作）',      score:1},
-      {cn:'1项熟练技能 + 1项辅助技能',         tw:'1項熟練技能 + 1項輔助技能',         score:2},
-      {cn:'2～3项可独立接单/创收的技能',       tw:'2～3項可獨立接單/創收的技能',       score:3},
-      {cn:'3项以上，含高级证书或代表性作品',    tw:'3項以上，含高級證書或代表性作品',    score:4},
-    ],
-  },
-  {
-    id:'B8', section:'social', scorable:true,
-    cn:'你掌握多少门外语（可日常沟通水平）？', tw:'你掌握多少門外語（可日常溝通水平）？',
-    options:[
-      {cn:'0门（仅母语）',  tw:'0門（僅母語）',  score:0},
-      {cn:'1门',            tw:'1門',            score:2},
-      {cn:'2门',            tw:'2門',            score:3},
-      {cn:'3门及以上',      tw:'3門及以上',      score:4},
-    ],
-  },
-  {
-    id:'B9', section:'social', scorable:true,
-    showIf:(s)=>!(s.A1===0&&s.A4===6),
-    cn:'你在国内旅行共去过多少个城市（含本市）？', tw:'你在國內旅行共去過多少個城市（含本市）？',
-    options:[
-      {cn:'几乎只在本市，未出过省', tw:'幾乎只在本市，未出過省', score:0},
-      {cn:'去过2～5个城市',        tw:'去過2～5個城市',        score:1},
-      {cn:'去过6～15个城市',       tw:'去過6～15個城市',       score:2},
-      {cn:'去过16～30个城市',      tw:'去過16～30個城市',      score:3},
-      {cn:'去过30个以上城市',      tw:'去過30個以上城市',      score:4},
-    ],
-  },
-  {
-    id:'B9c', section:'social', scorable:true,
-    cn:'你的海外旅行或居住经历如何？', tw:'你的海外旅行或居住經歷如何？',
-    options:[
-      {cn:'从未出过国境',                          tw:'從未出過國境',                          score:0},
-      {cn:'去过1～2个国家/地区',                   tw:'去過1～2個國家/地區',                   score:1},
-      {cn:'去过3～7个国家/地区',                   tw:'去過3～7個國家/地區',                   score:2},
-      {cn:'去过8～20个国家/地区',                  tw:'去過8～20個國家/地區',                  score:3},
-      {cn:'去过20个以上国家，或有海外长居经历',    tw:'去過20個以上國家，或有海外長居經歷',    score:4},
-    ],
-  },
-  {
-    id:'B10', section:'social', scorable:true,
-    cn:'你的社交圈质量如何？', tw:'你的社交圈質量如何？',
-    options:[
-      {cn:'几乎没有朋友，非常孤独',          tw:'幾乎沒有朋友，非常孤獨',          score:0},
-      {cn:'朋友少，但有一两个可倾诉',        tw:'朋友少，但有一兩個可倾訴',        score:1},
-      {cn:'有稳定的小圈子',                  tw:'有穩定的小圈子',                  score:2},
-      {cn:'社交广泛，认识很多人',            tw:'社交廣泛，認識很多人',            score:3},
-      {cn:'人脉优质且多元，有影响力',        tw:'人脈優質且多元，有影響力',        score:4},
-    ],
-  },
-  {
-    /* B11 — 声誉：对在职/创业人群 */
-    id:'B11', section:'social', scorable:true,
-    showIf:(s)=>s.A0===1||s.A0===2||s.A1!==0,
-    cn:'你在自己领域的声誉或知名度如何？', tw:'你在自己領域的聲譽或知名度如何？',
-    options:[
-      {cn:'没有声誉，很少被认可',        tw:'沒有聲譽，很少被認可',        score:0},
-      {cn:'团队内部认可',                tw:'團隊內部認可',                score:1},
-      {cn:'在组织内有一定知名度',        tw:'在組織內有一定知名度',        score:2},
-      {cn:'在行业内有口碑',              tw:'在行業內有口碑',              score:3},
-      {cn:'公众知名人物或行业领袖',      tw:'公眾知名人物或行業領袖',      score:4},
-    ],
-  },
-  {
+
+    {
     /* B12 — 学校评价：触发条件：学生身份（B32对应此题，现在用A_st收紧条件） */
     id:'B12', section:'social', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
+    showIf:(s)=>s.QK3===0||s.QK1===0,
     cn:'你在学校或同学中的评价如何？', tw:'你在學校或同學中的評價如何？',
     options:[
       {cn:'被边缘化或欺负',          tw:'被邊緣化或欺負',          score:0},
-      {cn:'存在感较低',              tw:'存在感較低',              score:1},
-      {cn:'普通同学，印象一般',      tw:'普通同學，印象一般',      score:2},
-      {cn:'受同学喜欢和尊重',        tw:'受同學喜歡和尊重',        score:3},
-      {cn:'班级 / 年级的中心人物',   tw:'班級 / 年級的中心人物',   score:4},
+  {cn:'存在感较低',              tw:'存在感較低',              score:1},
+  {cn:'普通同学，印象一般',      tw:'普通同學，印象一般',      score:2},
+  {cn:'受同学喜欢和尊重',        tw:'受同學喜歡和尊重',        score:3},
+  {cn:'班级 / 年级的中心人物',   tw:'班級 / 年級的中心人物',   score:4},
     ],
   },
-  {
-    id:'B14', section:'social', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你目前的居住条件如何？', tw:'你目前的居住條件如何？',
-    options:[
-      {cn:'合租隔间或群租',                    tw:'合租隔間或群租',                    score:0},
-      {cn:'与他人合租，条件一般',              tw:'與他人合租，條件一般',              score:1},
-      {cn:'独立租房，条件尚可',                tw:'獨立租房，條件尚可',                score:2},
-      {cn:'有自购房产',                        tw:'有自購房產',                        score:3},
-      {cn:'拥有优质房产（大面积或多套）',      tw:'擁有優質房產（大面積或多套）',      score:4},
-    ],
-  },
-  {
-    id:'B15', section:'social', scorable:true,
-    cn:'你有没有接受过系统的兴趣才艺培训？', tw:'你有沒有接受過系統的興趣才藝培訓？',
-    options:[
-      {cn:'没有任何才艺',              tw:'沒有任何才藝',              score:0},
-      {cn:'自学了一两样',              tw:'自學了一兩樣',              score:1},
-      {cn:'系统学习过一样',            tw:'系統學習過一樣',            score:2},
-      {cn:'系统学习过多样',            tw:'系統學習過多樣',            score:3},
-      {cn:'多才多艺且达到较高水准',    tw:'多才多藝且達到較高水準',    score:4},
-    ],
-  },
-  {
+
+    {
     /* B16 — 改为：每天个人自由时间 */
     id:'B16', section:'social', scorable:true,
     cn:'你每天能留给自己的个人自由时间大约有多少？', tw:'你每天能留給自己的個人自由時間大約有多少？',
     note:{cn:'指下班/下课/完成必要任务后，真正属于自己的时间',tw:'指下班/下課/完成必要任務後，真正屬於自己的時間'},
     options:[
       {cn:'不足30分钟，几乎全部时间都被占用', tw:'不足30分鐘，幾乎全部時間都被佔用', score:0},
-      {cn:'30分钟～1小时',                    tw:'30分鐘～1小時',                    score:1},
-      {cn:'1～2小时',                         tw:'1～2小時',                         score:2},
-      {cn:'2～4小时',                         tw:'2～4小時',                         score:3},
-      {cn:'4小时以上，生活节奏高度自主',      tw:'4小時以上，生活節奏高度自主',      score:4},
-    ],
-  },
-  {
-    id:'B17', section:'social', scorable:true,
-    cn:'你与父母或长辈的关系状态如何？', tw:'你與父母或長輩的關係狀態如何？',
-    options:[
-      {cn:'关系紧张，几乎不来往',      tw:'關係緊張，幾乎不來往',      score:0},
-      {cn:'关系一般，偶有摩擦',        tw:'關係一般，偶有摩擦',        score:1},
-      {cn:'关系基本正常',              tw:'關係基本正常',              score:2},
-      {cn:'关系良好，经常沟通',        tw:'關係良好，經常溝通',        score:3},
-      {cn:'关系非常亲密，互相支持',    tw:'關係非常親密，互相支持',    score:4},
-      {cn:'父母已离世，生前关系良好',   tw:'父母已離世，生前關係良好',   score:3},
-      {cn:'父母已离世，生前关系一般',   tw:'父母已離世，生前關係一般',   score:2},
+  {cn:'30分钟～1小时',                    tw:'30分鐘～1小時',                    score:1},
+  {cn:'1～2小时',                         tw:'1～2小時',                         score:2},
+  {cn:'2～4小时',                         tw:'2～4小時',                         score:3},
+  {cn:'4小时以上，生活节奏高度自主',      tw:'4小時以上，生活節奏高度自主',      score:4},
     ],
   },
 
-  /* A_sib — 兄弟姐妹及关系 */
-  {
-    id:'A_sib', section:'basic', scorable:true,
-    cn:'你有兄弟姐妹吗？关系如何？', tw:'你有兄弟姐妹嗎？關係如何？',
-    options:[
-      {cn:'独生子女',                         tw:'獨生子女',                         score:2},
-      {cn:'有兄弟姐妹，但关系疏远或紧张',    tw:'有兄弟姐妹，但關係疏遠或緊張',    score:1},
-      {cn:'有兄弟姐妹，关系一般',             tw:'有兄弟姐妹，關係一般',             score:2},
-      {cn:'有兄弟姐妹，关系良好',             tw:'有兄弟姐妹，關係良好',             score:3},
-      {cn:'有兄弟姐妹，关系亲密，互相支持',  tw:'有兄弟姐妹，關係親密，互相支持',  score:4},
-    ],
-  },
-  /* B17b — 父母/长辈学历背景 */
-  {
+    {
     id:'B17b', section:'social', scorable:true, noImprove:true,
     cn:'你父母或主要抚养人的最高学历大约是？', tw:'你父母或主要撫養人的最高學歷大約是？',
     note:{cn:'不可改变的背景因素，仅影响部分背景分析，不计入提升建议',tw:'不可改變的背景因素，僅影響部分背景分析，不計入提升建議'},
     options:[
       {cn:'初中及以下',        tw:'初中及以下',        score:0},
-      {cn:'高中 / 中专',       tw:'高中 / 中專',       score:1},
-      {cn:'大专 / 职业本科',   tw:'大專 / 職業本科',   score:2},
-      {cn:'本科',              tw:'本科',              score:3},
-      {cn:'硕士及以上',        tw:'碩士及以上',        score:4},
+  {cn:'高中 / 中专',       tw:'高中 / 中專',       score:1},
+  {cn:'大专 / 职业本科',   tw:'大專 / 職業本科',   score:2},
+  {cn:'本科',              tw:'本科',              score:3},
+  {cn:'硕士及以上',        tw:'碩士及以上',        score:4},
     ],
   },
-  /* B17c — 与大家庭（祖父母/外祖父母/其他亲戚）的关系 */
-  {
+
+    {
     id:'B17c', section:'social', scorable:true,
     cn:'你与大家庭（祖父母、外祖父母或其他亲属）的关系如何？', tw:'你與大家庭（祖父母、外祖父母或其他親屬）的關係如何？',
     options:[
       {cn:'几乎没有联系，关系陌生',      tw:'幾乎沒有聯繫，關係陌生',      score:0},
-      {cn:'偶尔联系，关系淡薄',          tw:'偶爾聯繫，關係淡薄',          score:1},
-      {cn:'正常联系，关系普通',          tw:'正常聯繫，關係普通',          score:2},
-      {cn:'关系良好，逢年过节来往',      tw:'關係良好，逢年過節來往',      score:3},
-      {cn:'关系非常亲密，互相关心支持',  tw:'關係非常親密，互相關心支持',  score:4},
+  {cn:'偶尔联系，关系淡薄',          tw:'偶爾聯繫，關係淡薄',          score:1},
+  {cn:'正常联系，关系普通',          tw:'正常聯繫，關係普通',          score:2},
+  {cn:'关系良好，逢年过节来往',      tw:'關係良好，逢年過節來往',      score:3},
+  {cn:'关系非常亲密，互相关心支持',  tw:'關係非常親密，互相關心支持',  score:4},
     ],
-  },  {
+  },
+
+    {
     id:'B19', section:'social', scorable:true,
     cn:'遇到困难或低落时，你有可以倾诉的家人吗？', tw:'遇到困難或低落時，你有可以傾訴的家人嗎？',
     options:[
       {cn:'完全没有，只能独自承受',  tw:'完全沒有，只能獨自承受',  score:0},
-      {cn:'有，但关系比较疏远',      tw:'有，但關係比較疏遠',      score:1},
-      {cn:'有，偶尔会倾诉',          tw:'有，偶爾會傾訴',          score:2},
-      {cn:'有，经常互相支持',        tw:'有，經常互相支持',        score:3},
-      {cn:'家庭是我最强的后盾',      tw:'家庭是我最強的後盾',      score:4},
+  {cn:'有，但关系比较疏远',      tw:'有，但關係比較疏遠',      score:1},
+  {cn:'有，偶尔会倾诉',          tw:'有，偶爾會傾訴',          score:2},
+  {cn:'有，经常互相支持',        tw:'有，經常互相支持',        score:3},
+  {cn:'家庭是我最强的后盾',      tw:'家庭是我最強的後盾',      score:4},
     ],
   },
-  {
+
+    {
     id:'B20', section:'social', scorable:true,
     cn:'你在与朋友交往时通常处于什么状态？', tw:'你在與朋友交往時通常處於什麼狀態？',
     options:[
       {cn:'很少主动联系，有些隔离感',                tw:'很少主動聯繫，有些隔離感',                score:0},
-      {cn:'被动参与，偶尔融入',                      tw:'被動參與，偶爾融入',                      score:1},
-      {cn:'正常互动，关系平淡',                      tw:'正常互動，關係平淡',                      score:2},
-      {cn:'积极参与，有共同话题',                    tw:'積極參與，有共同話題',                    score:3},
-      {cn:'是圈子的核心，大家喜欢和我在一起',        tw:'是圈子的核心，大家喜歡和我在一起',        score:4},
-    ],
-  },
-  {
-    id:'B21', section:'social', scorable:true,
-    cn:'你在工作或日常社交中给人的人际印象如何？', tw:'你在工作或日常社交中給人的人際印象如何？',
-    options:[
-      {cn:'有冲突，人际关系紧张',          tw:'有衝突，人際關係緊張',          score:0},
-      {cn:'普通，没什么特别印象',          tw:'普通，沒什麼特別印象',          score:1},
-      {cn:'友善，容易相处',                tw:'友善，容易相處',                score:2},
-      {cn:'受人尊重，有一定影响力',        tw:'受人尊重，有一定影響力',        score:3},
-      {cn:'魅力十足，人际关系是资产',      tw:'魅力十足，人際關係是資產',      score:4},
-    ],
-  },
-  {
-    id:'B22', section:'social', scorable:true,
-    cn:'总体来看，你对目前的人际关系满意吗？', tw:'總體來看，你對目前的人際關係滿意嗎？',
-    options:[
-      {cn:'非常不满意',                        tw:'非常不滿意',                        score:0},
-      {cn:'不太满意，感到孤独',                tw:'不太滿意，感到孤獨',                score:1},
-      {cn:'基本满意',                          tw:'基本滿意',                          score:2},
-      {cn:'比较满意',                          tw:'比較滿意',                          score:3},
-      {cn:'非常满意，人际关系是我的优势',      tw:'非常滿意，人際關係是我的優勢',      score:4},
+  {cn:'被动参与，偶尔融入',                      tw:'被動參與，偶爾融入',                      score:1},
+  {cn:'正常互动，关系平淡',                      tw:'正常互動，關係平淡',                      score:2},
+  {cn:'积极参与，有共同话题',                    tw:'積極參與，有共同話題',                    score:3},
+  {cn:'是圈子的核心，大家喜欢和我在一起',        tw:'是圈子的核心，大家喜歡和我在一起',        score:4},
     ],
   },
 
-  /* ══════════════════════════════════
-     SECTION C — 个人认同 (Personal Identity)
-     ══════════════════════════════════ */  {
-    id:'C1b', section:'identity', scorable:false,
-    cn:'你最看重生活中的哪一项？', tw:'你最看重生活中的哪一項？',
-    note:{cn:'此题用于个性化解读，不计入总分',tw:'此題用於個性化解讀，不計入總分'},
-    options:[
-      {cn:'自由与独立',tw:'自由與獨立',score:0},
-      {cn:'家庭与亲密关系',tw:'家庭與親密關係',score:0},
-      {cn:'财富与物质保障',tw:'財富與物質保障',score:0},
-      {cn:'成就与社会认可',tw:'成就與社會認可',score:0},
-      {cn:'内心平静与精神意义',tw:'內心平靜與精神意義',score:0},
-    ],
-  },
-  {
-    id:'C1c', section:'identity', scorable:false,
-    cn:'如果意外获得1000万，你的第一反应是？', tw:'如果意外獲得1000萬，你的第一反應是？',
-    note:{cn:'此题不计分，仅用于个性洞察',tw:'此題不計分，僅用於個性洞察'},
-    options:[
-      {cn:'立刻规划如何花掉',tw:'立刻規劃如何花掉',score:0},
-      {cn:'先存起来，以后再说',tw:'先存起來，以後再說',score:0},
-      {cn:'投入生意或投资',tw:'投入生意或投資',score:0},
-      {cn:'分给家人，帮助身边人',tw:'分給家人，幫助身邊人',score:0},
-      {cn:'做公益或支持有意义的事',tw:'做公益或支持有意義的事',score:0},
-    ],
-  },
-  {
+    {
     id:'C2', section:'identity', scorable:true,
     cn:'你对社会、政治或人生有系统性的思考框架吗？', tw:'你對社會、政治或人生有系統性的思考框架嗎？',
     options:[
       {cn:'从未深思过',              tw:'從未深思過',              score:0},
-      {cn:'偶尔思考，没有体系',      tw:'偶爾思考，沒有體系',      score:1},
-      {cn:'有初步的观点框架',        tw:'有初步的觀點框架',        score:2},
-      {cn:'有比较系统的思考体系',    tw:'有比較系統的思考體系',    score:3},
-      {cn:'有深刻且成熟的世界观',    tw:'有深刻且成熟的世界觀',    score:4},
+  {cn:'偶尔思考，没有体系',      tw:'偶爾思考，沒有體系',      score:1},
+  {cn:'有初步的观点框架',        tw:'有初步的觀點框架',        score:2},
+  {cn:'有比较系统的思考体系',    tw:'有比較系統的思考體系',    score:3},
+  {cn:'有深刻且成熟的世界观',    tw:'有深刻且成熟的世界觀',    score:4},
     ],
   },
-  {
+
+    {
     id:'C2b', section:'identity', scorable:false,
     cn:'你对"规则"的态度是？', tw:'你對「規則」的態度是？',
     note:{cn:'此题不计分，仅用于个性洞察',tw:'此題不計分，僅用於個性洞察'},
     options:[
       {cn:'规则就是用来遵守的，不遵守会付出代价',tw:'規則就是用來遵守的，不遵守會付出代價',score:0},
-      {cn:'规则应该遵守，但也可以质疑',tw:'規則應該遵守，但也可以質疑',score:0},
-      {cn:'规则是共识工具，可以合理利用',tw:'規則是共識工具，可以合理利用',score:0},
-      {cn:'规则是给平庸者设的，卓越者自己制定规则',tw:'規則是給平庸者設的，卓越者自己制定規則',score:0},
+  {cn:'规则应该遵守，但也可以质疑',tw:'規則應該遵守，但也可以質疑',score:0},
+  {cn:'规则是共识工具，可以合理利用',tw:'規則是共識工具，可以合理利用',score:0},
+  {cn:'规则是给平庸者设的，卓越者自己制定规则',tw:'規則是給平庸者設的，卓越者自己制定規則',score:0},
     ],
   },
-  {
-    id:'C3', section:'identity', scorable:true,
-    cn:'你为自己设定了明确的人生目标吗？', tw:'你為自己設定了明確的人生目標嗎？',
-    options:[
-      {cn:'没有，活一天算一天',              tw:'沒有，活一天算一天',              score:0},
-      {cn:'有模糊的方向感',                  tw:'有模糊的方向感',                  score:1},
-      {cn:'有中期目标，但不够具体',          tw:'有中期目標，但不夠具體',          score:2},
-      {cn:'有清晰的5年规划',                 tw:'有清晰的5年規劃',                 score:3},
-      {cn:'有明确的长期使命与路径',          tw:'有明確的長期使命與路徑',          score:4},
-    ],
-  },
-  {
+
+    {
     id:'C4', section:'identity', scorable:true,
     cn:'你的人生理想和抱负有多大？', tw:'你的人生理想和抱負有多大？',
     options:[
       {cn:'平淡生活就好，没有大志',      tw:'平淡生活就好，沒有大志',      score:1},
-      {cn:'希望在某个小领域有所建树',    tw:'希望在某個小領域有所建樹',    score:2},
-      {cn:'希望在行业内成为佼佼者',      tw:'希望在行業內成為佼佼者',      score:3},
-      {cn:'希望影响所在城市或领域',      tw:'希望影響所在城市或領域',      score:3},
-      {cn:'希望影响国家乃至世界',        tw:'希望影響國家乃至世界',        score:4},
+  {cn:'希望在某个小领域有所建树',    tw:'希望在某個小領域有所建樹',    score:2},
+  {cn:'希望在行业内成为佼佼者',      tw:'希望在行業內成為佼佼者',      score:3},
+  {cn:'希望影响所在城市或领域',      tw:'希望影響所在城市或領域',      score:3},
+  {cn:'希望影响国家乃至世界',        tw:'希望影響國家乃至世界',        score:4},
     ],
   },
-  {
+
+    {
     id:'C5', section:'identity', scorable:true,
     cn:'你有多强的创造力或创新意识？', tw:'你有多強的創造力或創新意識？',
     options:[
       {cn:'几乎没有，完全循规蹈矩',          tw:'幾乎沒有，完全循規蹈矩',          score:0},
-      {cn:'偶尔有想法，但很少付诸行动',      tw:'偶爾有想法，但很少付諸行動',      score:1},
-      {cn:'经常有创意，偶尔实践',            tw:'經常有創意，偶爾實踐',            score:2},
-      {cn:'创意丰富，且能系统实现',          tw:'創意豐富，且能系統實現',          score:3},
-      {cn:'高度创新，开创过新事物',          tw:'高度創新，開創過新事物',          score:4},
+  {cn:'偶尔有想法，但很少付诸行动',      tw:'偶爾有想法，但很少付諸行動',      score:1},
+  {cn:'经常有创意，偶尔实践',            tw:'經常有創意，偶爾實踐',            score:2},
+  {cn:'创意丰富，且能系统实现',          tw:'創意豐富，且能系統實現',          score:3},
+  {cn:'高度创新，开创过新事物',          tw:'高度創新，開創過新事物',          score:4},
     ],
   },
-  {
-    id:'C6', section:'identity', scorable:true,
-    cn:'你对自己当前的生活状态满意吗？', tw:'你對自己當前的生活狀態滿意嗎？',
-    options:[
-      {cn:'非常不满意，感到迷茫',    tw:'非常不滿意，感到迷茫',    score:0},
-      {cn:'不太满意，但还能接受',    tw:'不太滿意，但還能接受',    score:1},
-      {cn:'基本满意',                tw:'基本滿意',                score:2},
-      {cn:'比较满意，偶有遗憾',      tw:'比較滿意，偶有遺憾',      score:3},
-      {cn:'非常满意，感恩现状',      tw:'非常滿意，感恩現狀',      score:4},
-    ],
-  },
-  {
-    id:'C7', section:'identity', scorable:true,
-    cn:'你的情绪管理和心理韧性如何？', tw:'你的情緒管理和心理韌性如何？',
-    options:[
-      {cn:'情绪波动大，难以控制',            tw:'情緒波動大，難以控制',            score:0},
-      {cn:'有时失控，恢复较慢',              tw:'有時失控，恢復較慢',              score:1},
-      {cn:'基本稳定，能自我调节',            tw:'基本穩定，能自我調節',            score:2},
-      {cn:'情绪稳定，有成熟应对方式',        tw:'情緒穩定，有成熟應對方式',        score:3},
-      {cn:'极强韧性，逆境中依然从容',        tw:'極強韌性，逆境中依然從容',        score:4},
-    ],
-  },
-  {
+
+    {
     id:'C8', section:'identity', scorable:true,
     cn:'你阅读或主动学习的习惯如何？', tw:'你閱讀或主動學習的習慣如何？',
     options:[
       {cn:'基本不读书不学习',                    tw:'基本不讀書不學習',                    score:0},
-      {cn:'偶尔看看，没有规律',                  tw:'偶爾看看，沒有規律',                  score:1},
-      {cn:'每月读1～2本书或课程',                tw:'每月讀1～2本書或課程',                score:2},
-      {cn:'每周都有规律学习',                    tw:'每週都有規律學習',                    score:3},
-      {cn:'每天学习，且有系统知识体系',          tw:'每天學習，且有系統知識體系',          score:4},
+  {cn:'偶尔看看，没有规律',                  tw:'偶爾看看，沒有規律',                  score:1},
+  {cn:'每月读1～2本书或课程',                tw:'每月讀1～2本書或課程',                score:2},
+  {cn:'每周都有规律学习',                    tw:'每週都有規律學習',                    score:3},
+  {cn:'每天学习，且有系统知识体系',          tw:'每天學習，且有系統知識體系',          score:4},
     ],
   },
-  {
-    id:'C9', section:'identity', scorable:true,
-    cn:'你对自己的未来有多大的信心？', tw:'你對自己的未來有多大的信心？',
-    options:[
-      {cn:'非常悲观，看不到希望',            tw:'非常悲觀，看不到希望',            score:0},
-      {cn:'有些担忧，信心不足',              tw:'有些擔憂，信心不足',              score:1},
-      {cn:'基本乐观',                        tw:'基本樂觀',                        score:2},
-      {cn:'比较自信，相信自己能做到',        tw:'比較自信，相信自己能做到',        score:3},
-      {cn:'高度自信，积极进取',              tw:'高度自信，積極進取',              score:4},
-    ],
-  },
-  {
+
+    {
     id:'C10', section:'identity', scorable:true,
     cn:'你在重要决策中的独立性如何？', tw:'你在重要決策中的獨立性如何？',
     options:[
       {cn:'完全依赖他人决策',            tw:'完全依賴他人決策',            score:0},
-      {cn:'经常受他人左右',              tw:'經常受他人左右',              score:1},
-      {cn:'大部分能独立决策',            tw:'大部分能獨立決策',            score:2},
-      {cn:'独立思考，善于采纳建议',      tw:'獨立思考，善於採納建議',      score:3},
-      {cn:'高度独立，有独到判断力',      tw:'高度獨立，有獨到判斷力',      score:4},
+  {cn:'经常受他人左右',              tw:'經常受他人左右',              score:1},
+  {cn:'大部分能独立决策',            tw:'大部分能獨立決策',            score:2},
+  {cn:'独立思考，善于采纳建议',      tw:'獨立思考，善於採納建議',      score:3},
+  {cn:'高度独立，有独到判断力',      tw:'高度獨立，有獨到判斷力',      score:4},
     ],
   },
-  {
+
+    {
     id:'C11', section:'identity', scorable:true,
     cn:'你有没有实现过自己的一个重要人生梦想？', tw:'你有沒有實現過自己的一個重要人生夢想？',
     options:[
       {cn:'从未设想过梦想',          tw:'從未設想過夢想',          score:0},
-      {cn:'有梦想但从未实现',        tw:'有夢想但從未實現',        score:1},
-      {cn:'正在为梦想努力中',        tw:'正在為夢想努力中',        score:2},
-      {cn:'已实现了一个重要梦想',    tw:'已實現了一個重要夢想',    score:3},
-      {cn:'实现了多个重要梦想',      tw:'實現了多個重要夢想',      score:4},
+  {cn:'有梦想但从未实现',        tw:'有夢想但從未實現',        score:1},
+  {cn:'正在为梦想努力中',        tw:'正在為夢想努力中',        score:2},
+  {cn:'已实现了一个重要梦想',    tw:'已實現了一個重要夢想',    score:3},
+  {cn:'实现了多个重要梦想',      tw:'實現了多個重要夢想',      score:4},
     ],
   },
-  {
+
+    {
     id:'C12', section:'identity', scorable:true,
     cn:'你对世界和他人有多大的善意与包容？', tw:'你對世界和他人有多大的善意與包容？',
     options:[
       {cn:'怀疑和戒备为主',              tw:'懷疑和戒備為主',              score:0},
-      {cn:'对大多数人持中立态度',        tw:'對大多數人持中立態度',        score:1},
-      {cn:'基本善意，偶有偏见',          tw:'基本善意，偶有偏見',          score:2},
-      {cn:'善意积极，包容不同观点',      tw:'善意積極，包容不同觀點',      score:3},
-      {cn:'高度包容，真诚关爱他人',      tw:'高度包容，真誠關愛他人',      score:4},
+  {cn:'对大多数人持中立态度',        tw:'對大多數人持中立態度',        score:1},
+  {cn:'基本善意，偶有偏见',          tw:'基本善意，偶有偏見',          score:2},
+  {cn:'善意积极，包容不同观点',      tw:'善意積極，包容不同觀點',      score:3},
+  {cn:'高度包容，真诚关爱他人',      tw:'高度包容，真誠關愛他人',      score:4},
     ],
   },
-  /* C13 (如何看待过去) — DELETED per user request */
-  {
+
+    {
     id:'C14', section:'identity', scorable:true,
     cn:'当你遭遇失败或挫折时，你的第一反应是？', tw:'當你遭遇失敗或挫折時，你的第一反應是？',
     options:[
       {cn:'自我否定，长时间无法走出',    tw:'自我否定，長時間無法走出',    score:0},
-      {cn:'情绪很低落，需要很久恢复',    tw:'情緒很低落，需要很久恢復',    score:1},
-      {cn:'难受，但会慢慢调整过来',      tw:'難受，但會慢慢調整過來',      score:2},
-      {cn:'分析原因，较快找到方向',      tw:'分析原因，較快找到方向',      score:3},
-      {cn:'视为机会，立即调整策略',      tw:'視為機會，立即調整策略',      score:4},
-    ],
-  },
-  {
-    id:'C15', section:'identity', scorable:true,
-    cn:'你有没有在坚持一件长期的事（超过1年）？', tw:'你有沒有在堅持一件長期的事（超過1年）？',
-    options:[
-      {cn:'没有，做事三分钟热度',            tw:'沒有，做事三分鐘熱度',            score:0},
-      {cn:'有几件，但大多半途而废',          tw:'有幾件，但大多半途而廢',          score:1},
-      {cn:'有1件坚持超过1年的事',            tw:'有1件堅持超過1年的事',            score:2},
-      {cn:'有2～3件长期坚持的事',            tw:'有2～3件長期堅持的事',            score:3},
-      {cn:'有多件长期坚持且持续精进的事',    tw:'有多件長期堅持且持續精進的事',    score:4},
-    ],
-  },
-  /* C16 (努力与天赋关系) — DELETED per user request */
-  {
-    id:'C17', section:'identity', scorable:false,
-    cn:'你更愿意生活在哪个世界？', tw:'你更願意生活在哪個世界？',
-    note:{cn:'此题仅用于个性化解读，不计入总分',tw:'此題僅用於個性化解讀，不計入總分'},
-    options:[
-      {cn:'绝对公平的世界：人人平等，无贫富差距，但没有人特别出众',tw:'絕對公平的世界：人人平等，無貧富差距，但沒有人特別出眾',score:0},
-      {cn:'充满机会但不公平的世界：有人极度成功，有人彻底失败，而失败才是常态——但你有机会成为那个例外',tw:'充滿機會但不公平的世界：有人極度成功，有人徹底失敗，而失敗才是常態——但你有機會成為那個例外',score:0},
-    ],
-  },
-  {
-    id:'C18', section:'identity', scorable:true,
-    cn:'你是否有意识地在培养自己的某项核心竞争力？', tw:'你是否有意識地在培養自己的某項核心競爭力？',
-    options:[
-      {cn:'没有，不知从何开始',              tw:'沒有，不知從何開始',              score:0},
-      {cn:'有想法，但行动很少',              tw:'有想法，但行動很少',              score:1},
-      {cn:'有在做，但不够系统',              tw:'有在做，但不夠系統',              score:2},
-      {cn:'有清晰的能力发展路径，持续执行',  tw:'有清晰的能力發展路徑，持續執行',  score:3},
-      {cn:'已形成差异化优势，被他人认可',    tw:'已形成差異化優勢，被他人認可',    score:4},
-    ],
-  },
-  {
-    id:'C19', section:'identity', scorable:true,
-    cn:'你认为你目前的生活，在多大程度上是你主动选择的？', tw:'你認為你目前的生活，在多大程度上是你主動選擇的？',
-    options:[
-      {cn:'完全是被生活推着走的',                tw:'完全是被生活推著走的',                score:0},
-      {cn:'大部分是环境和他人决定的',            tw:'大部分是環境和他人決定的',            score:1},
-      {cn:'一半主动，一半被动',                  tw:'一半主動，一半被動',                  score:2},
-      {cn:'大部分是我有意识选择的结果',          tw:'大部分是我有意識選擇的結果',          score:3},
-      {cn:'我的生活是我精心设计的结果',          tw:'我的生活是我精心設計的結果',          score:4},
-    ],
-  },
-  {
-    id:'C20', section:'identity', scorable:true,
-    cn:'你对"成功"的定义是什么？', tw:'你對「成功」的定義是什麼？',
-    note:{cn:'此题帮助系统理解你的价值取向，不同答案评分相近',tw:'此題幫助系統理解你的價值取向，不同答案評分相近'},
-    options:[
-      {cn:'什么都不知道，走一步算一步',        tw:'什麼都不知道，走一步算一步',        score:0},
-      {cn:'财务自由，不再为钱担心',            tw:'財務自由，不再為錢擔心',            score:2},
-      {cn:'做自己想做的事，不被迫妥协',        tw:'做自己想做的事，不被迫妥協',        score:3},
-      {cn:'在某个领域留下有意义的印记',        tw:'在某個領域留下有意義的印記',        score:3},
-      {cn:'帮助他人、让世界变得更好',          tw:'幫助他人、讓世界變得更好',          score:4},
+  {cn:'情绪很低落，需要很久恢复',    tw:'情緒很低落，需要很久恢復',    score:1},
+  {cn:'难受，但会慢慢调整过来',      tw:'難受，但會慢慢調整過來',      score:2},
+  {cn:'分析原因，较快找到方向',      tw:'分析原因，較快找到方向',      score:3},
+  {cn:'视为机会，立即调整策略',      tw:'視為機會，立即調整策略',      score:4},
     ],
   },
 
-  /* ══════════════════════════════════════════════════════════════
-     SECTION D — 健康深化  Health Deep-Dive  (成人)
-     ══════════════════════════════════════════════════════════════ */
-  {
+    {
+    id:'C21', section:'identity', scorable:true,
+    cn:'你是否患有失歌症（唱歌严重跑调、无法分辨音高、节奏感混乱）？',
+    tw:'你是否患有失歌症（唱歌嚴重跑調、無法分辨音高、節奏感混亂）？',
+    options:[
+      {cn:'完全没有，音准节奏都很好，唱歌好听', tw:'完全沒有，音準節奏都很好，唱歌好聽', score:4},
+  {cn:'基本正常，偶尔有小偏差，但整体可以接受', tw:'基本正常，偶爾有小偏差，但整體可以接受', score:3},
+  {cn:'有一定困难，唱歌经常跑调，但能分辨别人唱的好坏', tw:'有一定困難，唱歌經常跑調，但能分辨別人唱的好壞', score:2},
+  {cn:'明显障碍，自己跑调且听不出别人跑调', tw:'明顯障礙，自己跑調且聽不出別人跑調', score:1},
+  {cn:'严重失歌症，完全没有音高概念，节奏感也很差', tw:'嚴重失歌症，完全沒有音高概念，節奏感也很差', score:0},
+    ],
+  },
+
+    {
+    id:'C22', section:'identity', scorable:true,
+    cn:'面对数学题或需要计算的场景，你是否感到异常苦恼？',
+    tw:'面對數學題或需要計算的場景，你是否感到異常苦惱？',
+    options:[
+      {cn:'完全不，我喜欢数学，计算让我感到愉快', tw:'完全不，我喜歡數學，計算讓我感到愉快', score:4},
+  {cn:'偶尔会有点头疼，但能正常应对', tw:'偶爾會有點頭疼，但能正常應對', score:3},
+  {cn:'比较苦恼，看到数字就感到压力和焦虑', tw:'比較苦惱，看到數字就感到壓力和焦慮', score:2},
+  {cn:'非常苦恼，尽量避免任何需要计算的场景', tw:'非常苦惱，盡量避免任何需要計算的場景', score:1},
+  {cn:'极度恐惧，数学是我最大的心理阴影', tw:'極度恐懼，數學是我最大的心理陰影', score:0},
+    ],
+  },
+
+    {
+    id:'C23', section:'identity', scorable:true,
+    cn:'归纳整理、制定计划对你来说是容易的事吗？',
+    tw:'歸納整理、制定計劃對你來說是容易的事嗎？',
+    options:[
+      {cn:'非常容易，我天生擅长规划和整理，做事井井有条', tw:'非常容易，我天生擅長規劃和整理，做事井井有條', score:4},
+  {cn:'还算容易，我能制定计划并基本执行', tw:'還算容易，我能制定計劃並基本執行', score:3},
+  {cn:'一般，有计划但经常执行不到位', tw:'一般，有計劃但經常執行不到位', score:2},
+  {cn:'比较困难，我不擅长做计划，生活比较混乱', tw:'比較困難，我不擅長做計劃，生活比較混亂', score:1},
+  {cn:'非常困难，我完全无法制定和执行任何计划', tw:'非常困難，我完全無法制定和執行任何計劃', score:0},
+    ],
+  },
+
+    {
+    id:'C24', section:'identity', scorable:true,
+    cn:'他人对你的厨艺评价如何？',
+    tw:'他人對你的廚藝評價如何？',
+    options:[
+      {cn:'广受好评，我的厨艺让家人朋友赞不绝口', tw:'廣受好評，我的廚藝讓家人朋友讚不絕口', score:4},
+  {cn:'还不错，做的饭菜可口，能满足日常需求', tw:'還不錯，做的飯菜可口，能滿足日常需求', score:3},
+  {cn:'一般水平，能做简单的饭菜，但不出彩', tw:'一般水平，能做簡單的飯菜，但不出彩', score:2},
+  {cn:'较差，经常把饭菜做砸，自己也觉得难吃', tw:'較差，經常把飯菜做砸，自己也覺得難吃', score:1},
+  {cn:'完全不会做饭，只会加热外卖或泡面', tw:'完全不會做飯，只會加熱外賣或泡麵', score:0},
+    ],
+  },
+
+    {
     id:'D1', section:'basic', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
+    showIf:(s)=>s.QK3!==0&&s.QK1!==0,
     cn:'你最近一次做全面体检是什么时候？', tw:'你最近一次做全面體檢是什麼時候？',
     options:[
       {cn:'从未做过',                    tw:'從未做過',                    score:0},
-      {cn:'5年以上前',                   tw:'5年以上前',                   score:1},
-      {cn:'3～5年前',                    tw:'3～5年前',                    score:2},
-      {cn:'1～3年内',                    tw:'1～3年內',                    score:3},
-      {cn:'近12个月内，结果基本正常',    tw:'近12個月內，結果基本正常',    score:4},
+  {cn:'5年以上前',                   tw:'5年以上前',                   score:1},
+  {cn:'3～5年前',                    tw:'3～5年前',                    score:2},
+  {cn:'1～3年内',                    tw:'1～3年內',                    score:3},
+  {cn:'近12个月内，结果基本正常',    tw:'近12個月內，結果基本正常',    score:4},
     ],
   },
-  {
-    id:'D2', section:'basic', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
-    cn:'你目前是否长期服用处方药物？', tw:'你目前是否長期服用處方藥物？',
-    options:[
-      {cn:'是，三种及以上',          tw:'是，三種及以上',          score:0},
-      {cn:'是，一到两种',            tw:'是，一到兩種',            score:1},
-      {cn:'偶尔用药，非长期',        tw:'偶爾用藥，非長期',        score:2},
-      {cn:'只在特殊情况临时用药',    tw:'只在特殊情況臨時用藥',    score:3},
-      {cn:'不需要任何处方药',        tw:'不需要任何處方藥',        score:4},
-    ],
-  },
-  {
+
+    {
     id:'D3', section:'basic', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
+    showIf:(s)=>s.QK3!==0&&s.QK1!==0,
     cn:'你的日常精力状态如何？', tw:'你的日常精力狀態如何？',
     options:[
       {cn:'大多数时候感到极度疲惫，难以维持日常', tw:'大多數時候感到極度疲憊，難以維持日常', score:0},
-      {cn:'经常疲惫，到下午就已精力耗尽',         tw:'經常疲憊，到下午就已精力耗盡',         score:1},
-      {cn:'精力中等，能完成日常任务但不富余',      tw:'精力中等，能完成日常任務但不富餘',      score:2},
-      {cn:'精力充沛，能高效完成全天工作',          tw:'精力充沛，能高效完成全天工作',          score:3},
-      {cn:'精力旺盛，运动、工作和社交全部兼顾',    tw:'精力旺盛，運動、工作和社交全部兼顧',    score:4},
+  {cn:'经常疲惫，到下午就已精力耗尽',         tw:'經常疲憊，到下午就已精力耗盡',         score:1},
+  {cn:'精力中等，能完成日常任务但不富余',      tw:'精力中等，能完成日常任務但不富餘',      score:2},
+  {cn:'精力充沛，能高效完成全天工作',          tw:'精力充沛，能高效完成全天工作',          score:3},
+  {cn:'精力旺盛，运动、工作和社交全部兼顾',    tw:'精力旺盛，運動、工作和社交全部兼顧',    score:4},
     ],
   },
-  {
+
+    {
     id:'D4', section:'basic', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
+    showIf:(s)=>s.QK3!==0&&s.QK1!==0,
     cn:'你是否有定期心理健康管理的习惯？', tw:'你是否有定期心理健康管理的習慣？',
     options:[
       {cn:'从不关注心理健康',                    tw:'從不關注心理健康',                    score:0},
-      {cn:'偶尔关注，但无具体行动',              tw:'偶爾關注，但無具體行動',              score:1},
-      {cn:'有时通过运动/休息等方式调节',         tw:'有時通過運動/休息等方式調節',         score:2},
-      {cn:'有规律减压习惯（冥想/日记/运动等）',  tw:'有規律減壓習慣（冥想/日記/運動等）',  score:3},
-      {cn:'有系统心理健康管理，包括专业咨询',    tw:'有系統心理健康管理，包括專業諮詢',    score:4},
+  {cn:'偶尔关注，但无具体行动',              tw:'偶爾關注，但無具體行動',              score:1},
+  {cn:'有时通过运动/休息等方式调节',         tw:'有時通過運動/休息等方式調節',         score:2},
+  {cn:'有规律减压习惯（冥想/日记/运动等）',  tw:'有規律減壓習慣（冥想/日記/運動等）',  score:3},
+  {cn:'有系统心理健康管理，包括专业咨询',    tw:'有系統心理健康管理，包括專業諮詢',    score:4},
     ],
   },
-  {
+
+    {
     id:'D5', section:'basic', scorable:true,
-    showIf:(s)=>s.A0!==0&&s.A1!==0,
+    showIf:(s)=>s.QK3!==0&&s.QK1!==0,
     cn:'你的心肺体能水平如何（爬楼、快跑等）？', tw:'你的心肺體能水平如何（爬樓、快跑等）？',
     options:[
       {cn:'爬3层楼就明显气喘，体能很差',   tw:'爬3層樓就明顯氣喘，體能很差',   score:0},
-      {cn:'日常活动尚可，稍快步就疲惫',    tw:'日常活動尚可，稍快步就疲憊',    score:1},
-      {cn:'体能中等，能轻松步行但不能跑',  tw:'體能中等，能輕鬆步行但不能跑',  score:2},
-      {cn:'体能良好，可以持续跑步30分钟',  tw:'體能良好，可以持續跑步30分鐘',  score:3},
-      {cn:'体能优秀，参与高强度运动或竞技',tw:'體能優秀，參與高強度運動或競技',score:4},
+  {cn:'日常活动尚可，稍快步就疲惫',    tw:'日常活動尚可，稍快步就疲憊',    score:1},
+  {cn:'体能中等，能轻松步行但不能跑',  tw:'體能中等，能輕鬆步行但不能跑',  score:2},
+  {cn:'体能良好，可以持续跑步30分钟',  tw:'體能良好，可以持續跑步30分鐘',  score:3},
+  {cn:'体能优秀，参与高强度运动或竞技',tw:'體能優秀，參與高強度運動或競技',score:4},
     ],
   },
 
-  /* ══════════════════════════════════════════════════════════════
-     SECTION E — 工作强度  Work Intensity & WLB  (在职/创业)
-     ══════════════════════════════════════════════════════════════ */
-  {
+    {
     id:'E1', section:'social', scorable:true,
-    showIf:(s)=>s.A0===1||s.A0===2,
+    showIf:(s)=>s.QK3===1||s.QK3===2,
     cn:'你目前的实际周工作时长大约是多少？', tw:'你目前的實際週工作時長大約是多少？',
     options:[
       {cn:'超过70小时（极度超载）',        tw:'超過70小時（極度超載）',        score:0},
-      {cn:'55～70小时（经常加班）',         tw:'55～70小時（經常加班）',         score:1},
-      {cn:'45～55小时（偶尔加班）',         tw:'45～55小時（偶爾加班）',         score:2},
-      {cn:'36～44小时（标准工时上下）',     tw:'36～44小時（標準工時上下）',     score:3},
-      {cn:'36小时以内或弹性自主安排',       tw:'36小時以內或彈性自主安排',       score:4},
+  {cn:'55～70小时（经常加班）',         tw:'55～70小時（經常加班）',         score:1},
+  {cn:'45～55小时（偶尔加班）',         tw:'45～55小時（偶爾加班）',         score:2},
+  {cn:'36～44小时（标准工时上下）',     tw:'36～44小時（標準工時上下）',     score:3},
+  {cn:'36小时以内或弹性自主安排',       tw:'36小時以內或彈性自主安排',       score:4},
     ],
   },
-  {
+
+    {
     id:'E2', section:'social', scorable:true,
-    showIf:(s)=>s.A0===1||s.A0===2,
+    showIf:(s)=>s.QK3===1||s.QK3===2,
     cn:'你的工作是否包含高强度体力消耗或职业健康危害？', tw:'你的工作是否包含高強度體力消耗或職業健康危害？',
     options:[
       {cn:'是，每天大量体力消耗+职业危害（粉尘/噪音/毒素等）', tw:'是，每天大量體力消耗+職業危害（粉塵/噪音/毒素等）', score:0},
-      {cn:'有较重体力要求，身体长期负荷',                       tw:'有較重體力要求，身體長期負荷',                       score:1},
-      {cn:'轻体力，偶有体力活动',                               tw:'輕體力，偶有體力活動',                               score:2},
-      {cn:'基本是脑力/办公室工作，无明显危害',                  tw:'基本是腦力/辦公室工作，無明顯危害',                  score:3},
-      {cn:'工作环境优越，无体力负担，对健康有正向促进',         tw:'工作環境優越，無體力負擔，對健康有正向促進',         score:4},
+  {cn:'有较重体力要求，身体长期负荷',                       tw:'有較重體力要求，身體長期負荷',                       score:1},
+  {cn:'轻体力，偶有体力活动',                               tw:'輕體力，偶有體力活動',                               score:2},
+  {cn:'基本是脑力/办公室工作，无明显危害',                  tw:'基本是腦力/辦公室工作，無明顯危害',                  score:3},
+  {cn:'工作环境优越，无体力负担，对健康有正向促进',         tw:'工作環境優越，無體力負擔，對健康有正向促進',         score:4},
     ],
   },
-  {
+
+    {
     id:'E3', section:'social', scorable:true,
-    showIf:(s)=>s.A0===1||s.A0===2,
+    showIf:(s)=>s.QK3===1||s.QK3===2,
     cn:'你对目前工作与生活的平衡状态满意吗？', tw:'你對目前工作與生活的平衡狀態滿意嗎？',
     options:[
       {cn:'极度不满，工作几乎占据全部生活',  tw:'極度不滿，工作幾乎佔據全部生活',  score:0},
-      {cn:'不满意，个人时间严重不足',        tw:'不滿意，個人時間嚴重不足',        score:1},
-      {cn:'勉强可以，偶尔失衡但能承受',      tw:'勉強可以，偶爾失衡但能承受',      score:2},
-      {cn:'基本满意，有足够个人时间和休息',  tw:'基本滿意，有足夠個人時間和休息',  score:3},
-      {cn:'非常满意，工作充实且生活高度自主',tw:'非常滿意，工作充實且生活高度自主',score:4},
-    ],
-  },
-  {
-    id:'E4', section:'social', scorable:true,
-    showIf:(s)=>s.A0===1||s.A0===2,
-    cn:'在工作日，你通常什么时间能真正停止工作（含手机消息）？', tw:'在工作日，你通常什麼時間能真正停止工作（含手機訊息）？',
-    options:[
-      {cn:'凌晨12点以后才能停下',            tw:'凌晨12點以後才能停下',            score:0},
-      {cn:'晚上10～12点',                    tw:'晚上10～12點',                    score:1},
-      {cn:'晚上8～10点',                     tw:'晚上8～10點',                     score:2},
-      {cn:'晚上6～8点',                      tw:'晚上6～8點',                      score:3},
-      {cn:'下班后几乎不碰工作相关内容',      tw:'下班後幾乎不碰工作相關內容',      score:4},
+  {cn:'不满意，个人时间严重不足',        tw:'不滿意，個人時間嚴重不足',        score:1},
+  {cn:'勉强可以，偶尔失衡但能承受',      tw:'勉強可以，偶爾失衡但能承受',      score:2},
+  {cn:'基本满意，有足够个人时间和休息',  tw:'基本滿意，有足夠個人時間和休息',  score:3},
+  {cn:'非常满意，工作充实且生活高度自主',tw:'非常滿意，工作充實且生活高度自主',score:4},
     ],
   },
 
-  /* ══════════════════════════════════════════════════════════════
-     SECTION F — 学生专项  Student-Specific  (在校学生)
-     ══════════════════════════════════════════════════════════════ */
-  {
+    {
     id:'F1', section:'social', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
+    showIf:(s)=>s.QK3===0||s.QK1===0,
     cn:'你的成绩在同年级/同专业同学中的排名大约是？', tw:'你的成績在同年級/同專業同學中的排名大約是？',
     options:[
       {cn:'后30%',                 tw:'後30%',                 score:0},
-      {cn:'30%～60%（中下）',      tw:'30%～60%（中下）',      score:1},
-      {cn:'前30%（中上）',         tw:'前30%（中上）',         score:2},
-      {cn:'前10%（优秀）',         tw:'前10%（優秀）',         score:3},
-      {cn:'年级/专业前3，或全科优等', tw:'年級/專業前3，或全科優等', score:4},
+  {cn:'30%～60%（中下）',      tw:'30%～60%（中下）',      score:1},
+  {cn:'前30%（中上）',         tw:'前30%（中上）',         score:2},
+  {cn:'前10%（优秀）',         tw:'前10%（優秀）',         score:3},
+  {cn:'年级/专业前3，或全科优等', tw:'年級/專業前3，或全科優等', score:4},
     ],
   },
-  {
+
+    {
     id:'F2', section:'social', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
+    showIf:(s)=>s.QK3===0||s.QK1===0,
     cn:'你是否积极参与课外活动、社团、学生会或志愿服务？', tw:'你是否積極參與課外活動、社團、學生會或志願服務？',
     options:[
       {cn:'几乎不参与',                  tw:'幾乎不參與',                  score:0},
-      {cn:'偶尔参加，没有持续投入',      tw:'偶爾參加，沒有持續投入',      score:1},
-      {cn:'积极参与1～2个组织',          tw:'積極參與1～2個組織',          score:2},
-      {cn:'是某组织骨干或部门负责人',    tw:'是某組織骨幹或部門負責人',    score:3},
-      {cn:'管理多个组织或担任核心领袖',  tw:'管理多個組織或擔任核心領袖',  score:4},
+  {cn:'偶尔参加，没有持续投入',      tw:'偶爾參加，沒有持續投入',      score:1},
+  {cn:'积极参与1～2个组织',          tw:'積極參與1～2個組織',          score:2},
+  {cn:'是某组织骨干或部门负责人',    tw:'是某組織骨幹或部門負責人',    score:3},
+  {cn:'管理多个组织或担任核心领袖',  tw:'管理多個組織或擔任核心領袖',  score:4},
     ],
   },
-  {
-    id:'F3', section:'social', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
-    cn:'你是否有过实习、科研或创业等社会实践经历？', tw:'你是否有過實習、科研或創業等社會實踐經歷？',
-    options:[
-      {cn:'没有任何相关经历',                tw:'沒有任何相關經歷',                score:0},
-      {cn:'参加过1次短期实习（不足3个月）',  tw:'參加過1次短期實習（不足3個月）',  score:1},
-      {cn:'完成1段正式实习（3个月以上）',    tw:'完成1段正式實習（3個月以上）',    score:2},
-      {cn:'多段实习，或参与过科研项目',      tw:'多段實習，或參與過科研項目',      score:3},
-      {cn:'有论文发表/专利/创业实体成果',    tw:'有論文發表/專利/創業實體成果',    score:4},
-    ],
-  },
-  {
+
+    {
     id:'F4', section:'social', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
+    showIf:(s)=>s.QK3===0||s.QK1===0,
     cn:'你是否获得过奖学金、学科竞赛或荣誉奖项？', tw:'你是否獲得過獎學金、學科競賽或榮譽獎項？',
     options:[
       {cn:'从未获得任何奖项',                  tw:'從未獲得任何獎項',                  score:0},
-      {cn:'院系级荣誉或单项奖',                tw:'院系級榮譽或單項獎',                score:1},
-      {cn:'校级奖项或一等/二等奖学金',         tw:'校級獎項或一等/二等獎學金',         score:2},
-      {cn:'省级/全国学科竞赛奖项',             tw:'省級/全國學科競賽獎項',             score:3},
-      {cn:'国际竞赛奖项或国家级最高荣誉',      tw:'國際競賽獎項或國家級最高榮譽',      score:4},
+  {cn:'院系级荣誉或单项奖',                tw:'院系級榮譽或單項獎',                score:1},
+  {cn:'校级奖项或一等/二等奖学金',         tw:'校級獎項或一等/二等獎學金',         score:2},
+  {cn:'省级/全国学科竞赛奖项',             tw:'省級/全國學科競賽獎項',             score:3},
+  {cn:'国际竞赛奖项或国家级最高荣誉',      tw:'國際競賽獎項或國家級最高榮譽',      score:4},
     ],
   },
-  {
+
+    {
     id:'F5', section:'basic', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
+    showIf:(s)=>(s.QK3===0&&s.QKA_STAGE===0)||s.QK1===0,
     cn:'在校期间你的每日平均睡眠时间是？', tw:'在校期間你的每日平均睡眠時間是？',
     options:[
       {cn:'不足6小时，长期睡眠剥夺',   tw:'不足6小時，長期睡眠剝奪',   score:0},
-      {cn:'6～6.5小时，经常睡眠不足',  tw:'6～6.5小時，經常睡眠不足',  score:1},
-      {cn:'6.5～7.5小时，基本够用',    tw:'6.5～7.5小時，基本夠用',    score:2},
-      {cn:'7.5～9小时，睡眠充足',      tw:'7.5～9小時，睡眠充足',      score:4},
-      {cn:'9小时以上（含规律午睡）',   tw:'9小時以上（含規律午睡）',   score:3},
+  {cn:'6～6.5小时，经常睡眠不足',  tw:'6～6.5小時，經常睡眠不足',  score:1},
+  {cn:'6.5～7.5小时，基本够用',    tw:'6.5～7.5小時，基本夠用',    score:2},
+  {cn:'7.5～9小时，睡眠充足',      tw:'7.5～9小時，睡眠充足',      score:4},
+  {cn:'9小时以上（含规律午睡）',   tw:'9小時以上（含規律午睡）',   score:3},
     ],
   },
-  {
+
+    {
     id:'F6', section:'identity', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
+    showIf:(s)=>s.QK3===0||s.QK1===0,
     cn:'你对毕业后的方向（升学/就业/创业）清晰吗？', tw:'你對畢業後的方向（升學/就業/創業）清晰嗎？',
     options:[
       {cn:'完全迷茫，毫无规划',              tw:'完全迷茫，毫無規劃',              score:0},
-      {cn:'有些想法但非常模糊',              tw:'有些想法但非常模糊',              score:1},
-      {cn:'有大致方向，还在摸索',            tw:'有大致方向，還在摸索',            score:2},
-      {cn:'方向较清晰，已开始具体准备',      tw:'方向較清晰，已開始具體準備',      score:3},
-      {cn:'目标明确，有详细路径和执行计划',  tw:'目標明確，有詳細路徑和執行計劃',  score:4},
-    ],
-  },
-  {
-    id:'F7', section:'basic', scorable:true,
-    showIf:(s)=>s.A0===0||s.A1===0,
-    cn:'你在校期间的身心健康状态总体如何？', tw:'你在校期間的身心健康狀態總體如何？',
-    options:[
-      {cn:'有明显焦虑/抑郁症状，影响学习生活',  tw:'有明顯焦慮/抑鬱症狀，影響學習生活',  score:0},
-      {cn:'压力很大，偶有崩溃，恢复较慢',        tw:'壓力很大，偶有崩潰，恢復較慢',        score:1},
-      {cn:'基本正常，偶有压力',                  tw:'基本正常，偶有壓力',                  score:2},
-      {cn:'整体健康，心理和身体状态良好',        tw:'整體健康，心理和身體狀態良好',        score:3},
-      {cn:'身心状态极佳，精力充沛且情绪稳定',    tw:'身心狀態極佳，精力充沛且情緒穩定',    score:4},
+  {cn:'有些想法但非常模糊',              tw:'有些想法但非常模糊',              score:1},
+  {cn:'有大致方向，还在摸索',            tw:'有大致方向，還在摸索',            score:2},
+  {cn:'方向较清晰，已开始具体准备',      tw:'方向較清晰，已開始具體準備',      score:3},
+  {cn:'目标明确，有详细路径和执行计划',  tw:'目標明確，有詳細路徑和執行計劃',  score:4},
     ],
   },
 
-  /* ══════════════════════════════════════════════════════════════
-     SECTION G — 条件触发深化题  Conditional Deep-Dive
-     各题有严格触发条件，覆盖：亲密关系/养育/科研/商业活动
-     ══════════════════════════════════════════════════════════════ */
-
-  /* ── G10–G14: 亲密关系深化 / 性别议题 (成年有伴侣者) ── */
-  {
-    id:'G10', section:'identity', scorable:true,
-    showIf:(s)=>s.A1>=1&&(s.B5===2||s.B5===3||s.B5===4),
-    cn:'在这段关系中，你感受到的情感安全感如何？', tw:'在這段關係中，你感受到的情感安全感如何？',
-    options:[
-      {cn:'几乎没有安全感，常担心关系破裂',   tw:'幾乎沒有安全感，常擔心關係破裂',   score:0},
-      {cn:'有些不安全感，需要频繁确认',       tw:'有些不安全感，需要頻繁確認',       score:1},
-      {cn:'基本有安全感，偶有波动',           tw:'基本有安全感，偶有波動',           score:2},
-      {cn:'较强的安全感，信任稳固',           tw:'較強的安全感，信任穩固',           score:3},
-      {cn:'深度安全感，彼此是彼此最坚实的依靠',tw:'深度安全感，彼此是彼此最堅實的依靠',score:4},
-    ],
-  },
-  {
-    id:'G11', section:'identity', scorable:true,
-    showIf:(s)=>s.A1>=1&&(s.B5===2||s.B5===3||s.B5===4),
-    cn:'你们在亲密关系中的性生活满意程度如何？', tw:'你們在親密關係中的性生活滿意程度如何？',
-    note:{cn:'此题涉及隐私，数据仅用于本地评分，不上传',tw:'此題涉及隱私，數據僅用於本地評分，不上傳'},
-    options:[
-      {cn:'非常不满意，几乎没有性生活',         tw:'非常不滿意，幾乎沒有性生活',         score:0},
-      {cn:'不太满意，频率或质量有落差',         tw:'不太滿意，頻率或質量有落差',         score:1},
-      {cn:'基本满意，偶有不一致',               tw:'基本滿意，偶有不一致',               score:2},
-      {cn:'比较满意，双方需求基本匹配',         tw:'比較滿意，雙方需求基本匹配',         score:3},
-      {cn:'非常满意，亲密感深厚且双方都愉快',   tw:'非常滿意，親密感深厚且雙方都愉快',   score:4},
-    ],
-  },
-  {
+    {
     id:'G12', section:'identity', scorable:true,
-    showIf:(s)=>s.A1>=1&&(s.B5===2||s.B5===3||s.B5===4),
+    showIf:(s)=>s.QK1>=1&&(s.QKB1===1||s.QKB1===3||s.QKB1===4||s.QKB1===5),
     cn:'你们的亲密关系是否受外部压力（家庭/工作/经济）的影响？', tw:'你們的親密關係是否受外部壓力（家庭/工作/經濟）的影響？',
     options:[
       {cn:'外部压力极大，关系处于危机状态',   tw:'外部壓力極大，關係處於危機狀態',   score:0},
-      {cn:'外部压力明显影响了关系质量',       tw:'外部壓力明顯影響了關係質量',       score:1},
-      {cn:'有压力但基本能共同应对',           tw:'有壓力但基本能共同應對',           score:2},
-      {cn:'压力不大，关系较为稳固',           tw:'壓力不大，關係較為穩固',           score:3},
-      {cn:'外部挑战反而增强了我们的关系',     tw:'外部挑戰反而增強了我們的關係',     score:4},
-    ],
-  },
-  {
-    id:'G13', section:'identity', scorable:false,
-    showIf:(s)=>s.A1>=1,
-    cn:'你对自己的身体形象接受程度如何？', tw:'你對自己的身體形象接受程度如何？',
-    note:{cn:'不计分，仅用于个性化洞察',tw:'不計分，僅用於個性化洞察'},
-    options:[
-      {cn:'深度困扰，影响日常生活',         tw:'深度困擾，影響日常生活',         score:0},
-      {cn:'有些困扰，但能应对',             tw:'有些困擾，但能應對',             score:0},
-      {cn:'基本接受，偶有不适',             tw:'基本接受，偶有不適',             score:0},
-      {cn:'大体接受和满意',                 tw:'大體接受和滿意',                 score:0},
-      {cn:'高度接纳，对自己感到舒适自在',   tw:'高度接納，對自己感到舒適自在',   score:0},
-    ],
-  },
-  {
-    id:'G14', section:'social', scorable:true,
-    showIf:(s)=>s.A1>=1&&s.B5===0,
-    cn:'你认为目前影响你建立亲密关系的主要障碍是什么？', tw:'你認為目前影響你建立親密關係的主要障礙是什麼？',
-    options:[
-      {cn:'没有时间和精力投入',               tw:'沒有時間和精力投入',               score:0},
-      {cn:'社交圈太小，认识的人太少',         tw:'社交圈太小，認識的人太少',         score:1},
-      {cn:'对自身条件不够自信',               tw:'對自身條件不夠自信',               score:1},
-      {cn:'有在尝试，但暂时没有合适的人选',   tw:'有在嘗試，但暫時沒有合適的人選',   score:2},
-      {cn:'主动经营中，对结果保持开放态度',   tw:'主動經營中，對結果保持開放態度',   score:3},
-    ],
-  },
-  {
-    /* G1 — 亲密关系/性生活满意度（成人已婚/恋爱中触发） */
-    id:'G1', section:'identity', scorable:true,
-    showIf:(s)=>s.A1>=1&&(s.B5===2||s.B5===3||s.B5===4),
-    cn:'你对目前的亲密关系质量（含情感与肢体亲密）满意吗？', tw:'你對目前的親密關係質量（含情感與肢體親密）滿意嗎？',
-    note:{cn:'此题涉及隐私，不会被展示于分享卡',tw:'此題涉及隱私，不會被展示於分享卡'},
-    options:[
-      {cn:'非常不满意，关系冷淡或存在明显问题',  tw:'非常不滿意，關係冷淡或存在明顯問題',  score:0},
-      {cn:'不太满意，有一定距离感',              tw:'不太滿意，有一定距離感',              score:1},
-      {cn:'基本满意，关系稳定但缺乏激情',        tw:'基本滿意，關係穩定但缺乏激情',        score:2},
-      {cn:'比较满意，情感和身体都较为和谐',      tw:'比較滿意，情感和身體都較為和諧',      score:3},
-      {cn:'非常满意，亲密关系是我生活的重要支撑',tw:'非常滿意，親密關係是我生活的重要支撐',score:4},
-    ],
-  },
-  {
-    /* G2 — 子女成长状态（有孩子触发） */
-    id:'G2', section:'social', scorable:true,
-    showIf:(s)=>s.A1>=2&&s.B6>=2,
-    cn:'你的孩子目前的成长状态你满意吗？', tw:'你的孩子目前的成長狀態你滿意嗎？',
-    options:[
-      {cn:'有明显问题（健康/行为/学业），非常担心',  tw:'有明顯問題（健康/行為/學業），非常擔心',  score:0},
-      {cn:'有些担心，不够理想',                      tw:'有些擔心，不夠理想',                      score:1},
-      {cn:'基本正常，还算满意',                      tw:'基本正常，還算滿意',                      score:2},
-      {cn:'成长状态良好，我感到欣慰',                tw:'成長狀態良好，我感到欣慰',                score:3},
-      {cn:'非常出色，孩子是我很大的骄傲',            tw:'非常出色，孩子是我很大的驕傲',            score:4},
-    ],
-  },
-  {
-    /* G3 — 科研/学术调研活动（高学历或有科研经历触发） */
-    id:'G3', section:'social', scorable:true,
-    showIf:(s)=>s.A6>=3&&(s.F3>=3||s.BON2>=1),
-    cn:'你是否积极参与学术研究或专业领域的系统性调研？', tw:'你是否積極參與學術研究或專業領域的系統性調研？',
-    options:[
-      {cn:'没有参与过任何研究或调研',                      tw:'沒有參與過任何研究或調研',                      score:0},
-      {cn:'偶尔参与小组讨论或阅读文献',                    tw:'偶爾參與小組討論或閱讀文獻',                    score:1},
-      {cn:'参与过至少一个完整的课题研究或市场调研',        tw:'參與過至少一個完整的課題研究或市場調研',        score:2},
-      {cn:'是核心研究人员，有重要贡献',                    tw:'是核心研究人員，有重要貢獻',                    score:3},
-      {cn:'主导过研究项目，或成果被同行引用/采纳',         tw:'主導過研究項目，或成果被同行引用/採納',         score:4},
-    ],
-  },
-  {
-    /* G4 — 商业活动状态（自由职业或创业触发） */
-    id:'G4', section:'social', scorable:true,
-    showIf:(s)=>s.A0===2,
-    cn:'你的商业/创业项目目前处于什么阶段？', tw:'你的商業/創業項目目前處於什麼階段？',
-    options:[
-      {cn:'还是想法阶段，尚未启动',                  tw:'還是想法階段，尚未啟動',                  score:0},
-      {cn:'刚起步，探索中，收入不稳定',              tw:'剛起步，探索中，收入不穩定',              score:1},
-      {cn:'有稳定收入，但规模较小',                  tw:'有穩定收入，但規模較小',                  score:2},
-      {cn:'持续增长，已能全职运营并雇用他人',        tw:'持續增長，已能全職運營並僱用他人',        score:3},
-      {cn:'规模化商业运作，月营收百万以上',          tw:'規模化商業運作，月營收百萬以上',          score:4},
-    ],
-  },
-  {
-    /* G5 — 内容创作/线上运营（有稳定输出者触发） */
-    id:'G5', section:'social', scorable:true,
-    showIf:(s)=>s.B18>=2,
-    cn:'你的内容平台更新频率和粉丝互动质量如何？', tw:'你的內容平台更新頻率和粉絲互動質量如何？',
-    options:[
-      {cn:'不定期更新，互动很少',                    tw:'不定期更新，互動很少',                    score:0},
-      {cn:'每月更新数次，有少量互动',                tw:'每月更新數次，有少量互動',                score:1},
-      {cn:'每周更新，互动稳定',                      tw:'每週更新，互動穩定',                      score:2},
-      {cn:'高频更新，有活跃粉丝群体',                tw:'高頻更新，有活躍粉絲群體',                score:3},
-      {cn:'全职运营，粉丝高度互动，有商业变现',      tw:'全職運營，粉絲高度互動，有商業變現',      score:4},
+  {cn:'外部压力明显影响了关系质量',       tw:'外部壓力明顯影響了關係質量',       score:1},
+  {cn:'有压力但基本能共同应对',           tw:'有壓力但基本能共同應對',           score:2},
+  {cn:'压力不大，关系较为稳固',           tw:'壓力不大，關係較為穩固',           score:3},
+  {cn:'外部挑战反而增强了我们的关系',     tw:'外部挑戰反而增強了我們的關係',     score:4},
     ],
   },
 
-  /* ══════════════════════════════════════════════════════════════
-     SECTION BONUS — 超额加分题  Exceptional Achievement Bonus
-     标记 bonus:true — 不参与基础分，直接叠加（上限20分）
-     BON2的showIf触发扩展为：A_st===0（学生）或有科研背景
-     ══════════════════════════════════════════════════════════════ */
-  {
+    {
     id:'G6', section:'identity', scorable:true,
-    showIf:(s)=>s.A1>=1&&(s.B5===2||s.B5===3||s.B5===4),
+    showIf:(s)=>s.QK1>=1&&(s.QKB1===1||s.QKB1===3||s.QKB1===4||s.QKB1===5),
     cn:'你和伴侣在重要价值观（金钱/育儿/未来规划）上是否对齐？',
     tw:'你和伴侶在重要價值觀（金錢/育兒/未來規劃）上是否對齊？',
     options:[
       {cn:'分歧很大，经常产生根本性冲突',   tw:'分歧很大，經常產生根本性衝突',   score:0},
-      {cn:'有明显分歧，靠回避维持表面和平', tw:'有明顯分歧，靠回避維持表面和平', score:1},
-      {cn:'大致一致，偶有分歧但能沟通',     tw:'大致一致，偶有分歧但能溝通',     score:2},
-      {cn:'高度一致，彼此的目标相互支持',   tw:'高度一致，彼此的目標相互支持',   score:3},
-      {cn:'完全对齐，是彼此最好的战略伙伴', tw:'完全對齊，是彼此最好的戰略夥伴', score:4},
+  {cn:'有明显分歧，靠回避维持表面和平', tw:'有明顯分歧，靠回避維持表面和平', score:1},
+  {cn:'大致一致，偶有分歧但能沟通',     tw:'大致一致，偶有分歧但能溝通',     score:2},
+  {cn:'高度一致，彼此的目标相互支持',   tw:'高度一致，彼此的目標相互支持',   score:3},
+  {cn:'完全对齐，是彼此最好的战略伙伴', tw:'完全對齊，是彼此最好的戰略夥伴', score:4},
     ],
   },
 
-  /* G7 — 子女深化（有孩子，26岁以上） */
-  {
-    id:'G7', section:'social', scorable:true,
-    showIf:(s)=>s.A1>=2&&s.B6>=2,
-    cn:'你为孩子的教育和成长设定了清晰的方向和方法吗？',
-    tw:'你為孩子的教育和成長設定了清晰的方向和方法嗎？',
-    options:[
-      {cn:'没有，随便养，走一步看一步',       tw:'沒有，隨便養，走一步看一步',       score:0},
-      {cn:'有些想法，但很模糊',               tw:'有些想法，但很模糊',               score:1},
-      {cn:'有基本方向，但没有系统方法',       tw:'有基本方向，但沒有系統方法',       score:2},
-      {cn:'有清晰的教育理念，在践行中',       tw:'有清晰的教育理念，在踐行中',       score:3},
-      {cn:'有系统的家庭教育规划，效果良好',   tw:'有系統的家庭教育規劃，效果良好',   score:4},
+  { /* QKD13 — TCM attitude */
+    id: 'QKD13', section: 'identity', scorable: true, noImprove: true,
+    cn: '你对中医的态度是什么？',
+    tw: '你對中醫的態度是什麼？',
+    options: [
+      { cn: '坚定支持者，日常会用中医养生和治疗。', tw: '堅定支持者，日常會用中醫養生和治療。', score: 2 },
+      { cn: '持开放态度，认为中医有价值，可以作为现代医学的补充。', tw: '持開放態度，認為中醫有價值，可以作為現代醫學的補充。', score: 4 },
+      { cn: '持怀疑态度但尊重他人选择，自己不太使用。', tw: '持懷疑態度但尊重他人選擇，自己不太使用。', score: 3 },
+      { cn: '强烈反对，认为中医不科学，拒绝接触。', tw: '強烈反對，認為中醫不科學，拒絕接觸。', score: 1 },
     ],
   },
 
-  /* G8 — 科研深化（研究生或高级从业者） */
-  {
-    id:'G8', section:'social', scorable:true,
-    showIf:(s)=>s.A6>=3&&(s.F3>=3||s.BON2>=1),
-    cn:'你的研究或专业成果在业内的被认可程度如何？',
-    tw:'你的研究或專業成果在業內的被認可程度如何？',
-    options:[
-      {cn:'几乎没有被引用或认可',             tw:'幾乎沒有被引用或認可',             score:0},
-      {cn:'在小范围同行中有认知',             tw:'在小範圍同行中有認知',             score:1},
-      {cn:'在所在机构/公司内有一定影响',      tw:'在所在機構/公司內有一定影響',      score:2},
-      {cn:'在国内行业/学界有一定引用或知名度', tw:'在國內行業/學界有一定引用或知名度', score:3},
-      {cn:'国际范围内有显著影响力或引用',     tw:'國際範圍內有顯著影響力或引用',     score:4},
+  { /* QKT6 — Reading disability */
+    id: 'QKT6', section: 'identity', scorable: true,
+    cn: '你是否存在阅读障碍（如看字跳行、混淆相似字、阅读速度极慢）？',
+    tw: '你是否存在閱讀障礙（如看字跳行、混淆相似字、閱讀速度極慢）？',
+    options: [
+      { cn: '完全没有，阅读流畅自然，速度快理解好。', tw: '完全沒有，閱讀流暢自然，速度快理解好。', score: 4 },
+      { cn: '偶尔会有小错误，但不影响整体阅读。', tw: '偶爾會有小錯誤，但不影響整體閱讀。', score: 3 },
+      { cn: '有一定困难，阅读速度较慢，需要更多专注。', tw: '有一定困難，閱讀速度較慢，需要更多專注。', score: 2 },
+      { cn: '明显障碍，经常跳行、看错字，阅读很吃力。', tw: '明顯障礙，經常跳行、看錯字，閱讀很吃力。', score: 1 },
+      { cn: '严重阅读障碍，基本无法流畅阅读文字内容。', tw: '嚴重閱讀障礙，基本無法流暢閱讀文字內容。', score: 0 },
     ],
   },
 
-  /* G9 — 商业深化（创始人/合伙人层级） */
-  {
-    id:'G9', section:'identity', scorable:true,
-    showIf:(s)=>s.A0===2||(s.A0===1&&s.B1s>=5),
-    cn:'你对自己在商业或事业上的长期路径有多清晰？',
-    tw:'你對自己在商業或事業上的長期路徑有多清晰？',
-    options:[
-      {cn:'完全没有规划，走一步看一步',         tw:'完全沒有規劃，走一步看一步',         score:0},
-      {cn:'有大概想法但细节模糊',               tw:'有大概想法但細節模糊',               score:1},
-      {cn:'有3年内的具体计划',                 tw:'有3年內的具體計劃',                 score:2},
-      {cn:'有清晰的5-10年路径和里程碑',         tw:'有清晰的5-10年路徑和里程碑',         score:3},
-      {cn:'有系统的长期战略，团队共识已建立',   tw:'有系統的長期戰略，團隊共識已建立',   score:4},
-    ],
-  },
+  ]; // end QUESTION_BANK
 
-  {
-    id:'BON1', section:'bonus', scorable:true, bonus:true, noNote:true, hideNote:true,
-    showIf:(s)=>!(s.A1===0&&s.A0===0), /* 未满18岁在校生不问学历院校 */
-    cn:'你的最高学历院校属于哪个层次？', tw:'你的最高學歷院校屬於哪個層次？',
-    note:{cn:'加分题：普通院校得0分；只有顶尖院校才加分',tw:'加分題：普通院校得0分；只有頂尖院校才加分'},
-    options:[
-      {cn:'普通院校或职业院校',                        tw:'普通院校或職業院校',                        score:0},
-      {cn:'211/双一流院校',                            tw:'211/雙一流院校',                            score:1},
-      {cn:'985院校（非顶尖）',                         tw:'985院校（非頂尖）',                         score:2},
-      {cn:'清华/北大/复旦/交大等顶尖985或QS前100',    tw:'清華/北大/復旦/交大等頂尖985或QS前100',    score:3},
-      {cn:'哈耶普斯/牛剑/MIT/哥大等全球顶级院校',     tw:'哈耶普斯/牛劍/MIT/哥大等全球頂級院校',     score:4},
-    ],
-  },
-  {
-    id:'BON2', section:'bonus', scorable:true, bonus:true, noNote:true, hideNote:true,
-    showIf:(s)=>!(s.A1===0&&s.A0===0), /* 未满18岁在校生不问专业成就 */
-    cn:'你是否有可被公开检索的专业成就（论文/专利/出版物等）？', tw:'你是否有可被公開檢索的專業成就（論文/專利/出版物等）？',
-    note:{cn:'加分题：无成就得0分，成就越高加分越多',tw:'加分題：無成就得0分，成就越高加分越多'},
-    options:[
-      {cn:'没有任何可检索的公开成就',                   tw:'沒有任何可檢索的公開成就',                   score:0},
-      {cn:'有公开发表的专业文章或技术博客',             tw:'有公開發表的專業文章或技術部落格',           score:1},
-      {cn:'有正式出版物、核心期刊论文或授权专利',       tw:'有正式出版物、核心期刊論文或授權專利',       score:2},
-      {cn:'在顶级期刊/会议发表或高价值专利',            tw:'在頂級期刊/會議發表或高價值專利',            score:3},
-      {cn:'在全球范围内被广泛引用或认可的突破性成就',   tw:'在全球範圍內被廣泛引用或認可的突破性成就',   score:4},
-    ],
-  },
-  {
-    id:'BON3', section:'bonus', scorable:true, bonus:true, noNote:true, hideNote:true,
-    cn:'你是否创立过对社会产生实质影响的公司、项目或组织？', tw:'你是否創立過對社會產生實質影響的公司、項目或組織？',
-    note:{cn:'加分题：未创立得0分；影响力越大加分越高',tw:'加分題：未創立得0分；影響力越大加分越高'},
-    options:[
-      {cn:'没有',                                     tw:'沒有',                                     score:0},
-      {cn:'创立过小项目，有小范围正向影响',           tw:'創立過小項目，有小範圍正向影響',           score:1},
-      {cn:'创立公司/组织，持续运营中',                tw:'創立公司/組織，持續運營中',                score:2},
-      {cn:'公司估值千万以上或组织直接影响上万人',     tw:'公司估值千萬以上或組織直接影響上萬人',     score:3},
-      {cn:'创立公司已上市/估值亿级，或组织有国家级影响力', tw:'創立公司已上市/估值億級，或組織有國家級影響力', score:4},
-    ],
-  },
-  {
-    id:'BON4', section:'bonus', scorable:true, bonus:true, noNote:true, hideNote:true,
-    cn:'你在体育、艺术或文化领域是否达到职业或精英水准？', tw:'你在體育、藝術或文化領域是否達到職業或精英水準？',
-    note:{cn:'加分题：业余爱好不加分；必须达到竞技/职业级别',tw:'加分題：業餘愛好不加分；必須達到競技/職業級別'},
-    options:[
-      {cn:'没有，或只是业余爱好',                tw:'沒有，或只是業餘愛好',                score:0},
-      {cn:'业余中的高水平，有过小型比赛经历',    tw:'業餘中的高水平，有過小型比賽經歷',    score:1},
-      {cn:'省级/职业初级赛事参与或职业演出',     tw:'省級/職業初級賽事參與或職業演出',     score:2},
-      {cn:'全国级赛事获奖或主流媒体报道',        tw:'全國級賽事獲獎或主流媒體報道',        score:3},
-      {cn:'国际赛事奖牌/国家队/世界顶级演出',    tw:'國際賽事獎牌/國家隊/世界頂級演出',    score:4},
-    ],
-  },
-  {
-    id:'BON5', section:'bonus', scorable:true, bonus:true, noNote:true, hideNote:true,
-    cn:'你是否通过持续努力，完成了一件大多数人认为极难实现的事？', tw:'你是否通過持續努力，完成了一件大多數人認為極難實現的事？',
-    note:{cn:'加分题：请诚实作答——这道题没有标准答案，只有你自己知道',tw:'加分題：請誠實作答——這道題沒有標準答案，只有你自己知道'},
-    options:[
-      {cn:'没有，生活基本按部就班',                     tw:'沒有，生活基本按部就班',                     score:0},
-      {cn:'有过一次超越自己预期的小突破',               tw:'有過一次超越自己預期的小突破',               score:1},
-      {cn:'通过长期坚持实现了一次重大个人跨越',         tw:'通過長期堅持實現了一次重大個人跨越',         score:2},
-      {cn:'多次突破，帮助自己和他人改变了生活轨迹',     tw:'多次突破，幫助自己和他人改變了生活軌跡',     score:3},
-      {cn:'系统性地改变了大量人的命运，影响持续深远',   tw:'系統性地改變了大量人的命運，影響持續深遠',   score:4},
-    ],
-  },
 
-  /* G6 — 亲密关系深化（有伴侣，成年） */
+  /* ═══════════════════════════════════════════════════════════════
+     IMPROVE_ADVICE — keyed by question ID → { en, cn, tw }
+     ═══════════════════════════════════════════════════════════════ */
+  window.IMPROVE_ADVICE = {
 
-  /* BON_Y1 — 未满18岁在校生专属加分题：学术竞赛或特殊才艺 */
-  {
-    id:'BON_Y1', section:'bonus', scorable:true, bonus:true, noNote:true, hideNote:true,
-    showIf:(s)=>s.A1===0&&s.A0===0,
-    cn:'你是否在学科竞赛、才艺比赛或体育赛事中取得过突出成绩？', tw:'你是否在學科競賽、才藝比賽或體育賽事中取得過突出成績？',
-    note:{cn:'加分题：普通参与不加分，需有实质成绩', tw:'加分題：普通參與不加分，需有實質成績'},
-    options:[
-      {cn:'没有，或只是普通参与',             tw:'沒有，或只是普通參與',             score:0},
-      {cn:'获得校级比赛奖项',                 tw:'獲得校級比賽獎項',                 score:1},
-      {cn:'获得市级或省级赛事奖项',           tw:'獲得市級或省級賽事獎項',           score:2},
-      {cn:'获得全国级别赛事奖项',             tw:'獲得全國級別賽事獎項',             score:3},
-      {cn:'获得国际级别赛事奖项或全国最高荣誉',tw:'獲得國際級別賽事獎項或全國最高榮譽',score:4},
-    ],
-  },
-  /* BON_Y2 — 未满18岁在校生专属加分题：自主探索与创造力 */
-  {
-    id:'BON_Y2', section:'bonus', scorable:true, bonus:true, noNote:true, hideNote:true,
-    showIf:(s)=>s.A1===0&&s.A0===0,
-    cn:'你是否有过独立完成的创作、发明或自主学习项目？', tw:'你是否有過獨立完成的創作、發明或自主學習項目？',
-    note:{cn:'加分题：主动探索精神是这道题的核心', tw:'加分題：主動探索精神是這道題的核心'},
-    options:[
-      {cn:'没有，学习完全跟着学校走',           tw:'沒有，學習完全跟著學校走',           score:0},
-      {cn:'有兴趣爱好，偶尔自主钻研',           tw:'有興趣愛好，偶爾自主鑽研',           score:1},
-      {cn:'有完整的个人项目（写作/编程/艺术等）',tw:'有完整的個人項目（寫作/編程/藝術等）',score:2},
-      {cn:'项目获得外部认可（发表/展出/使用）', tw:'項目獲得外部認可（發表/展出/使用）', score:3},
-      {cn:'有在社会上产生影响的作品或发明',     tw:'有在社會上產生影響的作品或發明',     score:4},
-    ],
-  },];
+    /* ── Physical ── */
+    QK5m: {
+      cn: '体重管理的核心不是节食，而是建立系统。本周只做一件事：把每天的主食量减少1/4，并在饭后散步20分钟。6周后重新评估体重变化。',
+      tw: '體重管理的核心不是節食，而是建立系統。本週只做一件事：把每天的主食量減少1/4，並在飯後散步20分鐘。6週後重新評估體重變化。',
+    },
+    QK5f: {
+      cn: '体重管理的核心不是节食，而是建立系统。本周只做一件事：把每天的主食量减少1/4，并在饭后散步20分钟。6周后重新评估体重变化。',
+      tw: '體重管理的核心不是節食，而是建立系統。本週只做一件事：把每天的主食量減少1/4，並在飯後散步20分鐘。6週後重新評估體重變化。',
+    },
+    QKC1: {
+      cn: '外貌焦虑往往源于和他人的比较。试试"镜子练习"：每天早晨对着镜子说出自己身上3个你欣赏的特质（不限于外貌）。同时减少社交媒体上的颜值对比内容，你的自我感知会在30天内明显改善。',
+      tw: '外貌焦慮往往源於和他人的比較。試試「鏡子練習」：每天早晨對著鏡子說出自己身上3個你欣賞的特質（不限於外貌）。同時減少社交媒體上的顏值對比內容，你的自我感知會在30天內明顯改善。',
+    },
 
-/* ════════════════════════════════════════════════════════════
-   SCORING ALGORITHM v5 — HIGH DIFFERENTIATION + 150 MAX
-   ════════════════════════════════════════════════════════════
+    /* ── Status-specific ── */
+    QKA_HS1: {
+      cn: '如果学习感到痛苦，试着把某门课和你已经喜欢的事情联系起来。找一个能让某个话题豁然开朗的YouTube频道、播客或书。好奇心是会传染的，每天只需15分钟自主探索。',
+      tw: '如果學習感到痛苦，試著把某門課和你已經喜歡的事情聯繫起來。找一個能讓某個話題豁然開朗的YouTube頻道、播客或書。好奇心是會傳染的，每天只需15分鐘自主探索。',
+    },
+    QKA_HS2: {
+      cn: '如果你正遭受校园暴力，不必默默忍受。今天就告诉一位你信任的成年人，老师、辅导员或家人。用文字记录事件和日期。你的安全是不可妥协的。',
+      tw: '如果你正遭受校園暴力，不必默默忍受。今天就告訴一位你信任的成年人，老師、輔導員或家人。用文字記錄事件和日期。你的安全是不可妥協的。',
+    },
+    QKA_HS3: {
+      cn: '减压不是可选项，而是维护保养。本周安排2个固定运动或爱好时段，就像不能缺席的课一样。哪怕30分钟的运动也能让你的压力荷尔蒙重置长达6小时。',
+      tw: '減壓不是可選項，而是維護保養。本週安排2個固定運動或愛好時段，就像不能缺席的課一樣。哪怕30分鐘的運動也能讓你的壓力荷爾蒙重置長達6小時。',
+    },
+    QKA_HS9: {
+      cn: '慢性睡眠剥夺会使你的记忆巩固效率降低多达40%。只做一个改变：每天设定固定的起床时间（包括周末）。两周内你的大脑将开始自我调节入睡时间。',
+      tw: '慢性睡眠剝奪會使你的記憶鞏固效率降低多達40%。只做一個改變：每天設定固定的起床時間（包括週末）。兩週內你的大腦將開始自我調節入睡時間。',
+    },
+    QKA_HS12: {
+      cn: '对未来的麻痹感通常是决策瘫痪的伪装。试试"2年测试"：有哪一个技能或经历能在2年内明确为你打开更多大门？只专注于那一个。方向来自行动，而不是等待清晰。',
+      tw: '對未來的麻痹感通常是決策癱瘓的偽裝。試試「2年測試」：有哪一個技能或經歷能在2年內明確為你打開更多大門？只專注於那一個。方向來自行動，而不是等待清晰。',
+    },
+    QKA_BC1: {
+      cn: '如果你频繁经历或正处于临床抑郁中，请立即寻求专业帮助。与此同时，最有循证依据的日常习惯是：每天30分钟中等强度有氧运动，其抗抑郁效果与部分药物相当。',
+      tw: '如果你頻繁經歷或正處於臨床憂鬱中，請立即尋求專業幫助。與此同時，最有循證依據的日常習慣是：每天30分鐘中等強度有氧運動，其抗憂鬱效果與部分藥物相當。',
+    },
+    QKA_BC2: {
+      cn: '学业成绩主要取决于系统，而非天赋。单一最高杠杆的改变：从被动重读切换到主动回忆（合上书，写下你记住的章节内容）。这能将记忆保留率提高200%-300%。',
+      tw: '學業成績主要取決於系統，而非天賦。單一最高槓桿的改變：從被動重讀切換到主動回憶（合上書，寫下你記住的章節內容）。這能將記憶保留率提高200%-300%。',
+    },
+    QKA_D1: {
+      cn: '研究方向瘫痪很常见。本周安排一次30分钟的导师会面，不是汇报进展，而是问："我们领域目前最有影响力的两个开放性问题是什么？"听专家描绘全景会立即驱散迷雾。',
+      tw: '研究方向癱瘓很常見。本週安排一次30分鐘的導師會面，不是匯報進展，而是問：「我們領域目前最有影響力的兩個開放性問題是什麼？」聽專家描繪全景會立即驅散迷霧。',
+    },
+    QKAB3: {
+      cn: '高压正在燃烧你最宝贵的资源：认知带宽。本周测试一个边界：在固定时间（如晚8点）关闭所有工作通知，并坚守7天。如果这引发工作危机，那是在告诉你这个职位本身需要重新谈判。',
+      tw: '高壓正在燃燒你最寶貴的資源：認知頻寬。本週測試一個邊界：在固定時間（如晚8點）關閉所有工作通知，並堅守7天。如果這引發工作危機，那是在告訴你這個職位本身需要重新談判。',
+    },
+    QKAB7: {
+      cn: '你的就业市场韧性是你最重要的职业保险。本周花1小时更新简历，并公开发布一件可见的工作成果（文章、项目、作品集）。每月做一次"市场温度测试"，一次咖啡交流或投递，保持校准。',
+      tw: '你的就業市場韌性是你最重要的職業保險。本週花1小時更新履歷，並公開發布一件可見的工作成果（文章、項目、作品集）。每月做一次「市場溫度測試」，一次咖啡交流或投遞，保持校準。',
+    },
+    QKAC1: {
+      cn: '现金流问题在成为收入问题之前，几乎总是分配问题。本周列出每一项支出，并标注为"必要/合同性"、"运营/灵活性"或"可自由支配/可削减"。立即削减第三类的20%。',
+      tw: '現金流問題在成為收入問題之前，幾乎總是分配問題。本週列出每一項支出，並標注為「必要/合約性」、「運營/靈活性」或「可自由支配/可削減」。立即削減第三類的20%。',
+    },
+    QKAD1: {
+      cn: '少于6个月的财务跑道是一个财务紧急情况。立即停止所有非必要支出。然后本周做一件事：列出5个30天内可以采取的创收行动，自由职业、出售资产、咨询服务。从最快的那个开始。',
+      tw: '少於6個月的財務跑道是一個財務緊急情況。立即停止所有非必要支出。然後本週做一件事：列出5個30天內可以採取的創收行動，自由職業、出售資產、諮詢服務。從最快的那個開始。',
+    },
+    QKAD2: {
+      cn: '毫无结构的一天是动力和心理健康的敌人。明天，只为这一天写下三个"锚定任务"（不可妥协、有时间节点的事项）。结构本身能减轻焦虑并产生前进动力。',
+      tw: '毫無結構的一天是動力和心理健康的敵人。明天，只為這一天寫下三個「錨定任務」（不可妥協、有時間節點的事項）。結構本身能減輕焦慮並產生前進動力。',
+    },
+    QKAE1: {
+      cn: '退休后的财务压力可以通过系统梳理来解决。本周坐下来，列出每月固定收入与固定支出的对比表。然后找出一项你可以减少30%的最大可自由支配开支。小幅结构性削减会随着时间显著复利积累。',
+      tw: '退休後的財務壓力可以通過系統梳理來解決。本週坐下來，列出每月固定收入與固定支出的對比表。然後找出一項你可以減少30%的最大可自由支配開支。小幅結構性削減會隨著時間顯著複利積累。',
+    },
+    QKAI1: {
+      cn: '照护者倦怠是真实存在且会逐渐加重的。本周找出一个能连续替你照看3小时的人。每周哪怕一次受保护的真正休息时段（不只是"孩子睡着了"的间隙），在医学上对你的长期可持续性都意义重大。',
+      tw: '照護者倦怠是真實存在且會逐漸加重的。本週找出一個能連續替你照看3小時的人。每週哪怕一次受保護的真正休息時段（不只是「孩子睡著了」的間隙），在醫學上對你的長期可持續性都意義重大。',
+    },
 
-   DESIGN GOALS:
-   · 普通用户落在 45-55 分（不再虚高）
-   · 不同人生路径之间分差显著拉大
-   · 基础满分上限 100 分
-   · 加分题最高额外加 50 分，绝对上限 150 分
-   · 18岁以下用户控制在 55-70 分
+    /* ── Health & Lifestyle ── */
+    QKC3: {
+      cn: '不要试图同时改变所有习惯，这注定失败。选择对你伤害最大的一个，用"替代法"处理它：每天用10分钟散步替代一次该习惯。只改1个，坚持30天，再处理下一个。',
+      tw: '不要試圖同時改變所有習慣，這注定失敗。選擇對你傷害最大的一個，用「替代法」處理它：每天用10分鐘散步替代一次該習慣。只改1個，堅持30天，再處理下一個。',
+    },
+    QKC4: {
+      cn: '为防止视力进一步恶化，严格执行"20-20-20法则"：每20分钟看20英尺外的物体20秒。购买屏幕挂灯减少眩光，调大手机字体。每年进行一次专业验光。',
+      tw: '為防止視力進一步惡化，嚴格執行「20-20-20法則」：每20分鐘看20英尺外的物體20秒。購買螢幕掛燈減少眩光，調大手機字體。每年進行一次專業驗光。',
+    },
+    QKC5: {
+      cn: '改善慢性健康问题的起点是获取基线数据。本月预约一次全面体检，拿到血压、血糖、血脂等指标。90%的早期慢性问题可通过改善睡眠（固定起床时间）、饮食（减少精加工食品）和运动（每天7000步）在6个月内逆转。',
+      tw: '改善慢性健康問題的起點是獲取基線數據。本月預約一次全面體檢，拿到血壓、血糖、血脂等指標。90%的早期慢性問題可通過改善睡眠（固定起床時間）、飲食（減少精加工食品）和運動（每天7000步）在6個月內逆轉。',
+    },
 
-   CURVE FUNCTION: f(x) = 8 + 92 * x^1.2
-   ─────────────────────────────────────────
-   x = 0.10 → 14   极端困境
-   x = 0.20 → 22   严重困难
-   x = 0.30 → 29   明显低于平均
-   x = 0.40 → 38   偏低
-   x = 0.50 → 48   普通水平（大多数普通用户）
-   x = 0.60 → 58   中等偏上
-   x = 0.70 → 70   良好
-   x = 0.80 → 81   优秀
-   x = 0.90 → 92   卓越
-   x = 1.00 → 100  基础满分上限
+    /* ── Finance ── */
+    QKC9: {
+      cn: '储蓄不足几乎总是系统性问题，而非收入问题。从下次发薪日起，收到工资的瞬间自动转走10-20%到独立储蓄账户，命名为"未来基金"。50/30/20预算法则是经过验证的入门框架。',
+      tw: '儲蓄不足幾乎總是系統性問題，而非收入問題。從下次發薪日起，收到薪資的瞬間自動轉走10-20%到獨立儲蓄帳戶，命名為「未來基金」。50/30/20預算法則是經過驗證的入門框架。',
+    },
+    QKC10: {
+      cn: '不足3个月的财务跑道是危险信号。暂停所有非必要支出和投资。本周：列出过去3个月所有支出，标记可以削减的项目，将节省下来的100%存入应急账户。目标：90天内攒够3个月生活费。',
+      tw: '不足3個月的財務跑道是危險信號。暫停所有非必要支出和投資。本週：列出過去3個月所有支出，標記可以削減的項目，將節省下來的100%存入應急帳戶。目標：90天內攢夠3個月生活費。',
+    },
+    QKC11: {
+      cn: '没有保险是大多数人面临的最大单一财务风险。最低成本的第一步：购买一份大额医疗险和意外险。这两项通常最便宜且最必要，能保护你的全部积累不被一次意外医疗清零。',
+      tw: '沒有保險是大多數人面臨的最大單一財務風險。最低成本的第一步：購買一份大額醫療險和意外險。這兩項通常最便宜且最必要，能保護你的全部積累不被一次意外醫療清零。',
+    },
+    QKC12: {
+      cn: '鲁莽的投资几乎比任何事都更快地摧毁财富。第一原则：如果你对某投资工具的理解不足以在2分钟内向陌生人解释清楚，就不要投钱进去。将高风险仓位转移至多元化指数基金，并停止每天查看价格。',
+      tw: '魯莽的投資幾乎比任何事都更快地摧毀財富。第一原則：如果你對某投資工具的理解不足以在2分鐘內向陌生人解釋清楚，就不要投錢進去。將高風險倉位轉移至多元化指數基金，並停止每天查看價格。',
+    },
 
-   UNDER-18 RULE:
-   · 基础分 floor = 55, ceiling = 70（加分题前）
-   ════════════════════════════════════════════════════════════ */
+    /* ── Relationships ── */
+    QKB1: {
+      cn: '无论你的感情状况如何，最重要的投资是你自身的情感准备。本周反思一个诚实的问题："我过去感情中的什么模式我仍在重复？"用15分钟写日记往往比被动等待数月更有收获。',
+      tw: '無論你的感情狀況如何，最重要的投資是你自身的情感準備。本週反思一個誠實的問題：「我過去感情中的什麼模式我仍在重複？」用15分鐘寫日記往往比被動等待數月更有收獲。',
+    },
+    QKB2: {
+      cn: '有毒的父母关系是沉重的情感包袱。短期策略：设定"安全距离"，降低联系频率但提升质量（如每月一次高质量视频通话，而非每日冲突性接触）。长期：3-5次家庭心理治疗能打开任何争吵都无法开启的沟通渠道。',
+      tw: '有毒的父母關係是沉重的情感包袱。短期策略：設定「安全距離」，降低聯繫頻率但提升質量（如每月一次高質量視頻通話，而非每日衝突性接觸）。長期：3-5次家庭心理治療能打開任何爭吵都無法開啟的溝通渠道。',
+    },
+    QKB3: {
+      cn: '性生活满意度通常反映更深层的连接质量。真正的起点不是技巧，而是增加日常非性亲密感：更多身体接触（拥抱、牵手）、情感分享和共同的新体验。每周安排一次"只属于两个人"的夜晚，无手机、无孩子、无工作话题。',
+      tw: '性生活滿意度通常反映更深層的連接質量。真正的起點不是技巧，而是增加日常非性親密感：更多身體接觸（擁抱、牽手）、情感分享和共同的新體驗。每週安排一次「只屬於兩個人」的夜晚，無手機、無孩子、無工作話題。',
+    },
+    QKB5: {
+      cn: '育儿精力不均衡会侵蚀你的个人发展和伴侣关系。本周坐下来一起把所有育儿任务列在纸上，然后明确分配给具体的人和具体的天。考虑引入外部帮助（临时保姆或托儿所）来夺回高价值个人时间。',
+      tw: '育兒精力不均衡會侵蝕你的個人發展和伴侶關係。本週坐下來一起把所有育兒任務列在紙上，然後明確分配給具體的人和具體的天。考慮引入外部幫助（臨時保姆或托兒所）來奪回高價值個人時間。',
+    },
+    QKB6: {
+      cn: '兄弟姐妹的疏远往往源于多年前一个未解决的积怨。不需要一次解决所有问题。在下个节日从一个小而真诚的举动开始，发一条简短、真诚的信息，不带任何期待。如果对方回应了，逐步增加互动。无论如何，你已尽到了自己的责任。',
+      tw: '兄弟姊妹的疏遠往往源於多年前一個未解決的積怨。不需要一次解決所有問題。在下個節日從一個小而真誠的舉動開始，發一條簡短、真誠的訊息，不帶任何期待。如果對方回應了，逐步增加互動。無論如何，你已盡到了自己的責任。',
+    },
 
-/* ── 维度权重 ── */
-window.DIM_WEIGHTS = {
-  basic:    0.25,
-  social:   0.45,
-  identity: 0.30,
-};
+    /* ── Skills & Psychology ── */
+    QKD1: {
+      cn: '学语言最高效的方法不是背单词，而是"影子跟读法"：每天花30分钟选一段目标语言音频（播客、TED演讲），跟着大声重复，在关注意义之前先模仿节奏和语调。坚持90天，你的口语本能会发生质变。',
+      tw: '學語言最高效的方法不是背單詞，而是「影子跟讀法」：每天花30分鐘選一段目標語言音頻（播客、TED演講），跟著大聲重複，在關注意義之前先模仿節奏和語調。堅持90天，你的口語本能會發生質變。',
+    },
+    QKD2: {
+      cn: '旅行不是奢侈品，而是认知投资。每季度安排一次"慢旅行"：在一个地方停留3天以上，真正与当地人交流。低成本方式：淡季出行、周边目的地、青旅或民宿代替酒店。',
+      tw: '旅行不是奢侈品，而是認知投資。每季度安排一次「慢旅行」：在一個地方停留3天以上，真正與當地人交流。低成本方式：淡季出行、周邊目的地、青旅或民宿代替酒店。',
+    },
+    QKD4: {
+      cn: '缺乏可变现技能是一个长期风险，而非永久状态。选择一个与你现有工作或兴趣相邻的技能，用3个月产出一个具体可分享的成果（作品集、项目、文章）。那个单一成果就是你进入新机会的入场券。',
+      tw: '缺乏可變現技能是一個長期風險，而非永久狀態。選擇一個與你現有工作或興趣相鄰的技能，用3個月產出一個具體可分享的成果（作品集、項目、文章）。那個單一成果就是你進入新機會的入場券。',
+    },
+    QKD7: {
+      cn: '坚持不是关于意志力，而是降低启动成本。把目标习惯缩减到绝对最小版本：不是"每天运动"，而是"穿上鞋子走出门"。连续做21天这个最小动作。之后飞轮会自动带你前进。',
+      tw: '堅持不是關於意志力，而是降低啟動成本。把目標習慣縮減到絕對最小版本：不是「每天運動」，而是「穿上鞋子走出門」。連續做21天這個最小動作。之後飛輪會自動帶你前進。',
+    },
+    QKD8: {
+      cn: '情绪管理能力弱会同等地损害工作、关系和决策质量。今晚开始一本"情绪日记"：睡前花3分钟写下今天最强烈的情绪、触发事件和你的反应。坚持2周后，你会开始在被情绪淹没之前"看见"它到来。',
+      tw: '情緒管理能力弱會同等地損害工作、關係和決策質量。今晚開始一本「情緒日記」：睡前花3分鐘寫下今天最強烈的情緒、觸發事件和你的反應。堅持2週後，你會開始在被情緒淹沒之前「看見」它到來。',
+    },
+    QKD9: {
+      cn: '觉得人生不属于自己是一个必须通过行动挑战的信念。本周做一个"微型主权行为"，在一个通常让他人做决定的场合，坚持表达你自己的偏好（哪怕只是选择去哪吃饭）。每一次刻意选择都在重写你的行为默认值。',
+      tw: '覺得人生不屬於自己是一個必須通過行動挑戰的信念。本週做一個「微型主權行為」，在一個通常讓他人做決定的場合，堅持表達你自己的偏好（哪怕只是選擇去哪吃飯）。每一次刻意選擇都在重寫你的行為默認值。',
+    },
+    QKD11: {
+      cn: '对人生成就感到不满时，停止与终点比较，改为与一年前的自己比较。拿一张纸，列出过去12个月完成的所有事情，无论多小。你走的比你以为的更远。然后在背面写3件如果在接下来12个月内完成会让你感到骄傲的事。',
+      tw: '對人生成就感到不滿時，停止與終點比較，改為與一年前的自己比較。拿一張紙，列出過去12個月完成的所有事情，無論多小。你走的比你以為的更遠。然後在背面寫3件如果在接下來12個月內完成會讓你感到驕傲的事。',
+    },
+    QKS56_1: {
+      cn: '对56–75岁人群而言，健康结果更多取决于持续性而非强度。建立固定的监测与运动节律。能每周执行的简单方案，胜过两周就中断的激进方案。',
+      tw: '對56–75歲人群而言，健康結果更多取決於持續性而非強度。建立固定的監測與運動節律。能每週執行的簡單方案，勝過兩週就中斷的激進方案。',
+    },
+    QKS56_2: {
+      cn: '这一阶段更适合“先控风险再扩收益”：先确保就医连续性、现金流稳定和家庭角色边界，再追求额外收益。安全感先到位，才有真正自由。',
+      tw: '這一階段更適合「先控風險再擴收益」：先確保就醫連續性、現金流穩定和家庭角色邊界，再追求額外收益。安全感先到位，才有真正自由。',
+    },
+    QKS56_3: {
+      cn: '社交节律下降的长期影响常被低估。请把每周至少两次固定社交触点（邻里、朋友、社群、志愿活动）设为不可取消的基本安排。',
+      tw: '社交節律下降的長期影響常被低估。請把每週至少兩次固定社交觸點（鄰里、朋友、社群、志願活動）設為不可取消的基本安排。',
+    },
+    QKS76_1: {
+      cn: '对76–100岁人群，维持功能独立是回报最高的目标。优先防跌倒、下肢力量与居家安全改造，而非追求高强度目标。',
+      tw: '對76–100歲人群，維持功能獨立是回報最高的目標。優先防跌倒、下肢力量與居家安全改造，而非追求高強度目標。',
+    },
+    QKS76_2: {
+      cn: '医疗连续性应依靠流程而非记忆。把用药、复诊、紧急联系人和关键检查报告做成可见清单，方便家属/照护者快速协同。',
+      tw: '醫療連續性應依靠流程而非記憶。把用藥、複診、緊急聯絡人和關鍵檢查報告做成可見清單，方便家屬/照護者快速協同。',
+    },
+    QKS76_3: {
+      cn: '这一阶段的情绪稳定，依赖可预测的连接与意义感。建议维持轻量日程结构（休息、活动、社交触点、愉悦任务），降低孤独与焦虑风险。',
+      tw: '這一階段的情緒穩定，依賴可預測的連結與意義感。建議維持輕量日程結構（休息、活動、社交觸點、愉悅任務），降低孤獨與焦慮風險。',
+    },
+  };
 
-/* ── 曲线映射 ── */
-window.applyCurve = function(rawPct) {
-  var x = Math.max(0, Math.min(1, rawPct || 0));
-  return 8 + 92 * Math.pow(x, 1.2);
-};
 
-/* ── 各维度最高可能分数（不含bonus, 不含improve:false题） ── */
-window.computeMaxScores = function(activeIds) {
-  var dimMax = { basic:0, social:0, identity:0 };
-  window.QUESTION_BANK.forEach(function(q) {
-    if (!q.scorable || q.bonus) return;
-    if (!activeIds.has(q.id)) return;
-    var mx = Math.max.apply(null, q.options.map(function(o){ return o.score||0; }));
-    dimMax[q.section] = (dimMax[q.section] || 0) + mx;
+  /* Expose IDs set */
+  var idSet = {};
+  window.QUESTION_BANK.forEach(function(q){ idSet[q.id] = true; });
+  window.QUESTION_IDS = idSet;
+
+  /* ════════════════════════════════════════════════════════════
+     Section normalization
+     Quick-Test questions used sections like 'basic'/'social'/'identity'
+     but many migrated ones use 'health'/'wealth'/'mind'. Normalize
+     everything to the three legacy axes used by computeMaxScores.
+     ════════════════════════════════════════════════════════════ */
+  var SECTION_MAP = {
+    basic: 'basic', social: 'social', identity: 'identity', bonus: 'bonus',
+    health: 'basic', wealth: 'social', mind: 'identity',
+  };
+  window.QUESTION_BANK.forEach(function(q){
+    if (q && q.section && SECTION_MAP[q.section]) {
+      q.section = SECTION_MAP[q.section];
+    }
   });
-  return dimMax;
-};
 
-/* ── bonus题总得分（上限50） ── */
-window.computeBonusScore = function(answerMap) {
-  var total = 0;
-  window.QUESTION_BANK.forEach(function(q) {
-    if (!q.bonus || !q.scorable) return;
-    if (!answerMap || !answerMap[q.id]) return;
-    var oi  = answerMap[q.id].questionIdx;
-    var opt = q.options[oi];
-    if (opt) total += (opt.score || 0);
-  });
-  return Math.min(50, total);
-};
+  /* ════════════════════════════════════════════════════════════
+     Scoring helpers (global) — preserved from legacy questions.js
+     so quiz.js and result.js continue to work unchanged.
+     ════════════════════════════════════════════════════════════ */
 
-/* ── 多选题得分 ── */
-window.computeMultiScore = function(q, selectedIndices) {
-  if (!selectedIndices || selectedIndices.length === 0) return 0;
-  var hasExclusive = false;
-  selectedIndices.forEach(function(i) {
-    if (q.options[i] && q.options[i].exclusive) hasExclusive = true;
-  });
-  if (hasExclusive) {
-    var excOpt = q.options.find(function(o){ return o.exclusive; });
-    return excOpt ? excOpt.score : 0;
+  /* Dimension weights (legacy 3-axis display) */
+  window.DIM_WEIGHTS = {
+    basic:    0.25,
+    social:   0.45,
+    identity: 0.30,
+  };
+
+  /* Curve mapping: rawPct ∈ [0,1] → display score ∈ [8,100] */
+  window.applyCurve = function(rawPct) {
+    var x = Math.max(0, Math.min(1, rawPct || 0));
+    return 8 + 92 * Math.pow(x, 1.2);
+  };
+
+  /* Active-bank resolver — mirrors getBank() inside quiz.js.
+     Prefer QUICK_QUESTION_BANK when the hosting page declared QUIZ_MODE='quick'
+     AND loaded quick_questions.js; fall back to QUESTION_BANK otherwise. */
+  function _activeBank() {
+    if (window.QUIZ_MODE === 'quick' && Array.isArray(window.QUICK_QUESTION_BANK)) {
+      return window.QUICK_QUESTION_BANK;
+    }
+    return window.QUESTION_BANK || window.QUICK_QUESTION_BANK || [];
   }
-  if (q.scoreMode === 'multi_negative') {
-    var maxScore = Math.max.apply(null, q.options.map(function(o){ return o.score||0; }));
-    var penalty  = 0;
-    selectedIndices.forEach(function(i) {
-      if (q.options[i] && q.options[i].negative) penalty++;
+
+  /* Max possible score per dimension (excl. bonus & improve:false) */
+  window.computeMaxScores = function(activeIds) {
+    var dimMax = { basic:0, social:0, identity:0 };
+    var bank = _activeBank();
+    bank.forEach(function(q) {
+      if (!q.scorable || q.bonus) return;
+      if (!activeIds.has(q.id)) return;
+      if (!q.options || !q.options.length) return;
+      var mx = Math.max.apply(null, q.options.map(function(o){ return o.score||0; }));
+      if (dimMax[q.section] !== undefined) {
+        dimMax[q.section] = dimMax[q.section] + mx;
+      }
     });
-    return Math.max(0, maxScore - penalty);
-  }
-  var best = 0;
-  selectedIndices.forEach(function(i) {
-    if (q.options[i] && (q.options[i].score||0) > best) best = q.options[i].score||0;
-  });
-  return best;
-};
+    return dimMax;
+  };
 
-/* ════════════════════════════════════════════════════════════
-   SHORT QUIZ — 精简版题目集 (~50题)
-   Used by quiz.html?mode=short ("Start Test")
-   Full bank is used by quiz.html ("In-depth Test")
-   ════════════════════════════════════════════════════════════ */
-window.SHORT_QUIZ_IDS = new Set([
-  /* Demographics & Identity */
-  'A0','A1','A2','A3h','A3hf','A3','A4','A5','A6',
-  /* Health & Habits */
-  'A8','A9','A10','A11','A12','A14',
-  /* Career & Finances */
-  'A15','B1s','B2','B3','B3b','B4','B4b','B4c','B4g',
-  /* Social & Life */
-  'B5','B6','B7','B8','B9','B9c','B10','B15','B16','B17','B19','B22',
-  /* Personal Identity */
-  'C1','C3','C4','C6','C7','C8','C9','C11','C14','C15','C18','C20',
-  /* Student track */
-  'F1','F3','F6','F7',
-  /* Work intensity */
-  'E1','E3',
-  /* Bonus */
-  'BON1','BON2','BON3','BON4','BON5','BON_Y1','BON_Y2',
-]);
+  /* Bonus total (capped at 50) */
+  window.computeBonusScore = function(answerMap) {
+    var total = 0;
+    var bank = _activeBank();
+    bank.forEach(function(q) {
+      if (!q.bonus || !q.scorable) return;
+      if (!answerMap || !answerMap[q.id]) return;
+      var oi  = answerMap[q.id].questionIdx;
+      var opt = q.options && q.options[oi];
+      if (opt) total += (opt.score || 0);
+    });
+    return Math.min(50, total);
+  };
+
+  /* Multi-select scoring */
+  window.computeMultiScore = function(q, selectedIndices) {
+    if (!selectedIndices || selectedIndices.length === 0) return 0;
+    var hasExclusive = false;
+    selectedIndices.forEach(function(i) {
+      if (q.options[i] && q.options[i].exclusive) hasExclusive = true;
+    });
+    if (hasExclusive) {
+      var excOpt = q.options.find(function(o){ return o.exclusive; });
+      return excOpt ? excOpt.score : 0;
+    }
+    if (q.scoreMode === 'multi_negative') {
+      var maxScore = Math.max.apply(null, q.options.map(function(o){ return o.score||0; }));
+      var penalty  = 0;
+      selectedIndices.forEach(function(i) {
+        if (q.options[i] && q.options[i].negative) penalty++;
+      });
+      return Math.max(0, maxScore - penalty);
+    }
+    var best = 0;
+    selectedIndices.forEach(function(i) {
+      if (q.options[i] && (q.options[i].score||0) > best) best = q.options[i].score||0;
+    });
+    return best;
+  };
+
+})();

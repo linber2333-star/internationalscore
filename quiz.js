@@ -6,7 +6,11 @@
 */
 (function () {
   'use strict';
-  var PER_PAGE = 3;
+  /* Deep test: 5 questions per page. Quick test: 3 per page.
+     The QUIZ_MODE global is set by the hosting HTML (quiz.html sets 'deep',
+     quiz-quick.html sets 'quick') BEFORE this script loads, so we can read
+     it here synchronously. */
+  var PER_PAGE = (window.QUIZ_MODE === 'quick') ? 6 : 5;
   var answers = {}, activeQueue = [], pages = [], currentPage = 0;
   var isReviewing = false;
 
@@ -43,17 +47,133 @@
      pages[i] for i >  currentPage are rebuilt dynamically each time. */
   var frozenPages = {};   /* { index: [qid,...] } — grows as user advances */
 
+  /* ── Question-bank selector ──
+     The hosting HTML may load either `questions.js` (window.QUESTION_BANK),
+     `quick_questions.js` (window.QUICK_QUESTION_BANK), or both.  Prior to
+     this helper, quiz.js hard-read window.QUESTION_BANK which meant a quiz
+     page wired to load only quick_questions.js would freeze on an empty
+     activeQueue — OR, worse, if both banks were loaded, the quick quiz
+     would silently use the full deep bank, producing subtly wrong showIf
+     resolution (e.g. QK3 option indices differ between the two banks, so
+     `s.QK3 === 5` means "retired" in one bank and "seriously ill" in the
+     other).  getBank() resolves this by preferring QUICK_QUESTION_BANK
+     when QUIZ_MODE is 'quick' and the quick bank is present, falling back
+     to QUESTION_BANK otherwise. */
+  function getBank() {
+    if (window.QUIZ_MODE === 'quick' && Array.isArray(window.QUICK_QUESTION_BANK)) {
+      return window.QUICK_QUESTION_BANK;
+    }
+    return window.QUESTION_BANK || window.QUICK_QUESTION_BANK || [];
+  }
+
+  /* ── Same-page dependency detector ──
+     A question qid is "same-page-dependent" on samePageIds[] if its showIf
+     result can flip from true to false by changing the answer to any of
+     the same-page qids.  This is the root cause of the "can't click next"
+     bug: answering a trigger question mid-page invalidates a still-visible
+     conditional card, and the user gets confused.  Solution: don't let
+     such a pair land on the same page — bump the dependent to the next.
+
+     Detection: perturb each same-page qid's answer through ALL its option
+     indices and re-run the candidate's showIf.  If any perturbation turns
+     showIf false, there's a same-page dependency.  O(P × O) per candidate
+     where P ≤ PER_PAGE and O is average option count — cheap enough. */
+  function hasSamePageDependency(candidateId, samePageIds, fa, _bank) {
+    if (!samePageIds || !samePageIds.length) return false;
+    var q = _bank.find(function(x){ return x.id === candidateId; });
+    if (!q || typeof q.showIf !== 'function') return false;
+    try {
+      if (!q.showIf(fa)) return false;  /* already not showing — moot */
+    } catch (e) { return false; }
+
+    for (var i = 0; i < samePageIds.length; i++) {
+      var sid = samePageIds[i];
+      var sq = _bank.find(function(x){ return x.id === sid; });
+      if (!sq || !Array.isArray(sq.options) || sq.options.length === 0) continue;
+      for (var j = 0; j < sq.options.length; j++) {
+        var perturbed = {};
+        Object.keys(fa).forEach(function(k){ perturbed[k] = fa[k]; });
+        perturbed[sid] = j;
+        try {
+          if (!q.showIf(perturbed)) return true;
+        } catch (e) { return true; }
+      }
+    }
+    return false;
+  }
+
   function rebuildQueue() {
     var fa = flatAnswers();
-    /* Use quick bank for quick mode, full bank for deep mode */
-    var _bank = (window.QUIZ_MODE === 'quick' && window.QUICK_QUESTION_BANK)
-      ? window.QUICK_QUESTION_BANK
-      : window.QUESTION_BANK;
+    var _bank = getBank();
+    /* De-dup guard: if two bank entries share the same id (e.g. historical
+       QKC9 / QKBON_G8 variants whose showIf branches overlap under edge
+       values like QK3 === 4), only the first match is admitted to the
+       active queue.  This prevents the same qid from landing on a page
+       twice — which historically froze navigation because isPageComplete
+       and the rendered DOM would disagree on the per-page card count. */
+    var seenIds = {};
     activeQueue = _bank.filter(function(q) {
       /* Short mode: only include questions in SHORT_QUIZ_IDS */
       if (IS_SHORT_MODE && window.SHORT_QUIZ_IDS && !window.SHORT_QUIZ_IDS.has(q.id)) return false;
-      return typeof q.showIf === 'function' ? q.showIf(fa) : true;
+      var visible = typeof q.showIf === 'function' ? q.showIf(fa) : true;
+      if (!visible) return false;
+      if (seenIds[q.id]) return false;
+      seenIds[q.id] = true;
+      return true;
     }).map(function(q) { return q.id; });
+
+    /* ── Bonus-last ordering ──
+       Move every bonus question to the tail of activeQueue while preserving
+       relative order within each group.  This applies to both quick and
+       deep modes.  In deep mode it means bonus questions always come after
+       every regular question (including stray regulars like QKD13 / QKT6
+       that sit after the bonus block in the bank file).  In quick mode it
+       pairs with the early-submit rule below. */
+    (function sortBonusLast() {
+      var _nb = [], _b = [];
+      activeQueue.forEach(function(id) {
+        var bq = _bank.find(function(x){ return x.id === id; });
+        if (bq && bq.bonus) _b.push(id);
+        else _nb.push(id);
+      });
+      activeQueue = _nb.concat(_b);
+    })();
+
+    /* ── QUICK MODE: early-submit when all bonus questions are answered ──
+       Per product spec: in the quick test, once the user has completed every
+       visible bonus question, skip any remaining unanswered regular
+       (non-bonus) questions and jump straight to submit.
+
+       Implementation: drop any qid from activeQueue that is
+         (a) a regular (non-bonus) question,
+         (b) currently unanswered, AND
+         (c) not already living on a frozen (rendered) page.
+       Frozen pages are left intact so the user's existing progress is
+       never retroactively stripped mid-page. */
+    if (window.QUIZ_MODE === 'quick') {
+      var _frozenSetEarly = {};
+      Object.keys(frozenPages).forEach(function(pi) {
+        frozenPages[pi].forEach(function(id){ _frozenSetEarly[id] = true; });
+      });
+      var bonusIdsVisible = [];
+      activeQueue.forEach(function(id) {
+        var bq = _bank.find(function(x){ return x.id === id; });
+        if (bq && bq.bonus) bonusIdsVisible.push(id);
+      });
+      var allBonusAnswered = bonusIdsVisible.length > 0 &&
+        bonusIdsVisible.every(function(id){ return isAnswered(id); });
+      if (allBonusAnswered) {
+        activeQueue = activeQueue.filter(function(id) {
+          var bq = _bank.find(function(x){ return x.id === id; });
+          var isBonus = !!(bq && bq.bonus);
+          /* Keep: bonus qs, already-answered qs, and frozen-page residents */
+          if (isBonus) return true;
+          if (isAnswered(id)) return true;
+          if (_frozenSetEarly[id]) return true;
+          return false;
+        });
+      }
+    }
 
     /* Collect all QIDs that are frozen (already shown to user) */
     var frozenSet = {};
@@ -74,10 +194,39 @@
       pages.push(frozenPages[pi] ? frozenPages[pi].slice() : []);
     }
 
-    /* Remaining active questions not yet frozen */
+    /* ── Smart page layout for non-frozen remainder ──
+       Three invariants enforced per page:
+         1. Length ≤ PER_PAGE
+         2. Never mix bonus and non-bonus on the same page (hard boundary)
+         3. Never place a showIf-conditional question on the same page as
+            a question whose answer could invalidate it (same-page dep)
+       Violations bump the candidate to a fresh page. */
     var remaining = activeQueue.filter(function(id){ return !frozenSet[id]; });
-    for (var i = 0; i < remaining.length; i += PER_PAGE) {
-      pages.push(remaining.slice(i, i + PER_PAGE));
+    var _curPage = [];
+    var _curIsBonus = null;
+    function _flushCur() {
+      if (_curPage.length > 0) { pages.push(_curPage); _curPage = []; }
+    }
+    remaining.forEach(function(id) {
+      var bq = _bank.find(function(x){ return x.id === id; });
+      var thisIsBonus = !!(bq && bq.bonus);
+
+      var needBreak =
+        _curPage.length >= PER_PAGE ||
+        (_curIsBonus !== null && _curIsBonus !== thisIsBonus) ||
+        hasSamePageDependency(id, _curPage, fa, _bank);
+
+      if (needBreak) _flushCur();
+      _curPage.push(id);
+      _curIsBonus = thisIsBonus;
+    });
+    _flushCur();
+
+    /* Strip any empty trailing pages so pages.length - 1 is always a real,
+       non-empty page.  An empty last page would make isPageComplete() return
+       true vacuously (every-of-empty) while leaving no submit button visible. */
+    while (pages.length > 1 && (!pages[pages.length - 1] || pages[pages.length - 1].length === 0)) {
+      pages.pop();
     }
   }
 
@@ -102,9 +251,7 @@
   }
 
   function getQ(id) {
-    var _bank = (window.QUIZ_MODE === 'quick' && window.QUICK_QUESTION_BANK)
-      ? window.QUICK_QUESTION_BANK
-      : window.QUESTION_BANK;
+    var _bank = getBank();
     return _bank.find(function(q){ return q.id === id; });
   }
 
@@ -115,6 +262,24 @@
     return true;
   }
 
+  /* ── Effective-answered check ──
+     A qid on a frozen page can become "stuck" for completion purposes if:
+       1. It has no bank entry (stale qid after a rename — shouldn't happen
+          but defend anyway), OR
+       2. Its showIf currently returns false because a LATER answer flipped
+          state that an EARLIER question depended on.  Example: user answers
+          QKC5 (illness severity), which deactivates the baseline QKBON_G8
+          showIf but the frozen page still lists QKBON_G8 as a required qid.
+     In both cases the card doesn't render, the user can't answer it, and
+     the naive isAnswered check returns false — freezing the Next button.
+     Treat these qids as effectively satisfied. */
+  function isEffectivelyAnswered(qid) {
+    var q = getQ(qid);
+    if (!q) return true;  /* stale — no bank entry */
+    if (typeof q.showIf === 'function' && !q.showIf(flatAnswers())) return true;
+    return isAnswered(qid);
+  }
+
   /* ── Render page ── */
   function renderPage(pageIdx, direction) {
     /* Bump generation so any pending setTimeout from a previous render
@@ -123,10 +288,7 @@
 
     var qids = pages[pageIdx] || [];
     var lang  = window.I18N_CURRENT || 'zh-CN';
-    var isEn  = (lang === 'en-US' || lang === 'en-PH');
-    var isEs  = (lang === 'es-US');
-    var isTW  = (lang === 'zh-TW');
-    var letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
+    var letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
 
     /* Section label */
     var sc = {};
@@ -142,17 +304,12 @@
     if (sectionDot)   sectionDot.style.background = meta.color;
 
     /* Progress */
-    var done  = activeQueue.filter(function(qid){ return isAnswered(qid); }).length;
+    var done  = activeQueue.filter(function(qid){ return isEffectivelyAnswered(qid); }).length;
     var total = activeQueue.length;
     var pct   = total > 0 ? Math.round(done / total * 100) : 0;
     if (headerFill)    headerFill.style.width    = pct + '%';
     if (headerLabel)   headerLabel.textContent   = pct + '%';
-    if (progressCount) {
-      var _isEN2 = (lang === 'en-US' || lang === 'en-PH' || lang === 'es-US');
-      progressCount.textContent = _isEN2
-        ? (lang === 'es-US' ? 'Pág. '+(pageIdx+1)+' de '+pages.length : 'Page '+(pageIdx+1)+' of '+pages.length)
-        : ('第 '+(pageIdx+1)+' 页 · 共 '+pages.length+' 页');
-    }
+    if (progressCount) progressCount.textContent = '第 '+(pageIdx+1)+' 页 · 共 '+pages.length+' 页';
 
     /* Scroll to top */
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -177,25 +334,47 @@
       qids.forEach(function(qid, ci) {
         var q = getQ(qid);
         if (!q) return;
-        /* Dynamic question text — supports all 4 locales via qlang() */
+        /* Skip rendering cards whose showIf has become false — typically
+           because a prior answer invalidated them.  isEffectivelyAnswered
+           already reports these as "answered" for page-completion purposes,
+           but leaving the empty card on screen confuses the user into
+           thinking they're blocked from clicking Next.  Hiding them
+           entirely is the cleaner fix. */
+        if (typeof q.showIf === 'function' && !q.showIf(flatAnswers())) return;
+        /* Dynamic question text (e.g. A14 changes wording based on A0 student/worker) */
         var _fa = flatAnswers();
-        var qText = (typeof window.qlangFn === 'function') ? window.qlangFn(q, _fa) : window.qlang(q);
+        var qText = lang === 'zh-TW'
+          ? (typeof q.twFn === 'function' ? q.twFn(_fa) : q.tw)
+          : (typeof q.cnFn === 'function' ? q.cnFn(_fa) : q.cn);
         var sel     = answers[qid];
         var gNum    = activeQueue.indexOf(qid) + 1;
         var mc      = (SECTION_META[q.section] || SECTION_META.basic).color;
         var isMulti = !!q.multi;
 
-        var _isEN = (lang === 'en-US' || lang === 'en-PH' || lang === 'es-US');
-        var noteHtml   = (q.note && !q.noNote && !q.hideNote) ? '<div class="q-note">'+(window.qlang ? window.qlang(q.note) : (lang==='zh-TW'?q.note.tw:q.note.cn))+'</div>' : '';
-        var nsBadge    = q.scorable ? '' : '<span class="q-noscore-badge">'+(_isEN ? (lang==='es-US'?'Sin puntaje':'Not scored') : (lang==='zh-TW'?'不計分':'不计分'))+'</span>';
-        var multiBadge = isMulti ? '<span class="q-multi-badge">'+(_isEN ? (lang==='es-US'?'Múltiple':'Multi-select') : (lang==='zh-TW'?'多選':'多选'))+'</span>' : '';
-        var bonusBadge = q.bonus ? '<span class="q-bonus-badge">⭐ '+(_isEN ? (lang==='es-US'?'Puntos élite':'Bonus') : (lang==='zh-TW'?'加分題':'加分题'))+'</span>' : '';
+        /* ── Per spec (instruction-suppression pass) ──
+           Non-scoring prompts and meta-instructions are suppressed
+           from the quiz UI.  This includes:
+             - q.note (subtext like "此选项影响后续问题，不计入评分")
+             - "不计分" badge for non-scorable questions
+           Multi-select badge and bonus badge are KEPT because they
+           communicate UI behavior, not scoring policy.
+           To re-enable for debugging, flip SHOW_META_NOTES to true. */
+        var SHOW_META_NOTES = false;
+        var noteHtml   = (SHOW_META_NOTES && q.note && !q.noNote && !q.hideNote) ? '<div class="q-note">'+(lang==='zh-TW'?q.note.tw:q.note.cn)+'</div>' : '';
+        var nsBadge    = '';
+        var multiBadge = isMulti ? '<span class="q-multi-badge">'+(lang==='zh-TW'?'多選':'多选')+'</span>' : '';
+        var bonusBadge = q.bonus ? '<span class="q-bonus-badge">⭐ '+(lang==='zh-TW'?'加分題':'加分题')+'</span>' : '';
 
         var selArr   = isMulti ? (Array.isArray(sel) ? sel : []) : [];
         var optsHtml = q.options.map(function(o, i) {
-          var text = (typeof window.qlang === 'function') ? window.qlang(o) : (lang === 'zh-TW' ? o.tw : o.cn);
+          var text  = lang === 'zh-TW' ? o.tw : o.cn;
           var isSel = isMulti ? selArr.indexOf(i) >= 0 : sel === i;
           var cls   = isMulti ? 'q-option q-option--multi' : 'q-option';
+          var descHtml = '';
+          if (!isMulti && o.desc) {
+            var descText = lang === 'zh-TW' ? (o.desc.tw || o.desc.cn) : o.desc.cn;
+            if (descText) descHtml = '<div class="opt-desc">'+descText+'</div>';
+          }
           return '<div class="'+cls+(isSel?' selected':'')+
             '" data-qid="'+qid+'" data-oi="'+i+'" data-multi="'+isMulti+
             '" tabindex="0" role="'+(isMulti?'checkbox':'button')+'" aria-checked="'+isSel+'">'+
@@ -205,7 +384,7 @@
                 : (letters[i] || '?'))+
             '</div>'+
             (isMulti ? '' : '<div class="opt-letter-txt">'+(letters[i]||'?')+'</div>')+
-            '<div class="opt-text">'+text+'</div>'+
+            '<div class="opt-text">'+text+descHtml+'</div>'+
             (!isMulti ? '<div class="opt-check'+(isSel?'':' hidden')+'">'+
               (isSel ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '')+
             '</div>' : '')+
@@ -224,7 +403,7 @@
             '<div class="q-text">'+qText+'</div>'+
             noteHtml+
             '<div class="q-options" id="opts-'+qid+'">'+optsHtml+'</div>'+
-            (answered ? '<div class="q-answered-indicator"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> <span>'+window.t('quiz.answered')+'</span></div>' : '') +
+            (answered ? '<div class="q-answered-indicator"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> <span>'+window.t('quiz.answered')+'</span></div>' : '')+
           '</div>';
 
         var inClass = direction >= 0 ? 'slide-in-right' : 'slide-in-left';
@@ -277,13 +456,14 @@
     updateNav();
     updatePageDots();
     updateBanner();
+    hideInvalidatedCards();
 
     /* Find the next unanswered question ON THE CURRENT RENDERED PAGE
        (use snapshot so we reference what's actually on screen) */
     var nextUnanswered = null;
     for (var i = 0; i < pageQidsBefore.length; i++) {
       var cid = pageQidsBefore[i];
-      if (cid !== qid && !isAnswered(cid)) { nextUnanswered = cid; break; }
+      if (cid !== qid && !isEffectivelyAnswered(cid)) { nextUnanswered = cid; break; }
     }
 
     if (nextUnanswered) {
@@ -355,12 +535,13 @@
     rebuildQueue();
     if (currentPage >= pages.length) currentPage = pages.length - 1;
     updateProgressUI(); updateNav(); updatePageDots(); updateBanner();
+    hideInvalidatedCards();
 
     /* If exclusive option selected and page NOT complete, scroll to next unanswered */
     if (opt && opt.exclusive && !isPageComplete(currentPage)) {
       for (var _ei = 0; _ei < pageQidsBefore.length; _ei++) {
         var _cid = pageQidsBefore[_ei];
-        if (_cid !== qid && !isAnswered(_cid)) {
+        if (_cid !== qid && !isEffectivelyAnswered(_cid)) {
           (function(target) {
             setTimeout(function() {
               var nc = document.getElementById('card-' + target);
@@ -394,6 +575,46 @@
   }
 
   /* ── Visual update helpers ── */
+
+  /* Hide any same-page card whose showIf has just flipped to false.
+     Called after every answer handler (in addition to rebuildQueue +
+     updateNav) so the DOM matches the effectively-answered state.
+     Without this, a conditional card stays rendered but un-clickable
+     after its trigger answer invalidates it, and the user mistakenly
+     thinks they're blocked from advancing.  Bidirectional: if a card's
+     showIf flips BACK to true (e.g. user changed the trigger), we show
+     it again. */
+  function hideInvalidatedCards() {
+    if (!cardArea) return;
+    var fa = flatAnswers();
+    var qids = pages[currentPage] || [];
+    qids.forEach(function(qid) {
+      var q = getQ(qid);
+      if (!q) return;
+      var card = document.getElementById('card-' + qid);
+      if (!card) return;
+      var visible = (typeof q.showIf !== 'function') || !!q.showIf(fa);
+      if (visible) {
+        if (card.dataset.lsHidden === '1') {
+          card.style.display = '';
+          card.style.opacity = '';
+          card.style.pointerEvents = '';
+          card.dataset.lsHidden = '0';
+        }
+      } else {
+        if (card.dataset.lsHidden !== '1') {
+          card.style.transition = 'opacity .25s ease';
+          card.style.opacity = '0';
+          card.style.pointerEvents = 'none';
+          card.dataset.lsHidden = '1';
+          setTimeout(function(){
+            if (card.dataset.lsHidden === '1') card.style.display = 'none';
+          }, 260);
+        }
+      }
+    });
+  }
+
   function updateCardUI(qid, oi) {
     var card = document.getElementById('card-' + qid);
     if (!card) return;
@@ -416,14 +637,14 @@
   }
 
   function updateProgressUI() {
-    var done = activeQueue.filter(function(qid){ return isAnswered(qid); }).length;
+    var done = activeQueue.filter(function(qid){ return isEffectivelyAnswered(qid); }).length;
     var pct  = activeQueue.length > 0 ? Math.round(done / activeQueue.length * 100) : 0;
     if (headerFill)  headerFill.style.width    = pct + '%';
     if (headerLabel) headerLabel.textContent   = pct + '%';
   }
 
   function isPageComplete(idx) {
-    return (pages[idx] || []).every(function(qid){ return isAnswered(qid); });
+    return (pages[idx] || []).every(function(qid){ return isEffectivelyAnswered(qid); });
   }
 
   function updateBanner() {
@@ -457,12 +678,26 @@
     if (!btnPrev || !btnNext || !btnNextLabel) return;
     var comp    = isPageComplete(currentPage);
     var isLast  = currentPage === pages.length - 1;
-    var allDone = activeQueue.every(function(qid){ return isAnswered(qid); });
+
+    /* allDone: every active question must be answered AND must live on an
+       actually-rendered page.  Without the page-membership guard, a qid
+       that is in activeQueue but not on any page (e.g. a late-arriving
+       showIf that can't be folded into a frozen page) would permanently
+       mark allDone=false and hide the submit button, leaving the user
+       stuck on the final page with no way forward. */
+    var pagedSet = {};
+    pages.forEach(function(pg){ (pg || []).forEach(function(id){ pagedSet[id] = true; }); });
+    var allDone = activeQueue.every(function(qid){
+      return pagedSet[qid] ? isEffectivelyAnswered(qid) : true;
+    });
+
     btnPrev.disabled = currentPage === 0;
     btnNext.classList.toggle('ready', comp);
     var isSubmit = comp && isLast && allDone;
-    btnNextLabel.textContent = isSubmit ? window.t('quiz.submit') : window.t('quiz.next');
-    btnNextLabel.setAttribute('data-i18n', isSubmit ? 'quiz.submit' : 'quiz.next');
+    var isGoBack = comp && isLast && !allDone;
+    var labelKey = isSubmit ? 'quiz.submit' : (isGoBack ? 'quiz.gotoUnanswered' : 'quiz.next');
+    btnNextLabel.textContent = window.t(labelKey);
+    btnNextLabel.setAttribute('data-i18n', labelKey);
   }
 
   function goToPage(idx, dir, fromBtn) {
@@ -474,40 +709,40 @@
 
   /* ── Submit ── */
   function submitQuiz() {
+    /* FIX: `lang` must be defined at the top of submitQuiz scope — it is
+       later referenced inside the loading-overlay HTML template (see the
+       "正在生成你的评分报告" line).  Previously this variable only existed
+       inside renderPage(), so submitQuiz() threw a ReferenceError at the
+       overlay string concatenation, which aborted the function BEFORE
+       any setTimeout was registered — meaning
+       `window.location.href = 'result.html'` never fired and the user
+       was stuck on the quiz page after clicking submit. */
+    var lang = window.I18N_CURRENT || 'zh-CN';
+
     var activeSet = new Set(activeQueue);
     /* computeMaxScores ignores bonus questions — they're tallied separately */
     var dimRaw    = { basic:0, social:0, identity:0 };
-    /* Temporarily point QUESTION_BANK to the active bank for scoring functions */
-    var _origBank = window.QUESTION_BANK;
-    if (window.QUIZ_MODE === 'quick' && window.QUICK_QUESTION_BANK) {
-      window.QUESTION_BANK = window.QUICK_QUESTION_BANK;
-    }
+    /* Use the active bank (quick or deep) so scoring lookups match the
+       questions the user actually answered. */
     var dimMax    = window.computeMaxScores(activeSet);
     var answerMap = {};
 
-    var _submitBank = (window.QUIZ_MODE === 'quick' && window.QUICK_QUESTION_BANK)
-      ? window.QUICK_QUESTION_BANK
-      : window.QUESTION_BANK;
-    _submitBank.forEach(function(q) {
+    getBank().forEach(function(q) {
       if (!activeSet.has(q.id) || !isAnswered(q.id)) return;
       var raw = answers[q.id];
-      var score = 0, optText_cn, optText_tw, optText_en, optText_es, oi;
+      var score = 0, optText_cn, optText_tw, oi;
 
       if (q.multi) {
         score      = window.computeMultiScore(q, raw);
         var arr    = Array.isArray(raw) ? raw : [];
         optText_cn = arr.map(function(i){ return q.options[i] ? q.options[i].cn : ''; }).join('、');
         optText_tw = arr.map(function(i){ return q.options[i] ? q.options[i].tw : ''; }).join('、');
-        optText_en = arr.map(function(i){ return q.options[i] ? (q.options[i].en||q.options[i].cn||'') : ''; }).join(', ');
-        optText_es = arr.map(function(i){ return q.options[i] ? (q.options[i].es||q.options[i].en||q.options[i].cn||'') : ''; }).join(', ');
         oi         = arr[0] !== undefined ? arr[0] : 0;
       } else {
         oi         = raw;
         var opt    = q.options[oi];
         score      = q.scorable ? (opt.score || 0) : 0;
         optText_cn = opt.cn; optText_tw = opt.tw;
-        optText_en = opt.en || opt.cn || '';
-        optText_es = opt.es || opt.en || opt.cn || '';
       }
 
       answerMap[q.id] = {
@@ -515,7 +750,6 @@
         selectedIndices: Array.isArray(raw) ? raw : [raw],
         score: q.scorable ? score : null,
         optionText_cn: optText_cn, optionText_tw: optText_tw,
-        optionText_en: optText_en, optionText_es: optText_es,
         section: q.section,
         bonus: q.bonus || false,
       };
@@ -523,54 +757,135 @@
       if (q.scorable && !q.bonus) dimRaw[q.section] += score;
     });
 
-    /* ── Step 1: per-dimension percentage (raw score / max possible) ── */
-    var dimPct = {};
-    Object.keys(dimRaw).forEach(function(d) {
-      dimPct[d] = dimMax[d] > 0 ? dimRaw[d] / dimMax[d] : 0.5;
-    });
+    /* ============================================================
+     * ── ENGINE-BASED SCORING (new, Phase 5 integration) ──
+     *
+     * The legacy per-option score summation has been replaced by
+     * a call to the decoupled rule engine.  Scoring is now entirely
+     * function-driven:
+     *
+     *   1. LSIntegration.buildState(answers) translates the raw
+     *      answer map into a UserProfileState via a mapping table
+     *      in scoring-integration.js.
+     *   2. LSEngine.compute(state) runs all registered rules and
+     *      modifiers, returning dimension scores + a composite.
+     *   3. The four engine dimensions (health/wealth/social/mind)
+     *      are mapped to the three legacy display axes (basic/
+     *      social/identity) at the serialization boundary below,
+     *      so result.html and analysis.js keep working unchanged.
+     *
+     * Cross-question interactions (longevity bonus, children×savings,
+     * illness multiplier, addiction wealth cap) are now implemented
+     * as declarative Rules and Modifiers inside scoring-rules.js —
+     * NOT as hardcoded if/else blocks here.  See scoring-rules.js.
+     *
+     * Questions not yet mapped in scoring-integration.js do not
+     * contribute to the engine score.  This is intentional — the
+     * mapping table is the one place to add new question support.
+     * ============================================================ */
+    var engineResult = null;
+    var finalScore, baseScore, bonusScore, finalScorePrecise;
+    var dimPctDisplay, dimPctRaw;
 
-    /* ── Step 2: weighted composite raw percentage (0–1) ── */
-    var W = window.DIM_WEIGHTS;
-    var compositeRaw =
-      (dimPct.basic    || 0) * W.basic    +
-      (dimPct.social   || 0) * W.social   +
-      (dimPct.identity || 0) * W.identity;
-
-    /* ── Step 3: apply curve  f(x) = 8 + 92 * x^1.2 → range [8, 100] ── */
-    var baseScore = window.applyCurve(compositeRaw);
-
-    /* ── Step 3b: under-18 / student score clamping
-       A child/teen cannot fairly be penalised for lacking assets, career,
-       or adult social standing. Clamp base score to [55, 70]. ── */
-    if (answers['A1'] === 0 || answers['A0'] === 0 || answers['QK1'] === 0 || answers['QK3'] === 0) {
-      baseScore = Math.max(55, Math.min(70, baseScore));
+    if (window.LSIntegration && window.LSEngine) {
+      try {
+        engineResult = window.LSIntegration.computeFromAnswers(answers);
+      } catch (e) {
+        if (console && console.error) console.error('[quiz] engine compute failed:', e);
+      }
     }
 
-    /* ── Step 4: add bonus points (0–50), hard cap at 150 ── */
-    var bonusScore = window.computeBonusScore(answerMap);
-    /* Restore original QUESTION_BANK */
-    window.QUESTION_BANK = _origBank;
-    var finalScore = Math.min(150, Math.round(baseScore + bonusScore));
+    if (engineResult) {
+      /* Engine path — map four dimensions → three display axes.
+         Engine now uses 150-point scale with baseline 60.
+         Scale each dimension to 0-100 for display (150 → 100%). */
+      var es = engineResult.scores;
 
-    /* dimPct for display: convert back to 0-100 percentages */
-    var dimPctDisplay = {};
-    Object.keys(dimPct).forEach(function(d) {
-      dimPctDisplay[d] = Math.round(window.applyCurve(dimPct[d]));
-    });
+      /* 150-point dimension → 0-100 display scale */
+      function scaleDim(raw) {
+        var pct = Math.max(0, Math.min(1, raw / 150));
+        return Math.round(pct * 100);
+      }
 
-    /* dimPctRaw: raw 0-100 percentages (before curve) for breakdown math */
-    var dimPctRaw = {};
-    Object.keys(dimPct).forEach(function(d) {
-      dimPctRaw[d] = Math.round(dimPct[d] * 100);
-    });
+      dimPctDisplay = {
+        basic:    scaleDim(es.health),
+        social:   scaleDim((es.wealth + es.social) / 2),
+        identity: scaleDim(es.mind),
+      };
+      dimPctRaw = {
+        basic:    scaleDim(es.health),
+        social:   scaleDim((es.wealth + es.social) / 2),
+        identity: scaleDim(es.mind),
+      };
+
+      /* Engine composite is already on 150-point scale.
+         No multiplication needed — use directly. */
+      var engineComposite = Math.max(0, Math.min(150, es.composite));
+      baseScore = Math.round(engineComposite);
+
+      /* Bonus questions are tallied here on the engine path too (the
+         engine processes dimension rules, not `bonus:true` questions).
+         computeBonusScore caps at 50 internally. */
+      bonusScore = window.computeBonusScore ? window.computeBonusScore(answerMap) : 0;
+
+      var rawFinal = Math.min(150, engineComposite + bonusScore);
+      finalScore = Math.round(rawFinal);
+      finalScorePrecise = Math.round(rawFinal * 1000) / 1000;
+
+      /* Student/youth clamp — adjusted for 150-point scale.
+         Minors get a safe range around the baseline (60). */
+      if (answers['QK1'] === 0 || answers['QK3'] === 0 ||
+          answers['A1'] === 0 || answers['A0'] === 0) {
+        finalScore = Math.max(55, Math.min(75, finalScore));
+        finalScorePrecise = finalScore;  // clamped values stay integers
+        baseScore = finalScore;
+        bonusScore = 0;  // youth clamp overrides bonus accrual
+      }
+    } else {
+      /* ── FALLBACK PATH ──
+         If the engine hasn't loaded (missing script tag, JS error,
+         etc.), fall back to the legacy scoring loop so the site
+         never hard-fails.  This branch is identical in behavior to
+         the pre-Phase-5 code. */
+      if (console && console.warn) {
+        console.warn('[quiz] engine not loaded, falling back to legacy scoring');
+      }
+      var dimPctLegacy = {};
+      Object.keys(dimRaw).forEach(function(d) {
+        dimPctLegacy[d] = dimMax[d] > 0 ? dimRaw[d] / dimMax[d] : 0.5;
+      });
+      var W = window.DIM_WEIGHTS;
+      var compositeRaw =
+        (dimPctLegacy.basic    || 0) * W.basic    +
+        (dimPctLegacy.social   || 0) * W.social   +
+        (dimPctLegacy.identity || 0) * W.identity;
+      baseScore = window.applyCurve(compositeRaw);
+      if (answers['A1'] === 0 || answers['A0'] === 0 || answers['QK1'] === 0 || answers['QK3'] === 0) {
+        baseScore = Math.max(55, Math.min(70, baseScore));
+      }
+      bonusScore = window.computeBonusScore(answerMap);
+      var rawFallback = Math.min(150, baseScore + bonusScore);
+      finalScore = Math.round(rawFallback);
+      finalScorePrecise = Math.round(rawFallback * 1000) / 1000;
+      if (finalScore < 0) { finalScore = 0; finalScorePrecise = 0; }
+
+      dimPctDisplay = {};
+      dimPctRaw = {};
+      Object.keys(dimPctLegacy).forEach(function(d) {
+        dimPctDisplay[d] = Math.round(window.applyCurve(dimPctLegacy[d]));
+        dimPctRaw[d] = Math.round(dimPctLegacy[d] * 100);
+      });
+    }
 
     try {
       localStorage.setItem('ls_last_score', finalScore);
-      var _dateLocale = {'zh-TW':'zh-TW','zh-CN':'zh-CN','en-US':'en-US','en-PH':'en-PH','es-US':'es-US'}[window.I18N_CURRENT] || 'en-US';
-      localStorage.setItem('ls_last_date', new Date().toLocaleDateString(_dateLocale));
+      localStorage.setItem('ls_last_date', new Date().toLocaleDateString(
+        window.I18N_CURRENT === 'zh-TW' ? 'zh-TW' : 'zh-CN'
+      ));
     } catch(e) {}
     var resultPayload = {
       finalScore:  finalScore,
+      finalScorePrecise: finalScorePrecise,
       baseScore:   Math.round(baseScore),
       bonusScore:  bonusScore,
       dimPct:      dimPctDisplay,
@@ -597,9 +912,119 @@
       }
     } catch(e) {}
 
-    document.body.style.transition = 'opacity .4s ease';
-    document.body.style.opacity    = '0';
-    setTimeout(function(){ window.location.href = 'result.html'; }, 420);
+    /* Build and inject loading overlay inside a try/catch — if anything
+       in the overlay DOM construction throws, we MUST still navigate to
+       result.html.  Payload is already persisted by this point. */
+    try {
+      document.body.style.transition = 'opacity .4s ease';
+      document.body.style.opacity    = '0';
+
+      /* Light frosted-glass loading overlay — inherits the site's
+         glassmorphism aesthetic (white tint + backdrop blur + sky-blue
+         accents) so it blends naturally into the quiz/result flow. */
+      var ov = document.createElement('div');
+      ov.id = 'quizLoadingOverlay';
+      ov.innerHTML =
+        '<div class="qloader-card">' +
+          '<div class="qloader-spinner">' +
+            '<svg width="56" height="56" viewBox="0 0 56 56" fill="none">' +
+              '<circle cx="28" cy="28" r="24" stroke="rgba(14,165,233,0.12)" stroke-width="4"/>' +
+              '<circle cx="28" cy="28" r="24" stroke="url(#qlG)" stroke-width="4" stroke-linecap="round" stroke-dasharray="105 150" style="animation:qlSpin 1s linear infinite;transform-origin:center">' +
+              '</circle>' +
+              '<defs>' +
+                '<linearGradient id="qlG" x1="0" y1="0" x2="56" y2="56">' +
+                  '<stop offset="0%" stop-color="#38bdf8"/>' +
+                  '<stop offset="100%" stop-color="#0284c7"/>' +
+                '</linearGradient>' +
+              '</defs>' +
+            '</svg>' +
+          '</div>' +
+          '<div class="qloader-title">' +
+            (lang === 'zh-TW' ? '正在生成你的評分報告…' : '正在生成你的评分报告…') +
+          '</div>' +
+          '<div class="qloader-sub">' +
+            (lang === 'zh-TW' ? '請稍候片刻' : '请稍候片刻') +
+          '</div>' +
+          '<div class="qloader-track">' +
+            '<div class="qloader-fill" id="qlBar"></div>' +
+          '</div>' +
+          '<div class="qloader-pct" id="qlPct">0%</div>' +
+        '</div>';
+
+      var st = document.createElement('style');
+      st.textContent =
+        '@keyframes qlSpin{to{transform:rotate(360deg)}}' +
+        '@keyframes qlShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}' +
+        '@keyframes qlFadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}' +
+        '#quizLoadingOverlay{' +
+          'position:fixed;inset:0;z-index:99999;' +
+          'display:flex;align-items:center;justify-content:center;' +
+          'background:rgba(240,249,255,0.55);' +
+          'backdrop-filter:blur(24px) saturate(180%);' +
+          '-webkit-backdrop-filter:blur(24px) saturate(180%);' +
+          'opacity:0;transition:opacity .4s ease;' +
+        '}' +
+        '#quizLoadingOverlay .qloader-card{' +
+          'text-align:center;padding:44px 40px;max-width:360px;width:88%;' +
+          'background:linear-gradient(135deg,rgba(255,255,255,0.85),rgba(255,255,255,0.65));' +
+          'backdrop-filter:blur(16px) saturate(180%);' +
+          '-webkit-backdrop-filter:blur(16px) saturate(180%);' +
+          'border:1.5px solid rgba(14,165,233,0.12);' +
+          'border-radius:24px;' +
+          'box-shadow:0 16px 50px rgba(14,165,233,0.18),0 2px 8px rgba(14,165,233,0.08);' +
+          'animation:qlFadeUp .5s cubic-bezier(.16,1,.3,1);' +
+        '}' +
+        '#quizLoadingOverlay .qloader-spinner{margin-bottom:24px;display:flex;justify-content:center}' +
+        '#quizLoadingOverlay .qloader-title{' +
+          'font-size:17px;font-weight:600;color:#0369a1;' +
+          'margin-bottom:6px;letter-spacing:.3px;' +
+        '}' +
+        '#quizLoadingOverlay .qloader-sub{' +
+          'font-size:13px;font-weight:400;color:#52525b;' +
+          'margin-bottom:22px;letter-spacing:.2px;' +
+        '}' +
+        '#quizLoadingOverlay .qloader-track{' +
+          'height:6px;background:rgba(14,165,233,0.1);' +
+          'border-radius:99px;overflow:hidden;margin-bottom:10px;' +
+        '}' +
+        '#quizLoadingOverlay .qloader-fill{' +
+          'height:100%;width:0%;border-radius:99px;' +
+          'background:linear-gradient(90deg,#7dd3fc,#38bdf8,#0284c7,#38bdf8,#7dd3fc);' +
+          'background-size:200% 100%;' +
+          'animation:qlShimmer 1.5s linear infinite;' +
+          'transition:width .35s cubic-bezier(.16,1,.3,1);' +
+          'box-shadow:0 0 12px rgba(56,189,248,0.5);' +
+        '}' +
+        '#quizLoadingOverlay .qloader-pct{' +
+          'font-size:12px;font-weight:600;color:#0284c7;' +
+          'letter-spacing:.5px;font-variant-numeric:tabular-nums;' +
+        '}';
+      document.head.appendChild(st);
+      document.body.appendChild(ov);
+
+      /* Fade-in */
+      setTimeout(function(){ ov.style.opacity = '1'; }, 50);
+
+      /* Progress bar animation — pct text updates alongside the fill.
+         Stages: 15% → 45% → 75% → 100% across ~1.1s total. */
+      var qlBar = document.getElementById('qlBar');
+      var qlPct = document.getElementById('qlPct');
+      function setProgress(p) {
+        if (qlBar) qlBar.style.width = p + '%';
+        if (qlPct) qlPct.textContent = p + '%';
+      }
+      setTimeout(function(){ setProgress(15);  }, 100);
+      setTimeout(function(){ setProgress(45);  }, 350);
+      setTimeout(function(){ setProgress(75);  }, 650);
+      setTimeout(function(){ setProgress(100); }, 1000);
+    } catch (overlayErr) {
+      if (console && console.warn) console.warn('[quiz] overlay render failed, navigating immediately', overlayErr);
+    }
+
+    /* Backup redirect — always navigate regardless of overlay success.
+       Scheduled AFTER overlay try/catch so the setTimeout is always
+       registered even if the overlay DOM code throws partway. */
+    setTimeout(function(){ window.location.href = 'result.html'; }, 1200);
   }
 
   /* ── i18n patch ── */
@@ -618,7 +1043,7 @@
       if (n >= 1 && n <= 7) {
         var qids = pages[currentPage] || [];
         for (var i = 0; i < qids.length; i++) {
-          if (!isAnswered(qids[i])) {
+          if (!isEffectivelyAnswered(qids[i])) {
             var q = getQ(qids[i]);
             if (q && n <= q.options.length) {
               if (q.multi) toggleMultiOption(qids[i], n - 1);
@@ -690,12 +1115,34 @@
       if (!isPageComplete(currentPage)) return;
       if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }
       var isLast  = currentPage === pages.length - 1;
-      var allDone = activeQueue.every(function(qid){ return isAnswered(qid); });
+      /* Mirror updateNav's definition: a qid only counts against allDone if
+         it actually lives on a rendered page. */
+      var pagedSet = {};
+      pages.forEach(function(pg){ (pg || []).forEach(function(id){ pagedSet[id] = true; }); });
+      var allDone = activeQueue.every(function(qid){
+        return pagedSet[qid] ? isEffectivelyAnswered(qid) : true;
+      });
       if (isLast && allDone) {
         submitQuiz();
       } else if (!isLast) {
         isReviewing = false;
         goToPage(currentPage + 1, 1, true);
+      } else if (isLast && !allDone) {
+        /* On last page but earlier questions unanswered — jump back to first unanswered */
+        for (var pi = 0; pi < pages.length; pi++) {
+          var incomplete = (pages[pi] || []).some(function(qid){ return !isEffectivelyAnswered(qid); });
+          if (incomplete) {
+            isReviewing = true;
+            goToPage(pi, pi < currentPage ? -1 : 1, false);
+            return;
+          }
+        }
+        /* If all pages complete but activeQueue has unanswered items, rebuild & submit */
+        rebuildQueue();
+        var stillMissing = activeQueue.some(function(qid){
+          return pagedSet[qid] && !isEffectivelyAnswered(qid);
+        });
+        if (!stillMissing) submitQuiz();
       }
     });
 

@@ -1,58 +1,78 @@
 /* result.js — comprehensive result display with fixed improve logic + share modal */
 (function(){
 'use strict';
-
-/* ── locale helper ── */
-function ql(cn, tw, en, es, ph) {
-  var l = window.I18N_CURRENT || 'zh-CN';
-  if (l === 'en-US') return en || cn;
-  if (l === 'en-PH') return ph || en || cn;
-  if (l === 'es-US') return es || en || cn;
-  if (l === 'zh-TW') return tw || cn;
-  return cn;
-}
 var CIRC = 2 * Math.PI * 90;
-var finalScore, dimPct, dimPctRaw, answerMap, activeQueue, resultLang, baseScore, bonusScore, quizMode;
+var finalScore, finalScorePrecise, dimPct, dimPctRaw, answerMap, activeQueue, resultLang, baseScore, bonusScore, quizMode;
 
-/* Helper: return the correct question bank based on quiz mode */
+/* Helper: return the unified question bank */
 function getBank(){
-  return (quizMode==='quick' && window.QUICK_QUESTION_BANK)
-    ? window.QUICK_QUESTION_BANK
-    : window.QUESTION_BANK;
+  return window.QUESTION_BANK;
 }
 
 function loadResult(){
-  /* 1. Prefer sessionStorage — set by quiz.js immediately after submission */
   try{ var r=sessionStorage.getItem('ls_result'); if(r) return JSON.parse(r); }catch(e){}
-  /* 2. Fall back to localStorage — survives tab close / direct URL navigation */
-  try{ var d=localStorage.getItem('ls_result_latest'); if(d) return JSON.parse(d); }catch(e){}
-  try{ var q=localStorage.getItem('ls_result_quick');  if(q) return JSON.parse(q); }catch(e){}
-  try{ var p=localStorage.getItem('ls_result_deep');   if(p) return JSON.parse(p); }catch(e){}
+  try{ var k1=localStorage.getItem('ls_result_latest'); if(k1) return JSON.parse(k1); }catch(e){}
+  try{ var k2=localStorage.getItem('ls_result_deep');   if(k2) return JSON.parse(k2); }catch(e){}
+  try{ var k3=localStorage.getItem('ls_result_quick');  if(k3) return JSON.parse(k3); }catch(e){}
   return null;
 }
 
+/**
+ * Grade thresholds for 150-point scale:
+ * SSS (≥140), SS (≥125), S (≥110), A (≥90), B (≥75), C (≥60), D (≥40), F (<40)
+ */
 function getVerdict(s){
-  if(s>110) return'exceptional';  /* bonus tier: >110 */
-  if(s>=90) return'excellent';
-  if(s>=70) return'high';
-  if(s>=50) return'mid';
-  if(s>=35) return'mid-low';
-  return'low';
-}
-function getRank(s){
-  /* For scores >110, extrapolate into top 1% */
-  if(s>110) return Math.max(1, Math.round(3 - (s-110)*0.05));
-  var t=(s-50)/20, sig=1/(1+Math.exp(-t)); return Math.round(sig*92+4);
+  if(s>=140) return'SSS';
+  if(s>=125) return'SS';
+  if(s>=110) return'S';
+  if(s>=90) return'A';
+  if(s>=75) return'B';
+  if(s>=60) return'C';
+  if(s>=40) return'D';
+  return'F';
 }
 
+/**
+ * Percentile rank for 150-point scale.
+ * Calibrated so: 60 (baseline) ≈ 50th percentile, 115 ≈ 90th, 140 ≈ 99th
+ */
+function getRank(s){
+  if(s>=140) return Math.max(1, Math.round(1 + (150-s)*0.1));
+  if(s>=110) return Math.round(1 + (140-s)*0.3);
+  // Sigmoid centered at 75 (midpoint between baseline 60 and target 90)
+  var t=(s-75)/25, sig=1/(1+Math.exp(-t));
+  return Math.max(1, Math.min(99, Math.round((1-sig)*90 + 5)));
+}
+
+
 /* ── Animate circle ── */
+function formatScorePrecise(v){
+  /* Format a float to 3 decimal places, but hide trailing zeros
+     so "60.000" displays as "60" and "60.500" as "60.5". Keeps
+     the UI clean while preserving the 3-decimal precision. */
+  if (typeof v !== 'number' || !isFinite(v)) return '0';
+  var s = v.toFixed(3);
+  // Strip trailing zeros after the decimal, then strip a trailing dot
+  s = s.replace(/\.?0+$/, '');
+  return s;
+}
+
 function animateCircle(){
   var rcFill=document.getElementById('rcFill'), rcScore=document.getElementById('rcScore');
   if(!rcFill||!rcScore) return;
   setTimeout(function(){ rcFill.style.strokeDashoffset=CIRC*(1-Math.min(finalScore,150)/150); },80);
   var dur=2000, t0=null;
   function step(ts){ if(!t0) t0=ts+350; if(ts<t0){ requestAnimationFrame(step); return; }
-    var p=Math.min((ts-t0)/dur,1), e=1-Math.pow(1-p,3); rcScore.textContent=Math.round(e*finalScore); if(p<1) requestAnimationFrame(step); }
+    var p=Math.min((ts-t0)/dur,1), e=1-Math.pow(1-p,3);
+    if (p < 1) {
+      /* During animation: round to integer for smooth count-up feel */
+      rcScore.textContent = Math.round(e * finalScore);
+      requestAnimationFrame(step);
+    } else {
+      /* Final frame: snap to the precise 3-decimal value */
+      rcScore.textContent = formatScorePrecise(finalScorePrecise);
+    }
+  }
   requestAnimationFrame(step);
 }
 
@@ -103,11 +123,7 @@ function computeProfessionalDims(){
   return out;
 }
 function tier(s,lang){
-  var t;
-  if(lang==='en-US'||lang==='en-PH') t=['Needs Work','Developing','Fair','Good','Excellent','Outstanding'];
-  else if(lang==='es-US') t=['Por mejorar','En desarrollo','Aceptable','Bueno','Excelente','Sobresaliente'];
-  else if(lang==='zh-TW') t=['待提升','發展中','尚可','良好','優秀','卓越'];
-  else t=['待提升','发展中','尚可','良好','优秀','卓越'];
+  var t=lang==='zh-TW'?['待提升','發展中','尚可','良好','優秀','卓越']:['待提升','发展中','尚可','良好','优秀','卓越'];
   if(s<17)return t[0]; if(s<34)return t[1]; if(s<50)return t[2]; if(s<67)return t[3]; if(s<84)return t[4]; return t[5];
 }
 function buildDims(lang){
@@ -116,7 +132,7 @@ function buildDims(lang){
     var score=dimPct&&dimPct[d.key]!=null?dimPct[d.key]:0;
     var row=document.createElement('div'); row.className='dim-row';
     row.innerHTML='<div class="dim-meta"><span class="dim-name"><span class="dim-icon">'+d.icon+'</span><span data-i18n="'+d.i18n+'">'+window.t(d.i18n)+'</span></span>'+
-      '<span class="dim-score-val" style="color:'+d.color+'">'+score+'<span class="dim-score-unit"> / 150</span></span></div>'+
+      '<span class="dim-score-val" style="color:'+d.color+'">'+score+'<span class="dim-score-unit"> / 100</span></span></div>'+
       '<div class="dim-track"><div class="dim-fill" data-pct="'+score+'" style="width:0;background:'+d.color+'"></div></div>'+
       '<div class="dim-tier-row"><span class="dim-tier-badge" style="color:'+d.color+';background:'+d.color+'18">'+tier(score,lang)+'</span>'+buildMini(score)+'</div>';
     c.appendChild(row);
@@ -132,9 +148,6 @@ function buildMini(score){
 function buildBreakdown(){
   var el=document.getElementById('scoreBreakdown'); if(!el) return;
   var lang=window.I18N_CURRENT||'zh-CN';
-  var _isEN=(lang==='en-US'||lang==='en-PH'||lang==='es-US');
-  var _bonusLabel=_isEN?(lang==='es-US'?'Puntos élite':'Bonus'):(lang==='zh-TW'?'加分題':'加分题');
-  var _totalLabel=_isEN?(lang==='es-US'?'Puntaje total':'Total Score'):(lang==='zh-TW'?'綜合分數':'综合分数');
   /* Compute raw weighted contributions and scale proportionally to baseScore
      so the displayed numbers always add up correctly */
   var rawContribs={}, rawTotal=0;
@@ -156,41 +169,36 @@ function buildBreakdown(){
   var bonusRow='';
   if(bonusScore>0){
     bonusRow='<div class="breakdown-row"><span class="br-icon">⭐</span>'+
-      '<span class="br-name">'+_bonusLabel+'</span>'+
+      '<span class="br-name">'+(lang==='zh-TW'?'加分題':'加分题')+'</span>'+
       '<span class="br-score"></span><span class="br-x"></span>'+
       '<span class="br-weight"></span><span class="br-eq"></span>'+
       '<span class="br-contrib">+'+bonusScore+'</span></div>';
   }
   el.innerHTML='<div class="breakdown-grid">'+rows+bonusRow+
-    '<div class="breakdown-total"><span>'+_totalLabel+'</span><span class="bt-score">'+finalScore+'</span></div></div>';
+    '<div class="breakdown-total"><span>'+(lang==='zh-TW'?'綜合分數':'综合分数')+'</span><span class="bt-score">'+formatScorePrecise(finalScorePrecise)+'</span></div></div>';
 }
 
 /* ── Highlights ── */
 var SECTION_COLORS={basic:'#7dd3fc',social:'#0ea5e9',identity:'#10b981'};
 function buildHighlights(lang){
   var c=document.getElementById('highlightRows'); if(!c||!answerMap) return; c.innerHTML='';
+  var AGE_IDS = new Set(['A1','QK1','QKD13','QKC6','QKB3','QKT5','QKT1']);
   var scored=[];
   getBank().forEach(function(q){
     if(!q.scorable||!answerMap[q.id]) return;
+    if(AGE_IDS.has(q.id)) return;
     var oi=answerMap[q.id].questionIdx, opt=q.options[oi];
     if(opt&&opt.score>=3) scored.push({q:q, score:opt.score, oi:oi, opt:opt});
   });
   scored.sort(function(a,b){ return b.score-a.score; });
   var top=scored.slice(0,4);
-  if(!top.length){ c.innerHTML='<div class="empty-note">'+(lang==='en-US'?'Keep going — your highlights are building up.':(lang==='es-US'?'¡Sigue adelante — tus fortalezas están creciendo!':(lang==='zh-TW'?'繼續努力，亮點正在積累中。':'继续努力，亮点正在积累中。')))+'</div>'; return; }
+  if(!top.length){ c.innerHTML='<div class="empty-note">'+(lang==='zh-TW'?'繼續努力，亮點正在積累中。':'继续努力，亮点正在积累中。')+'</div>'; return; }
   top.forEach(function(item){
     var row=document.createElement('div'); row.className='highlight-row';
-    var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
-    var oText;
-    if(lang==='en-US') oText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
-    else if(lang==='en-PH') oText=answerMap[item.q.id].optionText_ph||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
-    else if(lang==='es-US') oText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
-    else if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw;
-    else oText=answerMap[item.q.id].optionText_cn;
-    if(!oText) oText=answerMap[item.q.id].optionText_cn;
+    var qText=lang==='zh-TW'?item.q.tw:item.q.cn;
+    var oText=answerMap[item.q.id].optionText_cn; if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw;
     var mc=SECTION_COLORS[item.q.section]||'#7dd3fc';
-    var _scoreLabel=(lang==='en-US'||lang==='en-PH')?'pts':(lang==='es-US'?'pts':'分');
-    row.innerHTML='<div class="hl-score-dot" style="background:'+mc+'">'+item.score*25+'<small>'+_scoreLabel+'</small></div>'+
+    row.innerHTML='<div class="hl-score-dot" style="background:'+mc+'">'+item.score*25+'<small>分</small></div>'+
       '<div class="hl-content"><div class="hl-q">'+qText+'</div><div class="hl-a">'+oText+'</div></div>'+
       '<div class="hl-stars">'+starHtml(item.score)+'</div>';
     c.appendChild(row);
@@ -209,7 +217,7 @@ function buildHighlights(lang){
 ──────────────────────────────────────────────────────────────── */
 function buildImprovements(lang){
   var c=document.getElementById('improveRows'); if(!c||!answerMap) return; c.innerHTML='';
-  var UNCONTROLLABLE_IDS = new Set(['A1','A3h','A3hf','QK1','QK4m','QK4f','QK5m','QK5f','A4','QKC8']);
+  var UNCONTROLLABLE_IDS = new Set(['A1','A3h','A3hf','QK1','QK4m','QK4f','QK5m','QK5f','A4','QKC8','QKD13','QKC6','QKB3','QKT5','QKT1']);
 
   /* Advice texts — cn/tw pairs per question ID */
   var ADVICE={
@@ -217,14 +225,10 @@ function buildImprovements(lang){
     A3:{
       cn:'体型改善不靠意志力，靠系统。本周只做一件事：把每天的主食量减少1/4，并增加一次30分钟以上的快走。6周后重新评估。',
       tw:'體型改善不靠意志力，靠系統。本週只做一件事：把每天的主食量減少1/4，並增加一次30分鐘以上的快走。6週後重新評估。',
-      en:'Body composition improves through systems, not willpower. This week do one thing: reduce your main carb portions by 1/4 and add one 30-minute brisk walk. Reassess in 6 weeks.',
-      es:'La composición corporal mejora con sistemas, no con fuerza de voluntad. Esta semana haz una cosa: reduce tus porciones de carbohidratos principales en 1/4 y añade una caminata rápida de 30 minutos. Reevalúa en 6 semanas.',
     },
     A6:{
       cn:'提升学历不一定要全日制——在职研究生、行业认证（PMP/CPA/CFA等）投入产出比更高，且不耽误收入。先研究你行业的"含金量最高"证书。',
       tw:'提升學歷不一定要全日制——在職研究生、行業認證（PMP/CPA/CFA等）投入產出比更高，且不耽誤收入。先研究你行業的「含金量最高」證書。',
-      en:'Upgrading your credentials doesn\'t require going full-time. Part-time grad programs and industry certifications (PMP, CPA, CFA, AWS) have better ROI and don\'t interrupt income. Research the highest-value credential in your industry first.',
-      es:'Mejorar tus credenciales no requiere dedicación completa. Los programas de posgrado a tiempo parcial y las certificaciones de la industria (PMP, CPA, CFA, AWS) tienen mejor ROI y no interrumpen los ingresos.',
     },
     A8:{
       cn:'做一次全面体检，拿到基线数据。90%的早期慢性问题可以通过改善睡眠、饮食和运动在6个月内逆转，代价远低于日后治疗。',
@@ -315,8 +319,8 @@ function buildImprovements(lang){
       tw:'建立第二收入來源最快的方式：把你現有的技能變成可銷售的服務。找到5個可能付錢的潛在客戶，給他們發一個簡短的提案——哪怕只成功1個。',
     },
     B4b:{
-      cn:'应急储备的建立方式：从下月薪资日起，自动转走固定金额（哪怕 $50）到一个单独账户，命名为"紧急备用金"，设置无法随意取用的规则。',
-      tw:'應急儲備的建立方式：從下月薪資日起，自動轉走固定金額（哪怕 $50）到一個單獨帳戶，命名為「緊急備用金」，設置無法隨意取用的規則。',
+      cn:'应急储备的建立方式：从下月薪资日起，自动转走固定金额（哪怕500元）到一个单独账户，命名为"紧急备用金"，设置无法随意取用的规则。',
+      tw:'應急儲備的建立方式：從下月薪資日起，自動轉走固定金額（哪怕500元）到一個單獨帳戶，命名為「緊急備用金」，設置無法隨意取用的規則。',
     },
     B4c:{
       cn:'有多种负债时，用"雪球法"：先还利率最高的（信用卡>消费贷>房贷），每还清一项，把那笔钱全部加速还下一项。这是数学上最快的方式。',
@@ -496,37 +500,37 @@ function buildImprovements(lang){
     while(nextOi<maxOi && q.options[nextOi].score===q.options[oi].score) nextOi++;
     var nextOpt=q.options[nextOi];
     if(!nextOpt) return null;
-    var nextText=window.qlang?window.qlang(nextOpt):(lang==='zh-TW'?nextOpt.tw:nextOpt.cn);
+    var nextText=lang==='zh-TW'?nextOpt.tw:nextOpt.cn;
 
     /* 每档专属建议 */
     var adviceMap={
       0:{cn:'第一步是止血：清点所有负债，按利率排序，优先偿还信用卡和消费贷。暂缓任何投资，先建立1个月的最低应急储备。',
-         tw:'第一步是止血：清點所有負債，按利率排序，優先償還信用卡和消費貸。暫緩任何投資，先建立1個月的最低應急儲備。', en:'Step one: stop the bleeding. List every debt, sort by interest rate, and pay off credit cards and personal loans first. Pause investing. Build just one month of emergency reserves first.', es:'Paso uno: detener el sangrado. Lista todas las deudas, ordénalas por tasa de interés y paga primero las tarjetas de crédito y préstamos personales. Pausa las inversiones. Construye primero una reserva de emergencia de un mes.'},
+         tw:'第一步是止血：清點所有負債，按利率排序，優先償還信用卡和消費貸。暫緩任何投資，先建立1個月的最低應急儲備。'},
       1:{cn:'从0到有：本月建立"先存后花"反射——发薪后立即转走10%（哪怕100元）到独立账户，命名为"未来基金"，不动它。',
-         tw:'從0到有：本月建立「先存後花」反射——發薪後立即轉走10%（哪怕100元）到獨立帳戶，命名為「未來基金」，不動它。', en:'Zero to something: this month, set up auto-transfer — move 10% of your paycheck into a separate account labeled \'Future Fund\' the moment it hits. The habit matters more than the amount.', es:'De cero a algo: este mes, configura una transferencia automática — mueve el 10% de tu cheque a una cuenta separada llamada \'Fondo Futuro\' en cuanto llegue. El hábito importa más que la cantidad.'},
+         tw:'從0到有：本月建立「先存後花」反射——發薪後立即轉走10%（哪怕100元）到獨立帳戶，命名為「未來基金」，不動它。'},
       2:{cn:'积累早期的关键是提高储蓄率，而非投资收益率。目标：把每月结余提高到收入的15%以上，同时消除最主要的1项不必要支出。',
-         tw:'積累早期的關鍵是提高儲蓄率，而非投資收益率。目標：把每月結餘提高到收入的15%以上，同時消除最主要的1項不必要支出。', en:'In the early accumulation phase, savings rate matters more than investment returns. Goal: push your monthly surplus above 15% of income while eliminating your biggest unnecessary expense.', es:'En la fase de acumulación temprana, la tasa de ahorro importa más que el rendimiento de la inversión. Meta: lleva tu excedente mensual por encima del 15% de tus ingresos mientras eliminas tu mayor gasto innecesario.'},
+         tw:'積累早期的關鍵是提高儲蓄率，而非投資收益率。目標：把每月結餘提高到收入的15%以上，同時消除最主要的1項不必要支出。'},
       3:{cn:'到1万元后，建立应急储备（3个月生活费放货币基金），余量开始定投宽基指数基金，门槛低、长期稳健。',
-         tw:'到1萬元後，建立應急儲備（3個月生活費放貨幣基金），餘量開始定投寬基指數基金，門檻低、長期穩健。', en:'Once you reach $2,000–$5,000: build an emergency fund (3 months of expenses in a high-yield savings account), then start auto-investing the rest into a low-cost index fund.', es:'Una vez que alcances $2,000–$5,000: construye un fondo de emergencia (3 meses de gastos en una cuenta de ahorros de alto rendimiento), luego comienza a invertir automáticamente el resto en un fondo índice de bajo costo.'},
-      4:{cn:'2万到10万阶段：应急储备到位后，考虑增加储蓄率到20%+。同时了解你可用的税优账户（401k/Roth IRA 等）。',
-         tw:'2萬到10萬階段：應急儲備到位後，考慮增加儲蓄率到20%+。同時了解你可用的稅優帳戶（個人養老金等）。', en:'$5K–$20K phase: once your emergency fund is solid, increase savings rate to 20%+. Maximize your 401(k) match and explore opening a Roth IRA.', es:'Fase de $5K–$20K: una vez que tu fondo de emergencia esté sólido, aumenta la tasa de ahorro al 20%+. Maximiza tu aportación con match del 401(k) y considera abrir un Roth IRA.'},
+         tw:'到1萬元後，建立應急儲備（3個月生活費放貨幣基金），餘量開始定投寬基指數基金，門檻低、長期穩健。'},
+      4:{cn:'2万到10万阶段：应急储备到位后，考虑增加储蓄率到20%+。同时了解你可用的税优账户（个人养老金等）。',
+         tw:'2萬到10萬階段：應急儲備到位後，考慮增加儲蓄率到20%+。同時了解你可用的稅優帳戶（個人養老金等）。'},
       5:{cn:'10万到25万：这个阶段可以开始考虑资产配置——货币基金应急+股票型基金长期增值+保险保障。不要把所有钱放在一个篮子里。',
-         tw:'10萬到25萬：這個階段可以開始考慮資產配置——貨幣基金應急+股票型基金長期增值+保險保障。不要把所有錢放在一個籃子裡。', en:'$20K–$50K: start thinking about asset allocation — HYSA for emergencies + broad index funds for long-term growth + term life and disability insurance for protection. Don\'t put all eggs in one basket.', es:'De $20K a $50K: empieza a pensar en asignación de activos — HYSA para emergencias + fondos índice amplios para crecimiento a largo plazo + seguro de vida a término y por discapacidad. No pongas todos los huevos en una canasta.'},
+         tw:'10萬到25萬：這個階段可以開始考慮資產配置——貨幣基金應急+股票型基金長期增值+保險保障。不要把所有錢放在一個籃子裡。'},
       6:{cn:'25万到50万：评估房产是否在你的计划中。如果是，计算距目标首付还需多少月并制定计划；如果不是，开始建立正式的投资组合框架。',
-         tw:'25萬到50萬：評估房產是否在你的計劃中。如果是，計算距目標首付還需多少月並制定計劃；如果不是，開始建立正式的投資組合框架。', en:'$50K–$150K: evaluate whether homeownership fits your timeline. If yes, calculate how many months to your down payment and build a savings plan. If not, build your formal investment portfolio framework.', es:'De $50K a $150K: evalúa si la compra de casa encaja en tu cronograma. Si es así, calcula cuántos meses faltan para tu pago inicial. Si no, construye tu marco formal de cartera de inversiones.'},
+         tw:'25萬到50萬：評估房產是否在你的計劃中。如果是，計算距目標首付還需多少月並制定計劃；如果不是，開始建立正式的投資組合框架。'},
       7:{cn:'50万到100万：购买足额寿险和重疾险，保护已有积累不被意外医疗清零。同时评估资产结构：现金/基金/房产的比例是否合理？',
-         tw:'50萬到100萬：購買足額壽險和重疾險，保護已有積累不被意外醫療清零。同時評估資產結構：現金/基金/房產的比例是否合理？', en:'$150K–$300K: buy adequate term life and disability insurance to protect your accumulated wealth from being wiped out by a medical event. Review your asset mix: cash / index funds / real estate — is the ratio right?', es:'De $150K a $300K: compra seguro de vida a término y por discapacidad adecuados para proteger tu patrimonio acumulado de un evento médico. Revisa tu mezcla de activos: efectivo / fondos índice / bienes raíces — ¿es la proporción correcta?'},
+         tw:'50萬到100萬：購買足額壽險和重疾險，保護已有積累不被意外醫療清零。同時評估資產結構：現金/基金/房產的比例是否合理？'},
       8:{cn:'100万到500万：这是从"储蓄型"向"配置型"转变的关键节点。考虑引入专业理财规划，了解股权类资产和固收资产的平衡配比。',
-         tw:'100萬到500萬：這是從「儲蓄型」向「配置型」轉變的關鍵節點。考慮引入專業理財規劃，了解股權類資產和固收資產的平衡配比。', en:'$300K–$1M: this is the pivot from \'saver\' to \'investor\'. Consider working with a fee-only financial planner. Understand the balance between equity assets and fixed income at your stage.', es:'De $300K a $1M: este es el pivote de \'ahorrador\' a \'inversionista\'. Considera trabajar con un planificador financiero de solo honorarios. Entiende el equilibrio entre activos de renta variable y renta fija en tu etapa.'},
+         tw:'100萬到500萬：這是從「儲蓄型」向「配置型」轉變的關鍵節點。考慮引入專業理財規劃，了解股權類資產和固收資產的平衡配比。'},
       9:{cn:'500万到1000万：税务规划开始变得重要。了解个人持有与公司架构在税负上的差异；同时确保流动资产占比不低于净资产的20%。',
-         tw:'500萬到1000萬：稅務規劃開始變得重要。了解個人持有與公司架構在稅負上的差異；同時確保流動資產佔比不低於淨資產的20%。', en:'$1M–$3M: tax planning becomes critical. Understand the differences between personal holdings and LLC/trust structures. Ensure liquid assets represent at least 20% of your net worth.', es:'De $1M a $3M: la planificación fiscal se vuelve crítica. Entiende las diferencias entre tenencias personales y estructuras LLC/fideicomiso. Asegúrate de que los activos líquidos representen al menos el 20% de tu patrimonio neto.'},
+         tw:'500萬到1000萬：稅務規劃開始變得重要。了解個人持有與公司架構在稅負上的差異；同時確保流動資產佔比不低於淨資產的20%。'},
       10:{cn:'1000万到1亿：在这个量级，财富最大的威胁是"失去"而非"不够多"——税务、法律、健康、家庭变故。建立完整的家族财富保护框架。',
-          tw:'1000萬到1億：在這個量級，財富最大的威脅是「失去」而非「不夠多」——稅務、法律、健康、家庭變故。建立完整的家族財富保護框架。', en:'$3M+: at this scale, wealth\'s biggest threat is loss, not insufficient growth — taxes, legal exposure, health crises, family changes. Build a comprehensive wealth protection framework.', es:'Más de $3M: a esta escala, la mayor amenaza para la riqueza es la pérdida, no el crecimiento insuficiente — impuestos, exposición legal, crisis de salud, cambios familiares. Construye un marco integral de protección del patrimonio.'},
+          tw:'1000萬到1億：在這個量級，財富最大的威脅是「失去」而非「不夠多」——稅務、法律、健康、家庭變故。建立完整的家族財富保護框架。'},
     };
     var advice=adviceMap[oi];
     return {
       nextText: nextText,
-      advice: advice ? (lang==='en-US'?(advice.en||advice.cn):(lang==='en-PH'?(advice.ph||advice.en||advice.cn):(lang==='es-US'?(advice.es||advice.en||advice.cn):(lang==='zh-TW'?advice.tw:advice.cn)))) : null,
+      advice: advice ? (lang==='zh-TW'?advice.tw:advice.cn) : null,
     };
   }
 
@@ -543,20 +547,13 @@ function buildImprovements(lang){
   }
 
   function fallbackAdviceByOption(item){
-    var am=answerMap[item.q.id];
-    var txt;
-    if(lang==='en-US') txt=(am&&am.optionText_en)||item.opt.en||item.opt.cn||'';
-    else if(lang==='en-PH') txt=(am&&am.optionText_ph)||(am&&am.optionText_en)||item.opt.ph||item.opt.en||item.opt.cn||'';
-    else if(lang==='es-US') txt=(am&&am.optionText_es)||(am&&am.optionText_en)||item.opt.es||item.opt.en||item.opt.cn||'';
-    else if(lang==='zh-TW') txt=(am&&am.optionText_tw)||item.opt.tw||'';
-    else txt=(am&&am.optionText_cn)||item.opt.cn||'';
+    var txt=(lang==='zh-TW'
+      ? (answerMap[item.q.id].optionText_tw||item.opt.tw||'')
+      : (answerMap[item.q.id].optionText_cn||item.opt.cn||''));
     if(!txt) return '';
-    if(lang==='en-US') return 'Quick win: You answered "'+txt+'". Pick one small actionable step, commit to it for 14 days, then decide your next move.';
-    if(lang==='en-PH') return 'Quick action: You answered "'+txt+'". Choose one actionable step and commit to it for 14 days straight — then decide your next move.';
-    if(lang==='es-US') return 'Accion rapida: Respondiste "'+txt+'". Elige un paso ejecutable y comprometete 14 dias seguidos - luego decide tu proximo movimiento.';
-    return lang==='zh-TW'
-      ? '建議實作：你目前選擇「'+txt+'」。先從可執行的小步驟開始，連續實踐１４天並記錄變化，再決定下一步加碼。'
-      : '建议实操：你当前选择“'+txt+'”。先从一个可执行的小步骤开始，连续实践１４天并记录变化，再决定下一步加码。';
+    return (lang==='zh-TW'
+      ? ('建議實作：你目前選擇「'+txt+'」。先從可執行的小步驟開始，連續實踐14天並記錄變化，再決定下一步加碼。')
+      : ('建议实操：你当前选择“'+txt+'”。先从一个可执行的小步骤开始，连续实践14天并记录变化，再决定下一步加码。'));
   }
 
   var low=[];
@@ -570,6 +567,7 @@ function buildImprovements(lang){
     var gap, nextText, advText;
 
     if(q.id==='B4'){
+      /* B4 handled by specialist function */
       var b4r=getB4NextStep(oi, lang||window.I18N_CURRENT||'zh-CN');
       if(!b4r) return;
       gap=1; nextText=b4r.nextText; advText=b4r.advice;
@@ -579,44 +577,31 @@ function buildImprovements(lang){
       if(!next.opt) return;
       gap=next.score-(opt.score||0);
       if(gap<1) return;
-      if(lang==='en-US') nextText=next.opt.en||next.opt.cn;
-      else if(lang==='en-PH') nextText=next.opt.ph||next.opt.en||next.opt.cn;
-      else if(lang==='es-US') nextText=next.opt.es||next.opt.en||next.opt.cn;
-      else if(lang==='zh-TW') nextText=next.opt.tw||next.opt.cn;
-      else nextText=next.opt.cn;
-      var advObj=ADVICE[q.id] || (window.QUICK_IMPROVE_ADVICE && window.QUICK_IMPROVE_ADVICE[q.id]);
-      if(advObj){
-        if(lang==='en-US') advText=advObj.en||advObj.cn;
-        else if(lang==='en-PH') advText=advObj.ph||advObj.en||advObj.cn;
-        else if(lang==='es-US') advText=advObj.es||advObj.en||advObj.cn;
-        else if(lang==='zh-TW') advText=advObj.tw||advObj.cn;
-        else advText=advObj.cn;
-      } else { advText=fallbackAdviceByOption({q:q,opt:opt}); }
+      nextText=lang==='zh-TW'?next.opt.tw:next.opt.cn;
+      var advObj=ADVICE[q.id] || (window.IMPROVE_ADVICE && window.IMPROVE_ADVICE[q.id]);
+      advText=advObj?(lang==='zh-TW'?(advObj.tw||advObj.cn):advObj.cn):fallbackAdviceByOption({q:q,opt:opt});
       low.push({q:q,oi:oi,opt:opt,nextText:nextText,gap:gap,advText:advText,score:(opt.score||0)});
     }
   });
+
   low.sort(function(a,b){ return b.gap-a.gap; });
   var worst=low.slice(0,5);
 
   if(!worst.length){
-    c.innerHTML='<div class="empty-note">'+(lang==='en-US'||lang==='en-PH'?'All areas are balanced — no obvious weak spots.':(lang==='es-US'?'Todas las áreas están equilibradas — sin puntos débiles evidentes.':(lang==='zh-TW'?'各項表現均衡，沒有明顯短板。':'各项表现均衡，没有明显短板。')))+'</div>';
+    c.innerHTML='<div class="empty-note">'+(lang==='zh-TW'?'各項表現均衡，沒有明顯短板。':'各项表现均衡，没有明显短板。')+'</div>';
     return;
   }
   worst.forEach(function(item){
     var row=document.createElement('div'); row.className='improve-row';
-    var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
-    var curText;
-    if(lang==='en-US') curText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
-    else if(lang==='en-PH') curText=answerMap[item.q.id].optionText_ph||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
-    else if(lang==='es-US') curText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn;
-    else if(lang==='zh-TW') curText=answerMap[item.q.id].optionText_tw||item.opt.tw;
-    else curText=answerMap[item.q.id].optionText_cn||item.opt.cn;
-    var _curLabel=(lang==='en-US'||lang==='en-PH')?'Your answer: ':(lang==='es-US'?'Tu respuesta: ':(lang==='zh-TW'?'你的回答：':'你的回答：'));
+    var qText=lang==='zh-TW'?item.q.tw:item.q.cn;
+    var curText=lang==='zh-TW'
+      ?(answerMap[item.q.id].optionText_tw||item.opt.tw)
+      :(answerMap[item.q.id].optionText_cn||item.opt.cn);
     row.innerHTML=
       '<div class="imp-gap">↑'+item.gap+'</div>'+
       '<div class="imp-content">'+
         '<div class="imp-q">'+qText+'</div>'+
-        '<div class="imp-current"><span class="imp-label">'+_curLabel+'</span>'+curText+'</div>'+
+        '<div class="imp-current"><span class="imp-label">'+(lang==='zh-TW'?'現況：':'现况：')+'</span>'+curText+'</div>'+
         (item.advText?'<div class="imp-advice">'+item.advText+'</div>':'')+
       '</div>';
     c.appendChild(row);
@@ -645,30 +630,6 @@ var TIPS={
     high:'你的評分相當出色，已走在大多數人的前面。\n\n① 戰略聚焦 — 砍掉低價值承諾，把精力集中在最高槓桿的事情上。\n② 影響力建設 — 開始思考如何將經驗系統化傳遞。\n③ 長期思維 — 制定10年願景。\n④ 內在深度 — 探索價值觀和人生意義。\n\n你已經很好了。接下來的問題是：你想成為什麼樣的人。',
     excellent:'你處於頂尖水平，這是極少數人才能達到的狀態。\n\n① 使命層面的思考 — 你的人生目標是否足夠大？\n② 傳承與影響 — 將知識、經驗以系統化方式傳遞給他人。\n③ 預防退化 — 持續謙遜，持續更新認知。\n④ 深度休息 — 確保有真正的假期和內心平靜。\n\n你的存在本身，就是對周圍人最好的激勵。',
     exceptional:'你的得分超過了100分，進入加分獎勵區間。這意味著你不僅在所有常規維度出色，還在頂尖教育、專業成就、創業影響力或競技藝術中擁有可被外部驗證的卓越資歷。\n\n你面臨的挑戰不再是「如何提升」，而是「如何選擇」：把你最稀缺的時間和精力，配置在能讓獨特優勢產生最大正向影響的事情上。',
-  },
-  'en-US':{
-    low:"Your LifeScore is in the starting-out range — and that's a launchpad, not a ceiling. Three priorities worth tackling now:\n\n① Build your foundation — consistent sleep and moving your body 3 times a week will raise every other score. These aren't optional extras, they're the infrastructure.\n② Get clear on direction — spend one afternoon writing out what your life looks like in 5 years. Specific scenes, not vague wishes. Your brain commits to what it can visualize.\n③ Reconnect with one key person — reach out to someone you respect but haven't talked to in over 6 months. Real relationships are compounding assets.\n\nA 1% improvement each day adds up to 37× growth in a year.",
-    'mid-low':"You've built a real foundation, but some important areas have been on the back burner. Time to address them:\n\n① Name your biggest gap — look at your \"Room to Grow\" section and pick the single item you're most capable of changing right now.\n② Design your environment — don't rely on willpower alone. Put your phone across the room at night, schedule workouts like meetings.\n③ Invest in relationships — reach out deeply to 3 people per month. Quality beats quantity every time.\n\nThe gap between you today and you in 6 months of focused effort is larger than you think.",
-    mid:"You're solid — above average in most areas. But \"steady\" can quietly become \"stagnant.\" Time to level up:\n\n① Double down on your strongest dimension — turn your best area into a true competitive edge with a 90-day external milestone.\n② Push past your comfort zone — sign up for something slightly beyond your current ability (public speaking, a new skill, a race).\n③ Get a raise or make a move — if your income has been flat for over a year, that's a signal. Research your market rate and negotiate or explore new options.\n④ Build a public presence — write one post or article per week in your field. Six months of consistency creates real visibility.\n\nYou're one real leveling-up decision away from \"Outstanding.\"",
-    high:"You're already ahead of most people. The next phase isn't about doing more — it's about doing better.\n\n① Cut low-value commitments — audit every obligation and eliminate anything that won't matter in 3 years. Protect your time ruthlessly.\n② Start multiplying your impact — you're capable of influencing others now. Think about how to systematically share your experience and knowledge.\n③ Build a 10-year vision — not just annual goals. People who operate on longer time horizons make fundamentally different decisions.\n④ Invest in your inner life — achievement and fulfillment aren't the same thing. Explore what actually makes you feel alive beyond the scoreboard.\n\nYou're good. The question now: what kind of person do you want to be, and what will you leave behind?",
-    excellent:"You're in rare territory. Standard advice doesn't apply here. What's actually useful:\n\n① Think at the mission level — is your life goal big enough? Are you working on something larger than yourself?\n② Systematize your knowledge — the frameworks and judgment you've built have enormous value to others. Write them down, teach them, pass them on.\n③ Guard against complacency — the biggest risk at high achievement is pride and the slow death of curiosity. Stay genuinely humble. Keep learning hard things.\n④ Protect deep rest — real vacations and genuine mental stillness are the fuel for sustained excellence. Don't optimize them away.\n\nYour existence itself is an inspiration to the people around you.",
-    exceptional:"You've scored over 100 — entering the elite bonus tier. This means you've not only excelled across all standard dimensions, but also hold externally verifiable credentials in elite education, professional achievement, entrepreneurial impact, or competitive excellence.\n\nYour challenge is no longer \"how to improve\" — it's \"how to choose.\" Your time and focus are your scarcest resources. The right question: which allocation of your unique advantages creates the greatest positive impact?\n\nConsider writing your \"life legacy list\" — if today were your last working day, what have you already left the world? Make that answer the strategic core of your next 3 years.",
-  },
-  'en-PH':{
-    low:"Your LifeScore is in the starting-out range — and in the Philippines, that starting line is not the same for everyone. Acknowledge what you're working with, then move:\n\n① Fix your foundation first — consistent sleep and basic movement 3× a week will raise every other score. These cost nothing.\n② Get clear on direction — not a vague wish list, but one concrete scene: where are you, what are you doing, who is beside you in 5 years? Write it down.\n③ Reconnect with one person who believes in you — your barkada, a mentor, a respected ate or kuya. Real relationships are compounding assets.\n④ Start saving anything — even ₱100/week into a separate account. The habit of saving matters more than the amount right now.\n\nA 1% improvement each day adds up to 37× growth in a year. Kaya mo ito.",
-    'mid-low':"You've built something real, but some important areas have been set aside. Time to address them:\n\n① Name your biggest gap — look at your \"Room to Grow\" section. Pick the one item you are most capable of changing right now.\n② Design your environment, not your willpower — put your phone across the room at night; schedule workouts like work shifts.\n③ Sort out your finances — if you're living paycheck to paycheck, the single highest-return action is tracking every peso for one month. What you measure, you can manage.\n④ Invest in relationships — reach out deeply to 3 people this month. Quality beats quantity every time.\n\nThe gap between you today and you in 6 months of focused effort is larger than you think.",
-    mid:"You're solid — above average in most areas. But 'stable' can quietly become 'stagnant.' Time to level up:\n\n① Double down on your strongest skill — turn your best area into a real competitive edge. Set one 90-day external milestone.\n② Push past your comfort zone — sign up for something slightly beyond your current ability (a public speaking club, a new certification, a half-marathon).\n③ Sort out your income trajectory — if your salary or livelihood has been flat for over a year, that's a signal. BPO, freelancing online, or starting a small business are live options right now in the PH.\n④ Build a visible presence — post one clear, useful insight per week in your field. Six months of consistency creates real visibility.\n\nYou're one genuine leveling-up decision away from 'Outstanding.'",
-    high:"You're already ahead of most people — and you've likely worked hard in a context that doesn't make it easy. The next phase isn't about doing more. It's about doing better:\n\n① Cut low-value commitments — audit every obligation and eliminate anything that won't matter in 3 years. Your time is your scarcest resource.\n② Start multiplying your impact — you're at the stage where you can lift others. Think about one person you can mentor or help meaningfully this year.\n③ Build a 10-year vision — not just annual targets. People who operate on longer time horizons make fundamentally different decisions.\n④ Invest in your inner life — achievement and fulfillment aren't the same thing. Explore what actually makes you feel alive beyond the scoreboard.\n\nYou're doing well. The question now: what kind of person do you want to be, and what will you leave behind?",
-    excellent:"You're in rare territory — and in the Philippine context, this is especially meaningful given the structural headwinds many people here face. Standard advice doesn't apply at your level:\n\n① Think at the mission level — is your life goal big enough? Are you working on something larger than yourself?\n② Systematize your knowledge — the frameworks and judgment you've built have enormous value to others. Write them down, teach them, pass them on.\n③ Guard against complacency — the biggest risk at high achievement is pride and the slow death of curiosity. Stay genuinely humble. Keep learning hard things.\n④ Protect deep rest — real disconnection and mental stillness are the fuel for sustained excellence. Don't optimize them away.\n\nYour existence itself is an inspiration. Ipagpatuloy mo.",
-    exceptional:"You've scored over 100 — entering the elite bonus tier. This means you've not only excelled across all standard dimensions, but also hold externally verifiable credentials in elite education, professional achievement, entrepreneurial impact, or competitive excellence.\n\nYour challenge is no longer 'how to improve' — it's 'how to choose.' Your time and focus are your scarcest resources. The right question: which allocation of your unique advantages creates the greatest positive impact — for you, your family, and the people you can reach?\n\nWrite your 'legacy list' — if today were your last working day, what have you already left the world? Make that answer the strategic core of your next 3 years.",
-  },
-  'es-US':{
-    low:"Tu LifeScore está en la etapa de inicio — y eso es un punto de partida, no un techo. Tres prioridades para atacar ahora:\n\n① Construye tu base — dormir bien y moverte 3 veces por semana eleva todos los demás puntajes. No son extras opcionales, son la infraestructura.\n② Clarifica tu dirección — dedica una tarde a escribir cómo luce tu vida en 5 años. Escenas concretas, no deseos vagos. Tu cerebro se compromete con lo que puede visualizar.\n③ Reconecta con alguien importante — escríbele a alguien que respetas pero con quien no has hablado en más de 6 meses. Las relaciones reales son activos que se capitalizan.\n\nUna mejora del 1% diario equivale a 37 veces de crecimiento en un año.",
-    'mid-low':"Ya tienes una base sólida, pero algunas áreas importantes han estado en espera. Es hora de atenderlas:\n\n① Identifica tu mayor brecha — mira la sección \"Áreas de mejora\" y elige el ítem que más puedes cambiar ahora mismo.\n② Diseña tu entorno — no dependas solo de la fuerza de voluntad. Pon el teléfono lejos por las noches, agenda los entrenamientos como reuniones.\n③ Invierte en relaciones — conéctate profundamente con 3 personas al mes. La calidad supera la cantidad siempre.\n\nLa diferencia entre tú hoy y tú en 6 meses de esfuerzo enfocado es mayor de lo que crees.",
-    mid:"Estás sólido — por encima del promedio en la mayoría de áreas. Pero \"estable\" puede convertirse en \"estancado.\" Momento de subir de nivel:\n\n① Duplica tu dimensión más fuerte — convierte tu mejor área en una ventaja competitiva real con un hito medible en 90 días.\n② Sal de tu zona de confort — inscríbete en algo ligeramente por encima de tu nivel actual (hablar en público, una nueva habilidad, una carrera).\n③ Consigue un aumento o muévete — si tu ingreso ha estado plano más de un año, eso es una señal. Investiga tu valor de mercado y negocia o explora nuevas opciones.\n④ Construye presencia pública — escribe una publicación por semana en tu área. Seis meses de consistencia crean visibilidad real.\n\nEstás a una decisión seria de pasar a \"Sobresaliente.\"",
-    high:"Ya estás por delante de la mayoría. La siguiente fase no es hacer más — es hacer mejor.\n\n① Corta compromisos de bajo valor — audita cada obligación y elimina lo que no importará en 3 años. Protege tu tiempo con determinación.\n② Empieza a multiplicar tu impacto — ya puedes influir en otros. Piensa cómo compartir tu experiencia y conocimiento de forma sistemática.\n③ Construye una visión a 10 años — no solo metas anuales. Quienes operan en horizontes más largos toman decisiones fundamentalmente diferentes.\n④ Invierte en tu vida interior — logros y plenitud no son lo mismo. Explora qué te hace sentir vivo más allá del marcador.\n\nEstás bien. La pregunta ahora: ¿qué tipo de persona quieres ser y qué dejarás atrás?",
-    excellent:"Estás en territorio poco frecuente. Los consejos estándar no aplican aquí. Lo que realmente es útil:\n\n① Piensa a nivel de misión — ¿tu objetivo de vida es suficientemente grande? ¿Estás trabajando en algo más grande que tú mismo?\n② Sistematiza tu conocimiento — los marcos y el juicio que has desarrollado tienen enorme valor para otros. Escríbelos, enséñalos, transfiérelos.\n③ Guárdate de la complacencia — el mayor riesgo en el alto rendimiento es el orgullo y la muerte lenta de la curiosidad. Mantente genuinamente humilde. Sigue aprendiendo cosas difíciles.\n④ Protege el descanso profundo — las vacaciones reales y la calma mental son el combustible de la excelencia sostenida.\n\nTu existencia misma es una inspiración para quienes te rodean.",
-    exceptional:"Has superado los 100 puntos — entrando al nivel élite de bonificación. Esto significa que no solo destacas en todas las dimensiones estándar, sino que también tienes credenciales verificables en educación de élite, logros profesionales, impacto emprendedor o excelencia competitiva.\n\nTu desafío ya no es \"cómo mejorar\" — es \"cómo elegir.\" Tu tiempo y enfoque son tus recursos más escasos. La pregunta correcta: ¿qué asignación de tus ventajas únicas crea el mayor impacto positivo?\n\nConsidera escribir tu \"lista de legado\" — si hoy fuera tu último día de trabajo, ¿qué has dejado ya al mundo? Haz que esa respuesta sea el núcleo estratégico de tus próximos 3 años.",
   },
 };
 
@@ -703,11 +664,11 @@ var ACTION_PLANS={
       {icon:'🎯', title:'锁定你的核心优势并放大',
        desc:'从你得分最高的维度中，找出你最强的1项能力，设定一个90天内可被外部验证的里程碑（比如完成一个项目、发表一篇专业文章、获得一个认证）。优势叠加优势，才能形成真正的差异化竞争力。'},
       {icon:'💼', title:'主动谈薪或跳槽',
-       desc:'研究你所在行业和城市的薪资分位数（可用LinkedIn Salary / Glassdoor / Levels.fyi 查询），如果你低于中位数，制定一个3个月计划：更新简历、建立目标公司清单、开始面试。不要等涨薪——主动出击的人平均薪资增幅是被动等待者的3倍。'},
+       desc:'研究你所在行业和城市的薪资分位数（可用BOSS直聘/猎聘查询），如果你低于中位数，制定一个3个月计划：更新简历、建立目标公司清单、开始面试。不要等涨薪——主动出击的人平均薪资增幅是被动等待者的3倍。'},
       {icon:'✍️', title:'开始持续内容输出',
-       desc:'在LinkedIn、Medium 或 Substack选一个平台，每周发布1篇你的专业思考或行业洞察。不需要完美，需要持续。6个月后你会有一个真实可见的"专业人设"，这是最高效的被动机会吸引器。'},
+       desc:'在知乎、公众号或LinkedIn选一个平台，每周发布1篇你的专业思考或行业洞察。不需要完美，需要持续。6个月后你会有一个真实可见的"专业人设"，这是最高效的被动机会吸引器。'},
       {icon:'📊', title:'启动投资理财计划',
-       desc:'如果你还没有系统投资，现在开始：① 确保有6个月应急储备；② 开通指数基金账户（如 Fidelity/Vanguard），设置每月定投（哪怕 $50 起）；③ 了解你所在国家的税收优惠账户（如个人养老金账户）。时间在投资中的价值比本金更重要。'},
+       desc:'如果你还没有系统投资，现在开始：① 确保有6个月应急储备；② 开通指数基金账户，设置每月定投（哪怕500元起）；③ 了解你所在国家的税收优惠账户（如个人养老金账户）。时间在投资中的价值比本金更重要。'},
       {icon:'🌿', title:'设计一个"深度工作"时间块',
        desc:'每天划出至少90分钟的"不可打扰时间"——关掉通知，专注做最重要的一件事。研究表明，进入心流状态的工作质量是普通状态的5倍。学会用深度工作替代长时间低效工作。'},
     ],
@@ -822,406 +783,14 @@ var ACTION_PLANS={
        desc:'寫下：如果今天是你最後一個工作日，你已為世界留下了什麼？把答案變成未來3年戰略核心。'},
     ],
   },
-  'en-US':{
-    low:[
-      {icon:'🌅', title:'Fix Your Sleep First',
-       desc:'This week: stop scrolling by 10 pm, charge your phone outside the bedroom. Sleep deprivation cuts your executive function, mood, and memory by up to 30%. Zero cost, immediate results.'},
-      {icon:'📋', title:'Write Your "5-Year Scene"',
-       desc:'Take a blank page and finish this sentence: "In 5 years, I\'m living in _____, doing _____, with _____." Write at least 200 words. The more specific, the more real it feels to your brain.'},
-      {icon:'🤝', title:'Reach Out to One Key Person',
-       desc:'Open your contacts and find someone you genuinely respect but haven\'t talked to in 6+ months. Send a real message — not a group forward. Real relationships are the highest-ROI investment most people neglect.'},
-      {icon:'💰', title:'Automate 10% Before You Spend',
-       desc:'Starting this paycheck: set up an auto-transfer on payday — move 5–10% to a separate savings account before you see it. The savings rate matters more than the amount. It trains the habit that builds wealth.'},
-      {icon:'📖', title:'10 Minutes of Real Reading Daily',
-       desc:'Pick one book related to your goals. Read 10 pages every night before bed. No notes required. Over a year that\'s 3,650 pages — equivalent to 10–15 books. Compound curiosity is real.'},
-    ],
-    'mid-low':[
-      {icon:'🔍', title:'Diagnose Your Biggest Gap',
-       desc:'Look at your "Room to Grow" section. Pick the lowest-scoring area you actually have control over. Write: "In 30 days I will ___." Don\'t try to fix everything — one focused breakthrough creates momentum for the rest.'},
-      {icon:'💰', title:'Build a Monthly Money Review',
-       desc:'Last day of every month: spend 20 minutes reviewing how much came in, went out, was saved, and invested. Set a target savings rate (aim for 20%+). You don\'t need to track every purchase — just know the ratios.'},
-      {icon:'🏃', title:'Put Workouts on Your Calendar',
-       desc:'Choose 3 fixed times per week and block "workout 30 min" on your calendar like a meeting. Research shows scheduling exercise triples follow-through vs. relying on motivation alone. The goal isn\'t weight — it\'s cognitive function and mood.'},
-      {icon:'🧩', title:'Learn One Marketable Skill',
-       desc:'Pick a skill with stable demand that genuinely interests you (data analysis, design, copywriting, coding, a second language). Dedicate weekends to it for 3 months. Skills aren\'t for your resume — they\'re for having an independent unit of value.'},
-      {icon:'👥', title:'Invest Deeply in 3 Relationships',
-       desc:'Pick 3 people in your network worth investing in. Reach out meaningfully once a month — not a text, but a call, a meeting, or helping them solve something real. Relationship ROI compounds over years.'},
-    ],
-    mid:[
-      {icon:'🎯', title:'Find Your Strongest Dimension and Amplify It',
-       desc:'From your highest-scoring areas, identify your single best skill. Set a 90-day externally verifiable milestone — finish a project, publish a professional post, earn a certification. Strength stacked on strength creates true differentiation.'},
-      {icon:'💼', title:'Negotiate a Raise or Make a Move',
-       desc:'Research salaries for your role on LinkedIn, Glassdoor, or Indeed. If you\'re below the median for your area and experience, build a 3-month plan: update your resume, identify target companies, start interviewing. People who advocate for themselves earn 3× more over a career than those who wait.'},
-      {icon:'✍️', title:'Start Publishing Consistently',
-       desc:'Choose LinkedIn, a personal blog, or a newsletter. Post one professional insight or industry observation per week. Don\'t aim for perfect — aim for consistent. After 6 months you\'ll have a real visible reputation that attracts opportunities passively.'},
-      {icon:'📊', title:'Launch an Investment Plan',
-       desc:'If you haven\'t started yet: ① Build a 6-month emergency fund (high-yield savings account). ② Open a brokerage and contribute monthly to a diversified index fund. ③ Max out tax-advantaged accounts first (401k match, Roth IRA). Time in market beats timing the market.'},
-      {icon:'🌿', title:'Design a "Deep Work" Block',
-       desc:'Block at least 90 minutes each day with all notifications off, dedicated to your single most important task. Research shows deep-focus work produces 5× the quality of fragmented work. Learn to substitute depth for length.'},
-    ],
-    high:[
-      {icon:'🔭', title:'Write Your Personal 10-Year Strategy',
-       desc:'Spend a quiet weekend writing a personal long-term document: career (who do you want to become?), finances (net worth target?), relationships (what to build or protect?), health (what state to maintain?). This isn\'t a wish list — it\'s a real strategy with priorities, trade-offs, and resource allocation.'},
-      {icon:'👥', title:'Start Systematically Developing Others',
-       desc:'Choose 1–2 people who are 5–10 years behind you with real potential. Give them structured mentorship — not occasional Q&A. Teaching others is the fastest way to verify your own knowledge, and the most durable path to genuine influence.'},
-      {icon:'🧘', title:'Build an "Inner Investment" Practice',
-       desc:'10 minutes of mindfulness daily, one full phone-free outdoor session per week. High achievers most often neglect inner stillness — but it\'s the energy source behind all sustained output. Manage your attention and energy, not just your time.'},
-      {icon:'🔗', title:'Strategically Upgrade Your Network',
-       desc:'Identify 3 people you deeply respect but haven\'t built a real connection with. Create a genuine value-exchange opportunity — not a dinner, but helping them solve a real problem or co-advancing a project. Top-tier connections aren\'t accumulated, they\'re created.'},
-      {icon:'💡', title:'Ruthlessly Eliminate Low-Value Commitments',
-       desc:'List every obligation in your life (projects, social events, subscriptions, habitual tasks). Filter with one question: will this matter to me in 3 years? Eliminate what fails the test. Reinvest that time and energy into your highest-leverage activities.'},
-    ],
-    excellent:[
-      {icon:'🌍', title:'Write a Personal Mission Statement',
-       desc:'Answer three questions: What unique abilities, resources, or experiences do I have? What problems in the world need them? What price am I willing to pay? Distill the answers into a single sentence under 50 words. This is your north star for every decision at this level.'},
-      {icon:'📖', title:'Systematize Your Knowledge',
-       desc:'The methodology and judgment you\'ve built has enormous transmission value. Consider: write a book (even self-published), create a structured course, build a small learning community, or let yourself be interviewed in depth. Knowledge that isn\'t shared disappears with you.'},
-      {icon:'⚖️', title:'Actively Protect Your Core Relationships',
-       desc:'At high-achievement levels, intimate relationships are the most easily neglected asset. Schedule at least one phone-free, work-free dedicated session each week with the people who matter most. This isn\'t a sacrifice — it\'s maintenance on your highest-value asset.'},
-      {icon:'🏥', title:'Invest in Premium Health Management',
-       desc:'Book a comprehensive health screening (not a standard checkup). Build quarterly health data tracking. Consider a nutrition coach or personal trainer. Your body is the hardware running all your achievements — maintain it proactively, because repair costs far more.'},
-      {icon:'🌱', title:'Do One Thing With No Return Calculation',
-       desc:'Choose a cause that has nothing to do with your professional interests — purely from inner conviction — and commit time or resources to it systematically (not just a donation). This isn\'t charity. It\'s a genuine answer to the question: "Why am I alive?"'},
-    ],
-    exceptional:[
-      {icon:'🏆', title:'Document Your Frameworks',
-       desc:'The decision frameworks and judgment models you\'ve built have extreme value to others. Systematize them — write a book, build a course, start a podcast. Knowledge not transmitted disappears.'},
-      {icon:'🌐', title:'Build Cross-Domain Connections',
-       desc:'Actively build real connections with top people outside your field. The next breakthrough almost always comes from an unexpected intersection.'},
-      {icon:'🎓', title:'Strategically Develop Your Successors',
-       desc:'Identify 3–5 people with the potential to surpass you and give them systematic guidance. Your influence compounds geometrically through them.'},
-      {icon:'🧘', title:'Protect Your Mental Stillness',
-       desc:'Create a protected no-agenda time block — no deliverables, just being. Loneliness and loss of meaning are the most common hidden risks at extreme achievement levels.'},
-      {icon:'📜', title:'Define Your Life Legacy',
-       desc:'Write: if today were your last working day, what have you already left the world? Make that answer the strategic core of the next 3 years.'},
-    ],
-  },
-  'en-PH':{
-    low:[
-      {icon:'🌅', title:'Step 1: Fix Your Sleep First',
-       desc:'This week: stop using your phone 30 minutes before bed and charge it outside the bedroom. Sleep deprivation cuts your focus, mood, and memory by up to 30% — and it is completely free to fix. Even a 30-minute improvement in sleep consistency will raise your daily energy level noticeably within a week.'},
-      {icon:'📋', title:'Write Your "5-Year Scene"',
-       desc:'Take one sheet of paper and complete this: "In 5 years, I am in ___, doing ___, with ___." Write at least one full page. The more specific and vivid, the more your brain treats it as real. This is the first step to moving from reactive to intentional.'},
-      {icon:'🤝', title:'Reach Out to One Person Who Believes in You',
-       desc:'Open your contacts. Find someone you respect — a mentor, a trusted ate/kuya, a barkada friend you haven\'t spoken to in 6+ months. Send a genuine message. Real relationships are your highest-return investment and the most underutilized resource most people have.'},
-      {icon:'💰', title:'Save Anything — Even ₱100 This Week',
-       desc:'Open a separate savings account (GCash GSave, Maya, or a bank savings account). Transfer even ₱100 after payday, before you spend it. The habit matters far more than the amount at this stage. The 50/30/20 rule is your eventual target — 50% needs, 30% wants, 20% savings.'},
-      {icon:'📖', title:'10 Minutes of Purposeful Reading Daily',
-       desc:'Pick one book relevant to your career or goal. Read 10 pages before bed each night. In a year that\'s 3,000+ pages — equivalent to 10–15 books. Compound learning is as real as compound interest.'},
-    ],
-    'mid-low':[
-      {icon:'🔍', title:'Diagnose Your Biggest Gap',
-       desc:'Look at your "Room to Grow" section. Pick the single gap you are most capable of closing right now. Write: "In 30 days I will ___." Don\'t try to fix everything at once — one focused breakthrough creates momentum for everything else.'},
-      {icon:'💰', title:'Build a Monthly Money Check-In',
-       desc:'On the last day of every month, spend 20 minutes reviewing: how much came in, went out, and was saved. Set a savings rate target. Even starting at 10% of take-home pay is transformative over 12 months. What you measure, you can control.'},
-      {icon:'🏃', title:'Schedule Your Workouts Like Shifts',
-       desc:'Pick 3 fixed times per week and block "exercise 30 min" in your calendar like a work schedule. Research shows scheduling triples follow-through versus relying on motivation. Aim for consistency, not intensity — a 30-minute walk counts.'},
-      {icon:'🧩', title:'Learn One Marketable Skill This Quarter',
-       desc:'Pick a skill with stable demand in the PH market — freelancing online (Upwork, OnlineJobs.ph), BPO-relevant skills, coding basics, graphic design, or social media management. Dedicate 1 hour/day for 90 days. One skill well executed can open a new income stream.'},
-      {icon:'👥', title:'Invest in 3 Real Relationships This Month',
-       desc:'Pick 3 people in your life worth investing in — not a group chat message, but a real call, a merienda meetup, or helping them with something concrete. Relationship capital compounds quietly over years and pays off when you least expect it.'},
-    ],
-    mid:[
-      {icon:'🎯', title:'Amplify Your Strongest Skill',
-       desc:'From your highest-scoring areas, identify your single strongest skill. Set one 90-day externally verifiable milestone: finish a project, earn a certification, land a freelance client, or publish something professional. Strength compounded on strength creates real differentiation.'},
-      {icon:'💼', title:'Sort Out Your Income Trajectory',
-       desc:'If your salary or income has been flat for over a year, that is a signal. Research your market rate (JobStreet, LinkedIn, Glassdoor). If underpaid, build a 3-month plan: update your profile, identify 10 target companies or clients, start conversations. Alternatively, explore freelancing, online business, or a side hustle — the PH digital economy has real opportunities right now.'},
-      {icon:'✍️', title:'Start Publishing Your Expertise',
-       desc:'Post one insight per week in your field — LinkedIn, a Facebook group, a TikTok, or a blog. Don\'t aim for perfect, aim for consistent. After 6 months of consistency you will have built a visible professional reputation that attracts opportunities passively.'},
-      {icon:'📊', title:'Start Investing — Even Small',
-       desc:'① Build a 3–6 month emergency fund (liquid: GCash GSave, Maya, or CIMB). ② Open a UITF, COL Financial, or BPI investment account and start monthly contributions — even ₱500/month. ③ Check if your SSS/PhilHealth/Pag-IBIG contributions are up to date. Time in the market is everything.'},
-      {icon:'🌿', title:'Protect One "Deep Work" Block Daily',
-       desc:'Block 90 minutes each day — notifications off, focused on your single most important task. Research shows deep work produces 5× the output of fragmented work. Even one protected hour per day changes what you can accomplish in a week.'},
-    ],
-    high:[
-      {icon:'🔭', title:'Write Your 10-Year Personal Strategy',
-       desc:'Spend a quiet afternoon writing a personal long-term document: career (who do you want to become?), finances (net worth target?), relationships (what to build or protect?), health (what state to maintain?). This isn\'t a wish list — it\'s a real strategy with priorities, trade-offs, and resource allocation.'},
-      {icon:'👥', title:'Start Lifting Others Deliberately',
-       desc:'Choose 1–2 people who are earlier in their journey — a younger sibling, a colleague, someone from your barangay or school. Give structured mentorship, not occasional advice. Helping others grow validates your own knowledge and builds the most durable form of influence.'},
-      {icon:'🧘', title:'Build an Inner Investment Practice',
-       desc:'10 minutes of quiet reflection or mindfulness daily, one fully offline afternoon per week. High achievers most often neglect inner stillness — but it is the energy source behind all sustained output. Manage your energy and attention, not just your schedule.'},
-      {icon:'🔗', title:'Strategically Upgrade Your Network',
-       desc:'Identify 3 people you respect deeply but haven\'t built a real connection with. Create a genuine value-exchange — not just a social media follow, but helping them solve a real problem or working on something together. Top-tier connections are created, not collected.'},
-      {icon:'💡', title:'Cut Low-Value Commitments',
-       desc:'List every obligation you carry (work projects, social commitments, group chats, family obligations that drain rather than energize). Filter each with: will this matter to me in 3 years? Eliminate what fails. Reinvest the freed energy into your highest-leverage activities.'},
-    ],
-    excellent:[
-      {icon:'🌍', title:'Write Your Personal Mission Statement',
-       desc:'Answer three questions: What unique abilities, experiences, or resources do I have? What problems in my community or country need them? What price am I willing to pay? Distill the answers into one sentence under 50 words. This becomes the north star for every decision at this level.'},
-      {icon:'📖', title:'Systematize and Share Your Knowledge',
-       desc:'The frameworks and judgment you\'ve built have enormous value to others. Consider: write a book (even self-published on Amazon KDP), create a structured online course (Udemy, Teachable), build a community, or record your insights as a podcast. Knowledge not shared disappears with you.'},
-      {icon:'⚖️', title:'Actively Protect Your Core Relationships',
-       desc:'At high-achievement levels, intimate relationships are the most easily neglected. Schedule at least one phone-free, work-free session per week with the people who matter most — partner, children, parents. This is not a sacrifice, it is maintenance on your most irreplaceable asset.'},
-      {icon:'🏥', title:'Invest in Premium Health Management',
-       desc:'Book a comprehensive health screening beyond the basics — full blood panel, cardiac check, sleep quality assessment. Build a quarterly health data habit. Your body is the hardware running all your achievements; proactive maintenance costs far less than reactive repair.'},
-      {icon:'🌱', title:'Do One Thing With No Return Calculation',
-       desc:'Choose a cause with no professional benefit — purely from conviction — and commit time or concrete resources to it (not just a donation). This is not charity. It is a genuine answer to the deepest question: why are you here?'},
-    ],
-    exceptional:[
-      {icon:'🏆', title:'Document Your Frameworks',
-       desc:'The decision models and judgment systems you\'ve built have extreme value to others. Systematize them — write a book, build a course, start a podcast, or mentor seriously. Knowledge not transmitted disappears.'},
-      {icon:'🌐', title:'Build Cross-Domain Connections',
-       desc:'Actively build real connections with top people outside your field — in the Philippines and internationally. The next breakthrough almost always comes from an unexpected intersection.'},
-      {icon:'🎓', title:'Develop Your Successors',
-       desc:'Identify 3–5 people with potential to surpass you and give them structured guidance. Your influence compounds geometrically through them.'},
-      {icon:'🧘', title:'Protect Mental Stillness',
-       desc:'Create a protected no-agenda time block — no deliverables, just being. Loneliness and loss of meaning are the most common hidden risks at extreme achievement levels.'},
-      {icon:'📜', title:'Define Your Life Legacy',
-       desc:'Write: if today were your last working day, what have you already left the world? Make that answer the strategic core of the next 3 years.'},
-    ],
-  },
-  'es-US':{
-    low:[
-      {icon:'🌅', title:'Primero, repara tu sueño',
-       desc:'Esta semana: deja de mirar pantallas a las 10 pm y carga el teléfono fuera del cuarto. La falta de sueño reduce tu función ejecutiva, estado de ánimo y memoria hasta en un 30%. Costo cero, resultados inmediatos.'},
-      {icon:'📋', title:'Escribe tu "Escena de 5 años"',
-       desc:'Toma una hoja en blanco y completa: "En 5 años, vivo en _____, haciendo _____, con _____." Escribe al menos 200 palabras. Cuanto más específico, más real lo siente tu cerebro — y más se compromete.'},
-      {icon:'🤝', title:'Reconecta con una persona clave',
-       desc:'Abre tus contactos y encuentra a alguien que respetas de verdad pero con quien no has hablado en 6+ meses. Envía un mensaje genuino, no un reenvío masivo. Las relaciones reales son la inversión de mayor retorno que la mayoría descuida.'},
-      {icon:'💰', title:'Automatiza el 10% antes de gastar',
-       desc:'Desde este cheque: configura una transferencia automática el día de pago — mueve el 5–10% a una cuenta de ahorros separada antes de verlo. La tasa de ahorro importa más que el monto. Entrena el hábito que construye riqueza.'},
-      {icon:'📖', title:'10 minutos de lectura real cada día',
-       desc:'Elige un libro relacionado con tus metas. Lee 10 páginas cada noche antes de dormir. Sin tomar notas. En un año son 3,650 páginas — equivalente a 10–15 libros. La curiosidad compuesta es real.'},
-    ],
-    'mid-low':[
-      {icon:'🔍', title:'Diagnostica tu mayor brecha',
-       desc:'Mira la sección "Áreas de mejora". Elige el área de menor puntaje que realmente puedes controlar. Escribe: "En 30 días haré ___." No intentes arreglarlo todo — un avance enfocado crea momentum para el resto.'},
-      {icon:'💰', title:'Crea una revisión financiera mensual',
-       desc:'El último día de cada mes: dedica 20 minutos a revisar cuánto entró, salió, se ahorró e invirtió. Establece una tasa de ahorro objetivo (apunta al 20%+). No necesitas rastrear cada compra — solo conoce las proporciones.'},
-      {icon:'🏃', title:'Pon los entrenamientos en tu calendario',
-       desc:'Elige 3 horarios fijos por semana y bloquea "entreno 30 min" en tu calendario como una reunión. La investigación muestra que programar el ejercicio triplica el cumplimiento vs. depender de la motivación. La meta no es el peso — son la función cognitiva y el estado de ánimo.'},
-      {icon:'🧩', title:'Aprende una habilidad con valor de mercado',
-       desc:'Elige una habilidad con demanda estable que te interese genuinamente (análisis de datos, diseño, escritura, programación, un segundo idioma). Dedica los fines de semana durante 3 meses. Las habilidades no son para tu currículum — son para tener una unidad independiente de valor.'},
-      {icon:'👥', title:'Invierte profundamente en 3 relaciones',
-       desc:'Elige 3 personas en tu red que valen la pena. Conéctate significativamente una vez al mes — no un mensaje, sino una llamada, una reunión o ayudarlos a resolver algo real. El retorno de las relaciones se capitaliza durante años.'},
-    ],
-    mid:[
-      {icon:'🎯', title:'Encuentra tu dimensión más fuerte y amplíala',
-       desc:'De tus áreas de mayor puntaje, identifica tu mejor habilidad. Establece un hito verificable externamente en 90 días — termina un proyecto, publica un artículo profesional, obtén una certificación. La fortaleza apilada sobre fortaleza crea diferenciación real.'},
-      {icon:'💼', title:'Negocia un aumento o muévete',
-       desc:'Investiga salarios para tu rol en LinkedIn, Glassdoor o Indeed. Si estás por debajo de la mediana para tu área y experiencia, construye un plan de 3 meses: actualiza tu perfil, identifica empresas objetivo, comienza a entrevistarte. Quienes abogan por sí mismos ganan 3× más a lo largo de su carrera.'},
-      {icon:'✍️', title:'Empieza a publicar consistentemente',
-       desc:'Elige LinkedIn, un blog personal o un boletín. Publica una reflexión profesional o perspectiva de tu industria por semana. No apuntes a la perfección — apunta a la consistencia. Después de 6 meses tendrás una reputación visible que atrae oportunidades de forma pasiva.'},
-      {icon:'📊', title:'Lanza un plan de inversión',
-       desc:'Si aún no has empezado: ① Construye un fondo de emergencia de 6 meses (cuenta de ahorro de alto rendimiento). ② Abre una cuenta de corretaje y contribuye mensualmente a un fondo indexado diversificado. ③ Maximiza primero las cuentas con ventajas fiscales (401k con match del empleador, Roth IRA). El tiempo en el mercado supera intentar predecirlo.'},
-      {icon:'🌿', title:'Diseña un bloque de "trabajo profundo"',
-       desc:'Bloquea al menos 90 minutos cada día con todas las notificaciones apagadas, dedicado a tu tarea más importante. La investigación muestra que el trabajo de enfoque profundo produce calidad 5× superior al trabajo fragmentado. Aprende a sustituir profundidad por duración.'},
-    ],
-    high:[
-      {icon:'🔭', title:'Escribe tu estrategia personal a 10 años',
-       desc:'Dedica un fin de semana tranquilo a escribir un documento personal de largo plazo: carrera (¿quién quieres llegar a ser?), finanzas (¿meta de patrimonio neto?), relaciones (¿qué construir o proteger?), salud (¿qué estado mantener?). Esto no es una lista de deseos — es una estrategia real con prioridades y compromisos.'},
-      {icon:'👥', title:'Empieza a desarrollar sistemáticamente a otros',
-       desc:'Elige 1–2 personas que están 5–10 años detrás de ti con potencial real. Dales mentoría estructurada — no solo Q&A ocasional. Enseñar a otros es la forma más rápida de verificar tu propio conocimiento y el camino más duradero hacia influencia genuina.'},
-      {icon:'🧘', title:'Construye una práctica de inversión interior',
-       desc:'10 minutos de mindfulness diario, una sesión semanal al aire libre sin teléfono. Los altos rendidores más frecuentemente descuidan la quietud interior — pero es la fuente de energía detrás de todo output sostenido. Gestiona tu atención y energía, no solo tu tiempo.'},
-      {icon:'🔗', title:'Actualiza estratégicamente tu red',
-       desc:'Identifica 3 personas que respetas profundamente pero con quienes no has construido una conexión real. Crea una oportunidad genuina de intercambio de valor — no una cena, sino ayudarlos a resolver un problema real o avanzar juntos en un proyecto.'},
-      {icon:'💡', title:'Elimina sin piedad los compromisos de bajo valor',
-       desc:'Lista cada obligación en tu vida. Filtra con una pregunta: ¿esto me importará en 3 años? Elimina lo que no pasa el filtro. Reinvierte ese tiempo y energía en tus actividades de mayor apalancamiento.'},
-    ],
-    excellent:[
-      {icon:'🌍', title:'Escribe una declaración de misión personal',
-       desc:'Responde tres preguntas: ¿Qué habilidades, recursos o experiencias únicas tengo? ¿Qué problemas del mundo las necesitan? ¿Qué precio estoy dispuesto a pagar? Destila las respuestas en una sola frase de menos de 50 palabras. Este es tu norte para cada decisión en este nivel.'},
-      {icon:'📖', title:'Sistematiza tu conocimiento',
-       desc:'La metodología y el juicio que has desarrollado tienen enorme valor de transmisión. Considera: escribir un libro, crear un curso estructurado, construir una comunidad de aprendizaje, o dejarte entrevistar en profundidad. El conocimiento que no se comparte desaparece contigo.'},
-      {icon:'⚖️', title:'Protege activamente tus relaciones clave',
-       desc:'En niveles de alto rendimiento, las relaciones íntimas son el activo más fácilmente descuidado. Agenda al menos una sesión semanal sin teléfono ni trabajo con las personas que más importan. Esto no es sacrificio — es mantenimiento de tu activo de mayor valor.'},
-      {icon:'🏥', title:'Invierte en gestión de salud premium',
-       desc:'Agenda un chequeo médico completo (no el estándar). Construye un seguimiento trimestral de datos de salud. Considera un entrenador de nutrición o entrenador personal. Tu cuerpo es el hardware que ejecuta todos tus logros — mantenlo proactivamente.'},
-      {icon:'🌱', title:'Haz una cosa sin calcular el retorno',
-       desc:'Elige una causa que no tenga nada que ver con tus intereses profesionales — puramente por convicción interna — y comprométete sistemáticamente. Esto no es caridad. Es una respuesta genuina a la pregunta: "¿Por qué estoy vivo?"'},
-    ],
-    exceptional:[
-      {icon:'🏆', title:'Documenta tus marcos de pensamiento',
-       desc:'Los marcos de decisión que has desarrollado tienen valor extremo para otros. Sistematizalos — escribe un libro, crea un curso, inicia un podcast. El conocimiento no transmitido desaparece.'},
-      {icon:'🌐', title:'Construye conexiones entre dominios',
-       desc:'Construye activamente conexiones reales con personas destacadas fuera de tu campo. El próximo avance importante casi siempre viene de una intersección inesperada.'},
-      {icon:'🎓', title:'Desarrolla estratégicamente a tus sucesores',
-       desc:'Identifica 3–5 personas con potencial de superarte y dales guía sistemática. Tu influencia se multiplica geométricamente a través de ellos.'},
-      {icon:'🧘', title:'Protege tu quietud mental',
-       desc:'Crea un bloque de tiempo protegido sin agenda — sin deliverables, solo existir. La soledad y la pérdida de sentido son los riesgos ocultos más comunes en niveles de logro extremo.'},
-      {icon:'📜', title:'Define tu legado de vida',
-       desc:'Escribe: si hoy fuera tu último día de trabajo, ¿qué has dejado ya al mundo? Haz que esa respuesta sea el núcleo estratégico de los próximos 3 años.'},
-    ],
-  },
-};
-
-/* ── English TIPS ── */
-TIPS['en-US']={
-  low:"Your overall score is in the early stages — and that's your starting line, not your finish line.\n\n① Build the foundation — Start with sleep and physical activity. Consistent sleep and 3 workouts a week are the base for everything else.\n② Get clear on direction — Spend a weekend seriously thinking about the life you want. Write down 3 specific, achievable goals for the next year.\n③ Build real connections — Reach out to one important person and genuinely reconnect. Relationships compound over time.\n\nEvery 1% improvement, sustained for a year, leads to 37× growth.",
-  'mid-low':"You have a solid foundation in several areas, but some important dimensions haven't gotten the attention they deserve.\n\n① Find your biggest weak spot — Look at your \"Room to Grow\" section above. That's where your highest-leverage work is.\n② Build systems, not willpower — Put your phone outside the bedroom. Block reading time in your calendar daily.\n③ Invest in relationships — Reach out to 3 people worth investing in, deeply, every month. Depth beats breadth.\n\nThe version of you that's been seriously working for 6 months will be almost unrecognizable.",
-  mid:"You're in the upper-middle of the mainstream — steady and balanced. But 'steady' can also mean stagnant.\n\n① From balance to excellence — Pick your single strongest dimension and build it into a genuine competitive edge.\n② Break your comfort zone — Sign up for a challenge that's slightly beyond your comfort level.\n③ Financial jump — If your income has been flat for over a year, seriously explore a career move or side income.\n④ Build your personal brand — Publish consistently in a niche. Let the right people find you.\n\nYou're one serious decision away from 'Outstanding'.",
-  high:"Your score is genuinely impressive — you're ahead of most people. The question now isn't 'do more' — it's 'do better.'\n\n① Strategic focus — Cut low-value commitments. Concentrate your energy on the highest-leverage activities.\n② Build influence — You're capable of impacting others. Think about how to systematize and share what you know.\n③ Long-term thinking — Create a 10-year vision, not just annual targets. Your decision horizon should extend further.\n④ Inner depth — Beyond external achievement, explore your values and what a meaningful life looks like to you.\n\nYou're already doing well. The real question now: who do you want to become?",
-  excellent:"You're at the top tier — a place very few people reach.\n\nStandard advice doesn't apply here. What you need:\n\n① Mission-level thinking — Is your life's purpose big enough? Are you working on something larger than yourself?\n② Legacy and influence — Systematically transfer your knowledge, experience, and resources to others.\n③ Guard against complacency — High achievers' biggest risk is stopping learning. Stay humble. Keep updating.\n④ Deep rest — Ensure you have real downtime and inner calm. That's the fuel for sustained excellence.\n\nYour very existence is the best motivation for the people around you.",
-  exceptional:"Your score has exceeded 100, placing you in the elite bonus tier. This means you haven't just excelled across all standard dimensions — you have externally verifiable credentials in elite education, professional achievement, entrepreneurial impact, or competitive mastery.\n\nYour challenge is no longer 'how do I improve?' — it's 'how do I choose?'. Your time and energy are your scarcest resource. How do you deploy your unique advantages for maximum positive impact?\n\nWrite your 'Life Legacy List' — if today were your last working day, what have you left behind for the world? Make that answer the strategic core of your next 3 years.",
-};
-TIPS['es-US']={
-  low:"Tu puntaje está en la etapa inicial — y eso es tu línea de partida, no de llegada.\n\n① Construye la base — Empieza con el sueño y la actividad física. Dormir bien y hacer ejercicio 3 veces por semana son el cimiento de todo.\n② Define tu dirección — Dedica un fin de semana a pensar en la vida que quieres. Escribe 3 metas concretas alcanzables en el próximo año.\n③ Construye conexiones reales — Contacta a una persona importante y reconecta genuinamente. Las relaciones se acumulan con el tiempo.\n\nCada mejora del 1%, sostenida por un año, produce un crecimiento de 37×.",
-  'mid-low':"Tienes una base sólida en varias áreas, pero algunas dimensiones importantes no han recibido la atención que merecen.\n\n① Encuentra tu mayor punto débil — Revisa tu sección 'Áreas de mejora'. Ahí está tu trabajo de mayor impacto.\n② Construye sistemas, no fuerza de voluntad — Pon el teléfono fuera del dormitorio. Bloquea tiempo de lectura en tu calendario.\n③ Invierte en relaciones — Contacta en profundidad a 3 personas valiosas cada mes. La profundidad supera a la amplitud.\n\nLa versión de ti que lleva 6 meses trabajando en serio será casi irreconocible.",
-  mid:"Estás en la parte alta del promedio — estable y equilibrado. Pero 'estable' también puede significar estancado.\n\n① Del equilibrio a la excelencia — Elige tu dimensión más fuerte y conviértela en una ventaja competitiva real.\n② Sal de tu zona de confort — Inscríbete en un desafío que esté levemente fuera de tu comodidad.\n③ Salto financiero — Si tu ingreso ha sido plano por más de un año, explora seriamente un cambio de carrera o ingreso secundario.\n④ Construye tu marca personal — Publica consistentemente en un nicho. Deja que las personas correctas te encuentren.\n\nEstás a una decisión seria de 'Sobresaliente'.",
-  high:"Tu puntaje es genuinamente impresionante — estás por delante de la mayoría. Ahora la pregunta no es 'hacer más' — es 'hacerlo mejor.'\n\n① Enfoque estratégico — Elimina compromisos de bajo valor. Concentra tu energía en las actividades de mayor impacto.\n② Construye influencia — Eres capaz de impactar a otros. Piensa en cómo sistematizar y compartir lo que sabes.\n③ Pensamiento a largo plazo — Crea una visión a 10 años, no solo metas anuales.\n④ Profundidad interior — Más allá del logro externo, explora tus valores y qué significa una vida significativa para ti.\n\nYa lo estás haciendo bien. La pregunta real ahora: ¿en quién quieres convertirte?",
-  excellent:"Estás en el nivel más alto — un lugar al que muy pocas personas llegan.\n\nLos consejos estándar no aplican aquí. Lo que necesitas:\n\n① Pensamiento de misión — ¿Es tu propósito de vida lo suficientemente grande? ¿Estás trabajando en algo más grande que tú mismo?\n② Legado e influencia — Transfiere sistemáticamente tu conocimiento, experiencia y recursos a otros.\n③ Prevén la complacencia — El mayor riesgo de los de alto rendimiento es dejar de aprender. Mantente humilde.\n④ Descanso profundo — Asegúrate de tener tiempo real de descanso. Eso es el combustible para la excelencia sostenida.\n\nTu propia existencia es la mejor motivación para las personas a tu alrededor.",
-  exceptional:"Tu puntaje ha superado los 100 puntos, ubicándote en el nivel élite. Esto significa que no solo has sobresalido en todas las dimensiones estándar — tienes credenciales verificables externamente en educación de élite, logros profesionales, impacto emprendedor o dominio competitivo.\n\nTu desafío ya no es '¿cómo mejorar?' — es '¿cómo elegir?'. Tu tiempo y energía son tu recurso más escaso. ¿Cómo despliegas tus ventajas únicas para el máximo impacto positivo?\n\nEscribe tu 'Lista de Legado de Vida' — si hoy fuera tu último día de trabajo, ¿qué has dejado al mundo? Convierte esa respuesta en el núcleo estratégico de tus próximos 3 años.",
-};
-
-/* ── English ACTION_PLANS ── */
-ACTION_PLANS['en-US']={
-  low:[
-    {icon:'🌅', title:'Step 1: Fix Your Sleep',
-     desc:"Execute this week: turn your phone off by 10:30 PM and charge it outside the bedroom. Sleep deprivation simultaneously reduces your executive function, emotional stability, and memory by 30%. This is zero-cost and produces immediate results."},
-    {icon:'📋', title:'Write Your "5-Year Self-Portrait"',
-     desc:"Grab a piece of paper and start with: 'In 5 years, where am I, what am I doing, and who's around me?' Fill the whole page. Don't write a wish list — paint a complete scene. The more specific the picture, the more your brain believes it's achievable."},
-    {icon:'🤝', title:'Reach Out to One Important Person',
-     desc:"Open your contacts and find someone you genuinely respect but haven't spoken to in over 6 months. Send them a real, personal message — not a group greeting. Your network isn't a pile of business cards; it's accumulated genuine connection."},
-    {icon:'💰', title:"Build a 'Save First' Savings Reflex",
-     desc:"Starting this month: the day after payday, set up an automatic transfer of 5–10% of your income to a separate, untouchable account. The amount doesn't matter as much as the habit. Your savings rate — not the dollar amount — determines how fast you reach financial freedom."},
-    {icon:'📖', title:'10 Minutes a Day of High-Quality Reading',
-     desc:"Pick a book related to your career or goals. Read 10 pages before bed every night. You don't need to finish it — you just need to feed your brain quality information before sleep. That's 3,650 pages a year, roughly 10–15 books."},
-  ],
-  'mid-low':[
-    {icon:'🔍', title:'Diagnose Your Biggest Weak Spot',
-     desc:"Review the 3 lowest-scoring questions in your 'Room to Grow' section. Pick the one you're most confident you can change, and write: 'I will accomplish ___ within 30 days.' Don't try to change everything at once — a single breakthrough creates momentum for everything else."},
-    {icon:'💰', title:'Build a Monthly Financial Snapshot',
-     desc:"On the last day of every month, take 20 minutes: How much did I earn? Spend? Save? Invest? Set a savings rate target (20% is a solid starting point). You don't need to track every transaction — just know the rough breakdown by category. Financial clarity is the prerequisite for building wealth."},
-    {icon:'🏃', title:'Put Exercise on Your Calendar',
-     desc:"Pick 3 fixed times each week and block 30 minutes of movement — even just a brisk walk. Research shows scheduled exercise is 3× more consistent than relying on willpower. The real value of exercise isn't weight loss — it's boosting dopamine and cognitive sharpness."},
-    {icon:'🧩', title:'Learn One Marketable Skill',
-     desc:"Choose a skill with stable market demand that genuinely interests you (data analysis, design, writing, coding, a language). Use your weekends to study systematically for 3 months. Skills aren't for your résumé — they're a unit of value you can deliver independently."},
-    {icon:'👥', title:'Go Deep with 3 Key Relationships',
-     desc:"From your network, choose 3 people most worth investing in. Reach out at least once a month in a real way — a phone call, a meetup, or solving an actual problem for them. Not a text. Relationship ROI is long-term, but it compounds higher than almost anything else."},
-  ],
-  mid:[
-    {icon:'🎯', title:'Identify Your Core Strength and Amplify It',
-     desc:"From your highest-scoring dimension, find your single strongest capability and set a 90-day externally-verifiable milestone (complete a project, publish a piece of work, earn a certification). Stacking strength on strength is the only path to genuine differentiation."},
-    {icon:'💼', title:'Negotiate a Raise — or Start Interviewing',
-     desc:"Research salary percentiles for your role and city (LinkedIn Salary, Glassdoor). If you're below the median, build a 3-month plan: update your résumé, create a target company list, start interviewing. Don't wait for a raise — people who actively pursue pay increases earn 3× more than those who wait."},
-    {icon:'✍️', title:'Start Publishing Your Thinking',
-     desc:"Pick one platform (LinkedIn, Substack, X) and publish one substantive post per week — your professional insights, lessons learned, analysis. It doesn't need to be perfect, just consistent. In 6 months you'll have a visible 'professional identity' that passively attracts the right opportunities."},
-    {icon:'📊', title:'Launch an Investment Plan',
-     desc:"If you haven't started investing systematically: ① Ensure you have a 6-month emergency fund; ② Open a brokerage account and set up automatic monthly contributions to a low-cost index fund (even $50/month to start); ③ Max your 401(k) match if you have one — that's an instant 50–100% return. Time in the market beats everything."},
-    {icon:'🌿', title:"Design a 'Deep Work' Block",
-     desc:"Carve out at least 90 minutes of uninterruptible time every day — notifications off, doing only your most important task. Research shows flow-state work quality is 5× higher than scattered work. Learn to replace long low-efficiency hours with short deep-work sessions."},
-  ],
-  high:[
-    {icon:'🔭', title:"Write Your '10-Year Personal Strategy Document'",
-     desc:"Spend a quiet weekend writing a 1,000-word personal long-range plan covering: Career (who do you want to become?), Finances (asset target?), Relationships (what needs building or protecting?), Health (what state do you want to maintain?). This isn't a wish list — it's a real strategy with priorities, tradeoffs, and resource allocation."},
-    {icon:'👥', title:'Start Systematically Developing Others',
-     desc:"Choose 1–2 people 5–10 years younger with genuine potential. Give them structured mentorship — not occasional Q&A. Developing others is the best way to pressure-test your own knowledge system, and it's the longest-lasting path to real influence."},
-    {icon:'🧘', title:"Build an 'Inner Investment' Practice",
-     desc:"10 minutes of mindfulness meditation daily, plus one fully offline outdoor activity per week. High achievers consistently overlook inner calm — but it's the energy source for all sustained output. Don't just manage time. Manage your attention and energy."},
-    {icon:'🔗', title:'Strategically Upgrade Your Network',
-     desc:"Audit your existing connections. Identify 3 people you respect deeply but haven't truly connected with. Create a real value-exchange opportunity — not a dinner, but helping them solve an actual problem or collaborating on something meaningful. Elite networks aren't accumulated — they're built."},
-    {icon:'💡', title:"Do a 'Low-Value Commitments' Purge",
-     desc:"List every regular commitment you have (work projects, social obligations, subscriptions, habitual tasks). Filter with one criterion: Will this still matter to me in 3 years? Cut everything that doesn't pass. The time and energy you free up should be reinvested in your highest-leverage activities."},
-  ],
-  excellent:[
-    {icon:'🌍', title:"Write a Personal Mission Statement",
-     desc:"Answer three questions: What unique abilities, resources, or experiences do I have? What problems in the world need them? What price am I willing to pay? Condense your answers into a 50-word personal mission. At this level, this is the north star for every major decision you make."},
-    {icon:'📖', title:'Systematize and Share Your Knowledge',
-     desc:"The frameworks and decision-making methods you've accumulated have enormous value to others. Consider: write a book (even self-published), build a structured course, create a learning community, or record a deep-form interview. Knowledge that isn't shared disappears with you."},
-    {icon:'⚖️', title:'Actively Protect Your Core Relationships',
-     desc:"At high-achievement levels, intimate relationships are the most easily neglected. Schedule at least one phone-free, work-free session per week for the most important people in your life — partner, children, parents. This isn't sacrifice; it's maintaining your highest-value asset."},
-    {icon:'🏥', title:'Invest in Top-Tier Health Management',
-     desc:"Schedule a comprehensive executive physical (not just a standard checkup) and build quarterly health data tracking. Consider working with a registered dietitian and a personal trainer. Your body is the hardware for all your achievements — maintain it while it's healthy."},
-    {icon:'🌱', title:"Do Something That Doesn't Pay",
-     desc:"Choose one philanthropic or mission-driven direction completely unrelated to your business interests and invest your time systematically (not just money). This isn't charity — it's an honest answer to the question you'll eventually face: 'Why did I live?'"},
-  ],
-  exceptional:[
-    {icon:'🏆', title:'Document Your Methodology',
-     desc:"The judgment frameworks and decision-making patterns you've built have exceptional value to others. Systematize them — write a book, build a course, or start a podcast. Knowledge that isn't passed on disappears with its owner."},
-    {icon:'🌐', title:'Global Perspective and Cross-Domain Connections',
-     desc:"Actively build real relationships with top practitioners outside your field. The next major breakthrough almost always comes from an unexpected intersection of domains."},
-    {icon:'🎓', title:'Strategically Develop Successors',
-     desc:"Identify 3–5 high-potential people capable of surpassing you. Give them structured guidance and real resources. Your influence compounds geometrically through them."},
-    {icon:'🧘', title:'Deliberately Maintain Inner Calm',
-     desc:"Protect a zone of purposeless time — not for any output, just for being. At extreme achievement levels, loneliness and loss of meaning are the most common hidden risks."},
-    {icon:'📜', title:'Define Your Life Legacy',
-     desc:"Write: if today were your last working day, what have you already left behind for the world? Make that answer the strategic core of your next 3 years."},
-  ],
-};
-
-/* ── Spanish ACTION_PLANS ── */
-ACTION_PLANS['es-US']={
-  low:[
-    {icon:'🌅', title:'Paso 1: Arregla tu sueño',
-     desc:"Ejecuta esta semana: apaga tu teléfono a las 10:30 PM y cárgalo fuera del dormitorio. La falta de sueño reduce simultáneamente tu función ejecutiva, estabilidad emocional y memoria en un 30%. Costo cero, resultados inmediatos."},
-    {icon:'📋', title:'Escribe tu "Retrato Personal a 5 Años"',
-     desc:"Toma una hoja y empieza con: 'En 5 años, ¿dónde estoy, qué estoy haciendo y quién está a mi lado?' Llena toda la página. No hagas una lista de deseos — pinta una escena completa. Cuanto más específica, más cree tu cerebro que es alcanzable."},
-    {icon:'🤝', title:'Contacta a una persona importante',
-     desc:"Abre tus contactos y encuentra a alguien que genuinamente respetes pero con quien no hayas hablado en más de 6 meses. Envíale un mensaje real y personal — no un saludo masivo. Tu red no es una pila de tarjetas de visita; es conexión genuina acumulada."},
-    {icon:'💰', title:"Construye el reflejo de 'Ahorrar primero'",
-     desc:"A partir de este mes: el día después de recibir tu pago, configura una transferencia automática del 5–10% de tus ingresos a una cuenta separada e intocable. La cantidad importa menos que el hábito. Tu tasa de ahorro — no la cifra — determina qué tan rápido alcanzas la libertad financiera."},
-    {icon:'📖', title:'10 minutos al día de lectura de calidad',
-     desc:"Elige un libro relacionado con tu carrera o metas. Lee 10 páginas antes de dormir cada noche. No necesitas terminarlo — solo necesitas nutrir tu cerebro con información de calidad antes de dormir. Eso son 3.650 páginas al año, aproximadamente 10–15 libros."},
-  ],
-  'mid-low':[
-    {icon:'🔍', title:'Diagnostica tu mayor punto débil',
-     desc:"Revisa las 3 preguntas con menor puntaje en tu sección 'Áreas de mejora'. Elige la que más confianza tengas en cambiar y escribe: 'Lograré ___ en 30 días.' No intentes cambiar todo a la vez — un solo avance crea impulso para todo lo demás."},
-    {icon:'💰', title:'Construye un resumen financiero mensual',
-     desc:"El último día de cada mes, dedica 20 minutos: ¿Cuánto gané? ¿Gasté? ¿Ahorré? ¿Invertí? Establece una meta de tasa de ahorro (20% es un buen punto de partida). No necesitas rastrear cada transacción — solo conocer el desglose aproximado por categoría."},
-    {icon:'🏃', title:'Pon el ejercicio en tu calendario',
-     desc:"Elige 3 horarios fijos cada semana y bloquea 30 minutos de movimiento — incluso una caminata rápida. Las investigaciones muestran que el ejercicio programado es 3× más constante que depender de la fuerza de voluntad."},
-    {icon:'🧩', title:'Aprende una habilidad comercializable',
-     desc:"Elige una habilidad con demanda estable en el mercado que te interese genuinamente (análisis de datos, diseño, escritura, programación, idiomas). Usa tus fines de semana para estudiarla sistemáticamente durante 3 meses."},
-    {icon:'👥', title:'Profundiza en 3 relaciones clave',
-     desc:"De tu red, elige a 3 personas que más valga la pena invertir. Contáctalas al menos una vez al mes de forma real — una llamada, un encuentro, o resolver un problema concreto para ellos. No un mensaje de texto."},
-  ],
-  mid:[
-    {icon:'🎯', title:'Identifica tu fortaleza principal y amplificala',
-     desc:"De tu dimensión con mayor puntaje, encuentra tu capacidad más fuerte y establece un hito verificable externamente en 90 días (completar un proyecto, publicar un trabajo, obtener una certificación)."},
-    {icon:'💼', title:'Negocia un aumento — o empieza a entrevistar',
-     desc:"Investiga los percentiles salariales para tu rol y ciudad (LinkedIn, Glassdoor). Si estás por debajo de la mediana, construye un plan de 3 meses: actualiza tu currículum, crea una lista de empresas objetivo, empieza a entrevistar."},
-    {icon:'✍️', title:'Empieza a publicar tu pensamiento',
-     desc:"Elige una plataforma (LinkedIn, Substack) y publica una entrada sustancial por semana — tus perspectivas profesionales, lecciones aprendidas. En 6 meses tendrás una 'identidad profesional' visible que atrae pasivamente las oportunidades correctas."},
-    {icon:'📊', title:'Lanza un plan de inversión',
-     desc:"Si no has empezado a invertir sistemáticamente: ① Asegúrate de tener un fondo de emergencia de 6 meses; ② Abre una cuenta de corretaje y configura contribuciones automáticas mensuales a un fondo indexado de bajo costo; ③ Maximiza tu 401(k) si tienes uno — eso es un retorno inmediato del 50–100%."},
-    {icon:'🌿', title:"Diseña un bloque de 'Trabajo profundo'",
-     desc:"Reserva al menos 90 minutos de tiempo ininterrumpible cada día — notificaciones apagadas, haciendo solo tu tarea más importante. La calidad del trabajo en estado de flujo es 5× mayor que el trabajo disperso."},
-  ],
-  high:[
-    {icon:'🔭', title:"Escribe tu 'Documento de Estrategia Personal a 10 Años'",
-     desc:"Dedica un fin de semana tranquilo a escribir un plan personal a largo plazo que cubra: Carrera, Finanzas, Relaciones y Salud. No es una lista de deseos — es una estrategia real con prioridades y asignación de recursos."},
-    {icon:'👥', title:'Desarrolla sistemáticamente a otros',
-     desc:"Elige 1–2 personas 5–10 años más jóvenes con potencial genuino. Dales mentoría estructurada — no solo responder preguntas ocasionales. Desarrollar a otros es la mejor forma de poner a prueba tu propio sistema de conocimiento."},
-    {icon:'🧘', title:"Construye una práctica de 'inversión interior'",
-     desc:"10 minutos de meditación de mindfulness diariamente, más una actividad al aire libre completamente desconectada por semana. Los de alto rendimiento invariablemente descuidan la calma interior — pero es la fuente de energía para todo output sostenido."},
-    {icon:'🔗', title:'Actualiza estratégicamente tu red',
-     desc:"Identifica 3 personas que respetas profundamente pero con quienes no te has conectado verdaderamente. Crea una oportunidad real de intercambio de valor — no una cena, sino ayudarles a resolver un problema real."},
-    {icon:'💡', title:"Haz una purga de 'compromisos de bajo valor'",
-     desc:"Lista todos tus compromisos regulares y filtra con un criterio: ¿Esto seguirá importándome en 3 años? Elimina todo lo que no pase la prueba. El tiempo y energía liberados deberían reinvertirse en tus actividades de mayor impacto."},
-  ],
-  excellent:[
-    {icon:'🌍', title:"Escribe una declaración de misión personal",
-     desc:"Responde tres preguntas: ¿Qué habilidades, recursos o experiencias únicas tengo? ¿Qué problemas del mundo las necesitan? ¿Qué precio estoy dispuesto a pagar? Condensa tus respuestas en una misión personal de 50 palabras."},
-    {icon:'📖', title:'Sistematiza y comparte tu conocimiento',
-     desc:"Los marcos y métodos de toma de decisiones que has acumulado tienen un valor enorme para otros. Considera: escribir un libro, construir un curso estructurado, crear una comunidad de aprendizaje. El conocimiento que no se comparte desaparece contigo."},
-    {icon:'⚖️', title:'Protege activamente tus relaciones clave',
-     desc:"En niveles de alto rendimiento, las relaciones íntimas son las más fácilmente descuidadas. Programa al menos una sesión semanal sin teléfono ni trabajo para las personas más importantes de tu vida."},
-    {icon:'🏥', title:'Invierte en gestión de salud de primer nivel',
-     desc:"Programa un chequeo ejecutivo completo y construye seguimiento trimestral de datos de salud. Considera trabajar con un dietista registrado y un entrenador personal. Tu cuerpo es el hardware de todos tus logros."},
-    {icon:'🌱', title:"Haz algo que no te pague",
-     desc:"Elige una dirección filantrópica completamente desvinculada de tus intereses comerciales e invierte tu tiempo sistemáticamente. Esta es una respuesta honesta a la pregunta que eventualmente enfrentarás: '¿Por qué viví?'"},
-  ],
-  exceptional:[
-    {icon:'🏆', title:'Documenta tu metodología',
-     desc:"Los marcos de juicio y patrones de toma de decisiones que has construido tienen un valor excepcional para otros. Sistematízalos — escribe un libro, construye un curso o comienza un podcast."},
-    {icon:'🌐', title:'Perspectiva global y conexiones entre dominios',
-     desc:"Construye activamente relaciones reales con los mejores profesionales fuera de tu campo. El próximo gran avance casi siempre viene de una intersección inesperada de dominios."},
-    {icon:'🎓', title:'Desarrolla sucesores estratégicamente',
-     desc:"Identifica 3–5 personas de alto potencial capaces de superarte. Dales orientación estructurada y recursos reales. Tu influencia se multiplica geométricamente a través de ellos."},
-    {icon:'🧘', title:'Mantén deliberadamente la calma interior',
-     desc:"Protege una zona de tiempo sin propósito — no para ningún output, sino solo para existir. En niveles de logro extremo, la soledad y la pérdida de sentido son los riesgos ocultos más comunes."},
-    {icon:'📜', title:'Define tu legado de vida',
-     desc:"Escribe: si hoy fuera tu último día de trabajo, ¿qué has dejado ya al mundo? Convierte esa respuesta en el núcleo estratégico de tus próximos 3 años."},
-  ],
 };
 
 /* ── Payment modal config ── */
 var PAYMENT_CONFIG = {
-  paypal:  { name_cn:'PayPal',      name_tw:'PayPal',      name_en:'PayPal',         name_es:'PayPal',         name_ph:'PayPal',         color:'#003087', fallback:'🅿',  logoSrc:'assets/logo-paypal.png', qrSrc:'assets/qr-paypal.png' },
-  crypto:  { name_cn:'USDT 加密',   name_tw:'USDT 加密',   name_en:'USDT Crypto',    name_es:'USDT Cripto',    name_ph:'USDT Crypto',    color:'#26a17b', fallback:'💎', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
-  wise:    { name_cn:'Wise 转账',   name_tw:'Wise 轉帳',   name_en:'Wise Transfer',  name_es:'Wise Transferencia', name_ph:'Wise Transfer', color:'#9fe870', fallback:'🌿', logoSrc:'assets/logo-wise.png',   qrSrc:'assets/qr-wise.png' },
-  bank:    { name_cn:'银行转账',    name_tw:'銀行轉帳',    name_en:'Bank Transfer',  name_es:'Transferencia Bancaria', name_ph:'Bank Transfer', color:'#1a56db', fallback:'🏦', logoSrc:'assets/logo-bank.png',   qrSrc:'assets/qr-bank.png' },
+  wechat:  { name_cn:'微信支付', name_tw:'微信支付', color:'#07c160', fallback:'💚', logoSrc:'assets/logo-wechat.png', qrSrc:'assets/qr-wechat.png' },
+  alipay:  { name_cn:'支付宝',   name_tw:'支付寶',   color:'#1677ff', fallback:'💙', logoSrc:'assets/logo-alipay.png', qrSrc:'assets/qr-alipay.png' },
+  crypto:  { name_cn:'加密支付', name_tw:'加密支付', color:'#f0b90b', fallback:'🟡', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
+  qq:      { name_cn:'QQ 钱包',  name_tw:'QQ 錢包',  color:'#12b7f5', fallback:'💜', logoSrc:'assets/logo-qq.png',    qrSrc:'assets/qr-qq.png' },
 };
 
 /* ── Setup payment modal (logo click → QR popup) ── */
@@ -1241,7 +810,7 @@ function setupPaymentModal(){
     var cfg = PAYMENT_CONFIG[platform];
     if(!cfg) return;
     var lang = window.I18N_CURRENT||'zh-CN';
-    var name = lang==='en-US' ? (cfg.name_en||cfg.name_cn) : lang==='en-PH' ? (cfg.name_ph||cfg.name_en||cfg.name_cn) : lang==='es-US' ? (cfg.name_es||cfg.name_en||cfg.name_cn) : lang==='zh-TW' ? cfg.name_tw : cfg.name_cn;
+    var name = lang==='zh-TW' ? cfg.name_tw : cfg.name_cn;
 
     /* Logo */
     if(pmLogoImg){ pmLogoImg.src=cfg.logoSrc; pmLogoImg.style.display=''; }
@@ -1266,8 +835,8 @@ function setupPaymentModal(){
   if(closeBtn) closeBtn.addEventListener('click', closePayment);
   overlay.addEventListener('click', function(e){ if(e.target===overlay) closePayment(); });
 
-  /* Bind all .sponsor-logo-btn buttons (covers both cards) */
-  document.querySelectorAll('.sponsor-logo-btn').forEach(function(btn){
+  /* Bind all .sponsor-logo-btn buttons (covers both cards with specific parent selectors) */
+  document.querySelectorAll('#sponsorCard .sponsor-logo-btn, #sponsorCard2 .sponsor-logo-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ openPayment(btn.dataset.payment); });
   });
 }
@@ -1287,9 +856,9 @@ function buildNextSteps(lang){
 }
 
 function buildRankVerdict(lang){
-  var verdict=getVerdict(finalScore), rank=getRank(finalScore);
+  var verdict=getVerdict(finalScore);
   var rankEl=document.getElementById('resultRank'), vEl=document.getElementById('resultVerdict');
-  if(rankEl) rankEl.innerHTML=window.t('result.rank')+' <strong>'+rank+'%</strong> '+window.t('result.rankSuffix');
+  if(rankEl){ rankEl.innerHTML=''; rankEl.style.display='none'; }
   if(vEl) vEl.textContent=window.t('result.'+verdict);
   var tipEl=document.getElementById('tipText');
 
@@ -1301,7 +870,9 @@ function buildRankVerdict(lang){
   var isUnder18 = (answerMap && answerMap.A1 && answerMap.A1.questionIdx === 0) ||
                   (answerMap && answerMap.QK1 && answerMap.QK1.questionIdx === 0);
   if(isUnder18){
-    var youthTip = window.t('youth.tip');
+    var youthTip = lang==='zh-TW'
+      ? '🌱 給未滿18歲的你\n\n你才剛剛開始。\n\n此刻的評分，是你在一個最受限制的人生階段交出的答卷——沒有完整的財務自主、沒有職業積累、也沒有太多的選擇權。這些不是你的問題，而是年齡本來的樣子。\n\n真正重要的是：你今天好奇什麼、認真對待什麼、選擇成為什麼樣的人。這些，才是決定你未來20年的真實變量。\n\n你現在擁有最珍貴的資源——時間和可塑性。今天認真投入的每一個習慣，都在悄悄為你未來的人生疊加複利。\n\n去探索，去嘗試，去犯錯，去成長。你的人生，才剛剛開幕。'
+      : '🌱 给未满18岁的你\n\n你才刚刚开始。\n\n此刻的评分，是你在一个最受限制的人生阶段交出的答卷——没有完整的财务自主、没有职业积累、也没有太多的选择权。这些不是你的问题，而是年龄本来的样子。\n\n真正重要的是：你今天好奇什么、认真对待什么、选择成为什么样的人。这些，才是决定你未来20年的真实变量。\n\n你现在拥有最珍贵的资源——时间和可塑性。今天认真投入的每一个习惯，都在悄悄为你未来的人生叠加复利。\n\n去探索，去尝试，去犯错，去成长。你的人生，才刚刚开幕。';
     if(tipEl) tipEl.textContent = youthTip;
     /* Show the under-18 banner highlight */
     var u18El = document.getElementById('under18Banner');
@@ -1311,7 +882,7 @@ function buildRankVerdict(lang){
     try{ var rd=sessionStorage.getItem('ls_result'); if(rd) bonusScore=JSON.parse(rd).bonusScore||0; }catch(e){}
     var bonusEl=document.getElementById('bonusBadge');
     if(bonusEl){
-      if(bonusScore>0){ bonusEl.textContent='+'+bonusScore+' '+window.t('bonus.label'); bonusEl.style.display='inline-flex'; }
+      if(bonusScore>0){ bonusEl.textContent='+'+bonusScore+' '+(lang==='zh-TW'?'卓越加分':'卓越加分'); bonusEl.style.display='inline-flex'; }
       else { bonusEl.style.display='none'; }
     }
     return;
@@ -1324,7 +895,7 @@ function buildRankVerdict(lang){
   var bonusEl=document.getElementById('bonusBadge');
   if(bonusEl){
     if(bonusScore>0){
-      bonusEl.textContent='+'+ bonusScore +' '+window.t('bonus.label');
+      bonusEl.textContent='+'+ bonusScore +' '+(lang==='zh-TW'?'卓越加分':'卓越加分');
       bonusEl.style.display='inline-flex';
     } else { bonusEl.style.display='none'; }
   }
@@ -1339,7 +910,7 @@ function drawResultRadar(canvas){
   var ctx=canvas.getContext('2d');
   var W=canvas.width, H=canvas.height, cx=W/2, cy=H/2+10, R=Math.min(W,H)*0.26;
   var lang=window.I18N_CURRENT||'zh-CN';
-  var labels=lang==='zh-TW'?['基礎資訊','社會生活方向','個人認同']:(lang==='en-US'||lang==='en-PH')?['Baseline','Social & Life','Personal Identity']:(lang==='es-US')?['Base','Social y Vida','Identidad Personal']:['基础信息','社会生活方向','个人认同'];
+  var labels=lang==='zh-TW'?['基礎資訊','社會生活方向','個人認同']:['基础信息','社会生活方向','个人认同'];
   var scores=[dimPct.basic||0, dimPct.social||0, dimPct.identity||0];
   var n=3;
   ctx.clearRect(0,0,W,H);
@@ -1390,7 +961,7 @@ function drawResultRadar(canvas){
 
   /* Center score */
   ctx.textAlign='center'; ctx.font='900 22px Quicksand,sans-serif'; ctx.fillStyle='#0284c7';
-  ctx.fillText(finalScore,cx,cy+6);
+  ctx.fillText(formatScorePrecise(finalScorePrecise),cx,cy+6);
   ctx.font='400 10px sans-serif'; ctx.fillStyle='#94a3b8'; ctx.fillText('/ 150',cx,cy+22);
 }
 
@@ -1402,9 +973,7 @@ function drawProfessionalRadar(canvas){
   var lang=window.I18N_CURRENT||'zh-CN';
   var labels=lang==='zh-TW'
     ? ['社交能力','創造力','幸福感']
-    : (lang==='zh-CN' ? ['社交能力','创造力','幸福感']
-    : (lang==='es-US' ? ['Habilidad Social','Creatividad','Bienestar']
-    : ['Social Ability','Creativity','Well-being']));
+    : ['社交能力','创造力','幸福感'];
   var scores=[pd.socialAbility,pd.creativity,pd.wellbeing];
   var n=3;
   ctx.clearRect(0,0,W,H);
@@ -1499,7 +1068,7 @@ function drawGauge(canvas){
   /* Score text — score number well above, /150 well below with clear gap */
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
   ctx.font='900 28px Quicksand,sans-serif'; ctx.fillStyle='#18181b';
-  ctx.fillText(finalScore, cx, cy-28);
+  ctx.fillText(formatScorePrecise(finalScorePrecise), cx, cy-28);
   ctx.textBaseline='top';
   ctx.font='500 11px Quicksand,sans-serif'; ctx.fillStyle='#a1a1aa';
   ctx.fillText('/ '+maxScore, cx, cy-8);
@@ -1521,11 +1090,11 @@ function drawDonut(canvas){
   var isTW=lang==='zh-TW';
 
   var data=[
-    {label:ql('基础维度','基礎維度','Baseline','Base'), value:dimPct.basic||0, color:'#38bdf8'},
-    {label:ql('社会生活方向','社會生活方向','Social & Life','Social y Vida'), value:dimPct.social||0, color:'#0ea5e9'},
-    {label:ql('个人认同','個人認同','Personal Identity','Identidad Personal'), value:dimPct.identity||0, color:'#f59e0b'},
+    {label:isTW?'基礎維度':'基础维度', value:dimPct.basic||0, color:'#38bdf8'},
+    {label:isTW?'社會生活方向':'社会生活方向', value:dimPct.social||0, color:'#0ea5e9'},
+    {label:isTW?'個人認同':'个人认同', value:dimPct.identity||0, color:'#f59e0b'},
   ];
-  if(bonusScore>0) data.push({label:ql('加分题','加分題','Elite Bonus','Puntos Élite'), value:bonusScore*2, color:'#10b981'});
+  if(bonusScore>0) data.push({label:isTW?'加分題':'加分题', value:bonusScore*2, color:'#10b981'});
 
   var total=0; data.forEach(function(d){ total+=d.value; });
   if(total===0) return;
@@ -1546,9 +1115,9 @@ function drawDonut(canvas){
   /* Center text */
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.font='800 26px Quicksand,sans-serif'; ctx.fillStyle='#18181b';
-  ctx.fillText(finalScore, cx, cy-4);
+  ctx.fillText(formatScorePrecise(finalScorePrecise), cx, cy-4);
   ctx.font='500 11px sans-serif'; ctx.fillStyle='#a1a1aa';
-  ctx.fillText(ql('总分','總分','Total','Total'), cx, cy+16);
+  ctx.fillText(isTW?'總分':'总分', cx, cy+16);
 
   /* Legend — laid out vertically below the donut */
   var ly=cy+R+28;
@@ -1576,9 +1145,9 @@ function drawDimComparison(canvas){
   ctx.clearRect(0,0,W,H);
   var lang=window.I18N_CURRENT||'zh-CN';
   var dims=[
-    {key:'basic',label:(lang==='zh-TW'?'基礎維度':(lang==='en-US'||lang==='en-PH'?'Baseline':lang==='es-US'?'Base':'基础维度')),color:'#7dd3fc'},
-    {key:'social',label:(lang==='zh-TW'?'社會生活方向':(lang==='en-US'||lang==='en-PH'?'Social & Life':lang==='es-US'?'Social y Vida':'社会生活方向')),color:'#0ea5e9'},
-    {key:'identity',label:(lang==='zh-TW'?'個人認同':(lang==='en-US'||lang==='en-PH'?'Personal Identity':lang==='es-US'?'Identidad Personal':'个人认同')),color:'#10b981'},
+    {key:'basic',label:lang==='zh-TW'?'基礎維度':'基础维度',color:'#7dd3fc'},
+    {key:'social',label:lang==='zh-TW'?'社會生活方向':'社会生活方向',color:'#0ea5e9'},
+    {key:'identity',label:lang==='zh-TW'?'個人認同':'个人认同',color:'#10b981'},
   ];
   var barH=28, gap=20, topPad=10, leftPad=80;
   var barW=W-leftPad-60;
@@ -1614,7 +1183,7 @@ function roundRect(ctx,x,y,w,h,r){
 
 
 /* ══════════════════════════════════════════════════════
-   PERSONALIZED INSIGHTS — Pattern detection on answers
+   PERSONALIZED INSIGHTS — Deep pattern detection with authentic analysis
    ══════════════════════════════════════════════════════ */
 
 function buildInsights(lang){
@@ -1626,238 +1195,277 @@ function buildInsights(lang){
   /* Helper: get answer option index for a QK id, or -1 if not answered */
   function a(id){ return answerMap[id]?answerMap[id].questionIdx:-1; }
 
-  /* ── Dimension imbalance ── */
-  if(dimPct){
-    var vals=[dimPct.basic||0,dimPct.social||0,dimPct.identity||0];
-    var mx=Math.max.apply(null,vals), mn=Math.min.apply(null,vals);
-    if(mx-mn>25){
-      rows.push({cls:'warn',icon:'⚖️',
-        title:ql('维度发展不均衡','維度發展不均衡','Uneven Dimension Development','Desarrollo dimensional desigual'),
-        body:ql('你最强和最弱的维度之间差距超过25分。短板效应会限制整体上限——建议优先补强最弱的维度，找出最弱维度中得分最低的2个问题，制定一个30天的集中改善计划。','你最強和最弱的維度之間差距超過25分。建議優先補強最弱的維度，找出得分最低的2個問題，制定30天集中改善計劃。','Your strongest and weakest dimensions are over 25 points apart. The weak-link effect caps your overall ceiling — prioritize strengthening your lowest dimension. Find its 2 lowest-scoring questions and build a 30-day focused improvement plan.',"Tu dimensión más fuerte y la más débil están a más de 25 puntos de distancia. El efecto del eslabón débil limita tu techo general — prioriza fortalecer tu dimensión más débil.")
-      });
-    }
-    if(mn>70){
-      rows.push({cls:'good',icon:'🌟',
-        title:ql('三维度均衡发展','三維度均衡發展','Three Dimensions in Balance','Tres dimensiones equilibradas'),
-        body:ql('你的三个维度均在70分以上，展现出难得的均衡性——没有明显短板拖后腿。下一步建议：选择你最有热情的1个维度，打造成真正的核心优势。','你的三個維度均在70分以上，展現出難得的均衡性。下一步建議：選擇你最有熱情的1個維度，打造成真正的核心優勢。','All three of your dimensions are above 70 — a rare, well-balanced profile. No obvious weak links. Next step: pick the one dimension you\'re most passionate about and invest extra energy to build it into a true competitive edge.','Las tres dimensiones están por encima de 70 — un perfil equilibrado poco común. Próximo paso: elige la dimensión que más te apasiona e invierte energía extra para convertirla en una ventaja competitiva real.')
-      });
-    }
+  /* Helper: get weakest dimension */
+  function getWeakestDim(){
+    if(!dimPct) return null;
+    var dims=[{k:'basic',v:dimPct.basic||0},{k:'social',v:dimPct.social||0},{k:'identity',v:dimPct.identity||0}];
+    dims.sort(function(a,b){return a.v-b.v;});
+    return dims[0].k;
   }
 
-  /* ── Health + Habits pattern ── */
-  var habitsScore=a('QK14'), visionScore=a('QK15a'), healthScore=a('QK15b');
-  if(habitsScore>=3 || (visionScore>=3 && healthScore>=2)){
-    rows.push({cls:'warn',icon:'🏥',
-      title:ql('健康风险预警','健康風險預警','Health Risk Warning','Alerta de riesgo de salud'),
-      body:ql('你的健康相关指标多项偏低，包括不良习惯、视力或慢性健康问题。健康是所有其他维度的"地基"——地基动摇，上层建筑再好也会塌。建议本月内完成一次全面体检，同时从最容易改变的1个不良习惯开始，用30天养成替代行为。','你的健康相關指標多項偏低，包括不良習慣、視力或慢性健康問題。健康是所有其他維度的"地基"——地基動搖，上層建築再好也會塌。建議本月內完成一次全面體檢，同時從最容易改變的1個不良習慣開始，用30天養成替代行為。','Several of your health indicators are low — unhealthy habits, vision issues, or chronic conditions. Health is the foundation everything else rests on. Action this month: schedule a comprehensive physical, and pick the single easiest bad habit to change. Replace it with a better behavior for 30 days.','Varios de tus indicadores de salud son bajos — hábitos poco saludables, problemas de visión o condiciones crónicas. La salud es la base sobre la que descansa todo lo demás. Acción este mes: programa un chequeo médico completo y elige el hábito malo más fácil de cambiar. Reemplázalo con un comportamiento mejor durante 30 días.')
+  /* Helper: get strongest dimension */
+  function getStrongestDim(){
+    if(!dimPct) return null;
+    var dims=[{k:'basic',v:dimPct.basic||0},{k:'social',v:dimPct.social||0},{k:'identity',v:dimPct.identity||0}];
+    dims.sort(function(a,b){return b.v-a.v;});
+    return dims[0].k;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     CORE LIFE PATTERNS — Authentic psychological insights
+     ════════════════════════════════════════════════════════ */
+
+  /* ── Pattern 1: The Foundation Gap (basic strong, social weak) ── */
+  if(dimPct && dimPct.basic>=70 && dimPct.social<=50){
+    rows.push({cls:'purple',icon:'🌱',
+      title:isTW?'起點優秀，但尚未全力奔跑':'起点优秀，但尚未全力奔跑',
+      body:isTW
+        ? '你的健康、教育、成長環境這些「起點條件」比大多數人都要好。這是一種幸運，但也是一種責任——你有責任讓這些好條件發揮出應有的價值。\n\n現實是：很多起點不如你的人，在職業和社會影響力上已經走在了前面。這不是因為他們更聰明或更努力，而是因為他們「不得不」全力奔跑。\n\n你可能一直在等待「準備好」的那一刻。但真相是：沒有人是真正準備好才出發的。那些看起來從容的人，只不過是邊走邊學。\n\n這個月試試看：主動承擔一個略超出你舒適區的任務，或者向老闆/客戶提出一個你過去不敢提的想法。你會發現，世界對你的反應比你想像的更友善。'
+        : '你的健康、教育、成长环境这些「起点条件」比大多数人都要好。这是一种幸运，但也是一种责任——你有责任让这些好条件发挥出应有的价值。\n\n现实是：很多起点不如你的人，在职业和社会影响力上已经走在了前面。这不是因为他们更聪明或更努力，而是因为他们「不得不」全力奔跑。\n\n你可能一直在等待「准备好」的那一刻。但真相是：没有人是真正准备好才出发的。那些看起来从容的人，只不过是边走边学。\n\n这个月试试看：主动承担一个略超出你舒适区的任务，或者向老板/客户提出一个你过去不敢提的想法。你会发现，世界对你的反应比你想象的更友善。'
     });
   }
 
-  /* ── Financial stress pattern ── */
-  var savings=a('QK19'), runway=a('QK20');
+  /* ── Pattern 2: The Social Climber (social strong, identity weak) ── */
+  if(dimPct && dimPct.social>=70 && dimPct.identity<=50){
+    rows.push({cls:'warn',icon:'🏃',
+      title:isTW?'外在成功，但內在正在掉隊':'外在成功，但内在正在掉队',
+      body:isTW
+        ? '你在職業、收入、社交圈這些「外在指標」上表現不錯。但你的內在認同維度顯示：你可能並不清楚自己真正想要什麼，或者正在做的一切是為了什麼。\n\n這是一個常見的陷阱：我們追逐社會定義的成功，卻忘了問自己「這是我想要的嗎」。結果是：擁有了別人羨慕的一切，卻感受不到真正的滿足。\n\n心理學家把這種狀態叫做「空心人」——看起來光鮮，內在卻是空的。如果不及時調整，這種狀態會隨著年齡增長變得越來越痛苦。\n\n建議：這個週末找一個安靜的地方，認真回答這三個問題：\n① 如果錢不是問題，我會選擇做什麼？\n② 什麼事情讓我感到真正的快樂（不是成就感，是快樂）？\n③ 我希望十年後的自己過著什麼樣的生活？\n\n這些問題沒有標準答案，但思考它們本身就是找回自己的開始。'
+        : '你在职业、收入、社交圈这些「外在指标」上表现不错。但你的内在认同维度显示：你可能并不清楚自己真正想要什么，或者正在做的一切是为了什么。\n\n这是一个常见的陷阱：我们追逐社会定义的成功，却忘了问自己「这是我想要的吗」。结果是：拥有了别人羡慕的一切，却感受不到真正的满足。\n\n心理学家把这种状态叫做「空心人」——看起来光鲜，内在却是空的。如果不及时调整，这种状态会随着年龄增长变得越来越痛苦。\n\n建议：这个周末找一个安静的地方，认真回答这三个问题：\n① 如果钱不是问题，我会选择做什么？\n② 什么事情让我感到真正的快乐（不是成就感，是快乐）？\n③ 我希望十年后的自己过着什么样的生活？\n\n这些问题没有标准答案，但思考它们本身就是找回自己的开始。'
+    });
+  }
+
+  /* ── Pattern 3: The Thinker\'s Trap (identity strong, social weak) ── */
+  if(dimPct && dimPct.identity>=70 && dimPct.social<=50){
+    rows.push({cls:'purple',icon:'💭',
+      title:isTW?'想得很透，但做得太少':'想得很透，但做得太少',
+      body:isTW
+        ? '你對人生、價值觀、自我有很深的思考。這是一種難得的能力——大多數人一輩子都沒有認真想過這些問題。\n\n但問題是：思考本身不會改變現實。你可能已經在腦子裡規劃了無數次「理想人生」，但現實中的你，可能和五年前沒有太大區別。\n\n這不是因為你懶，而是因為「想清楚」和「做到」之間，隔著一個叫做「行動」的巨大鴻溝。而這個鴻溝，只有靠一次具體的行動才能跨越。\n\n建議：選一件你「早就知道該做但一直沒做」的小事——可能是更新履歷、報名一個課程、或者聯繫一個久未見面的朋友。\n\n不要想太多，現在就做。不需要完美，只需要完成。因為只有行動，才能把你腦子裡的藍圖變成現實。'
+        : '你对人生、价值观、自我有很深的思考。这是一种难得的能力——大多数人一辈子都没有认真想过这些问题。\n\n但问题是：思考本身不会改变现实。你可能已经在脑子里规划了无数次「理想人生」，但现实中的你，可能和五年前没有太大区别。\n\n这不是因为你懒，而是因为「想清楚」和「做到」之间，隔着一个叫做「行动」的巨大鸿沟。而这个鸿沟，只有靠一次具体的行动才能跨越。\n\n建议：选一件你「早就知道该做但一直没做」的小事——可能是更新履历、报名一个课程、或者联系一个久未见面的朋友。\n\n不要想太多，现在就做。不需要完美，只需要完成。因为只有行动，才能把你脑子里的蓝图变成现实。'
+    });
+  }
+
+  /* ── Pattern 4: The Balanced Achiever (all dimensions strong) ── */
+  if(dimPct && dimPct.basic>=65 && dimPct.social>=65 && dimPct.identity>=65){
+    rows.push({cls:'good',icon:'⭐',
+      title:isTW?'難得的平衡者——但要小心舒適區':'难得的平衡者——但要小心舒适区',
+      body:isTW
+        ? '你在健康、職業、內在三個維度都維持著不錯的水準。這是一種很多人羨慕的狀態：沒有明顯的短板，生活整體上是順暢的。\n\n但這種狀態也有一個隱藏的風險：當一切都「還不錯」的時候，人會失去繼續突破的動力。你會開始習慣現狀，把「維持」當成目標，而不是「成長」。\n\n歷史上那些真正有所成就的人，往往不是因為他們起點多高，而是因為他們在「還不錯」的時候，選擇了繼續向前。\n\n建議：給自己設定一個「舒適區之外」的挑戰。可以是學習一項全新技能、嘗試一個完全不同的領域、或者主動承擔一個讓你感到緊張的項目。\n\n記住：成長從來不發生在舒適區裡。你已經證明了自己可以活得很好，現在是時候證明你可以活得精彩。'
+        : '你在健康、职业、内在三个维度都维持着不错的水准。这是一种很多人羡慕的状态：没有明显的短板，生活整体上是顺畅的。\n\n但这种状态也有一个隐藏的风险：当一切都「还不错」的时候，人会失去继续突破的动力。你会开始习惯现状，把「维持」当成目标，而不是「成长」。\n\n历史上那些真正有所成就的人，往往不是因为他们起点多高，而是因为他们在「还不错」的时候，选择了继续向前。\n\n建议：给自己设定一个「舒适区之外」的挑战。可以是学习一项全新技能、尝试一个完全不同的领域、或者主动承担一个让你感到紧张的项目。\n\n记住：成长从不发生在舒适区里。你已经证明了自己可以活得很好，现在是时候证明你可以活得精彩。'
+    });
+  }
+
+  /* ── Pattern 5: The Struggling Starter (all dimensions weak) ── */
+  if(dimPct && dimPct.basic<=45 && dimPct.social<=45 && dimPct.identity<=45){
+    rows.push({cls:'warn',icon:'🌧️',
+      title:isTW?'此刻很難，但這不是終點':'此刻很难，但这不是终点',
+      body:isTW
+        ? '你的測試結果顯示，此刻的你可能正在經歷一段艱難的時期。健康、職業、內心狀態，似乎沒有一個維度是讓你滿意的。\n\n我想告訴你兩件事：\n\n第一，這種狀態是暫時的。幾乎每一個後來過得很好的人，都曾經有過類似的低谷時刻。低谷不代表你是失敗者，它只是人生的一個階段。\n\n第二，改變不需要從「全面改善」開始。事實上，試圖同時改變所有事情，往往會讓人更加沮喪。\n\n建議：只選一件事，一件最小的事，堅持做30天。可能是每天早睡半小時、每天散步20分鐘、或者每天存下10塊錢。\n\n不要小看這些微小的改變。它們的意義不在於改變本身，而在於證明給自己看：我可以。而這個「我可以」，會成為你走出低谷的第一步。'
+        : '你的测试结果显示，此刻的你可能正在经历一段艰难的时期。健康、职业、内心状态，似乎没有一个维度是让你满意的。\n\n我想告诉你两件事：\n\n第一，这种状态是暂时的。几乎每一个后来过得很好的人，都曾经有过类似的低谷时刻。低谷不代表你是失败者，它只是人生的一个阶段。\n\n第二，改变不需要从「全面改善」开始。事实上，试图同时改变所有事情，往往会让人更加沮丧。\n\n建议：只选一件事，一件最小的事，坚持做30天。可能是每天早睡半小时、每天散步20分钟、或者每天存下10块钱。\n\n不要小看这些微小的改变。它们的意义不在于改变本身，而在于证明给自己看：我可以。而这个「我可以」，会成为你走出低谷的第一步。'
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     HEALTH & WELLNESS PATTERNS
+     ════════════════════════════════════════════════════════ */
+
+  /* ── Pattern 6: Health Neglect ── */
+  var habitsScore=a('QK14'), visionScore=a('QK15a'), healthScore=a('QK15b');
+  var sleepScore=a('QK16'), energyScore=a('QK17');
+  var healthIssues=0;
+  if(habitsScore>=3) healthIssues++;
+  if(visionScore>=3) healthIssues++;
+  if(healthScore>=2) healthIssues++;
+  if(sleepScore>=3) healthIssues++;
+  if(energyScore>=3) healthIssues++;
+
+  if(healthIssues>=2){
+    rows.push({cls:'warn',icon:'🏥',
+      title:isTW?'你的身體正在發出警報':'你的身体正在发出警报',
+      body:isTW
+        ? '多個健康指標顯示，你的身體可能正在承受超出負荷的壓力。不良習慣、睡眠問題、慢性疲勞——這些不是「小毛病」，而是身體在用自己的方式告訴你：我需要被照顧了。\n\n很多人有一個誤區：覺得年輕就可以透支健康，等以後再補回來。但健康不是銀行存款，透支了可以還上。很多慢性病一旦形成，就是不可逆的。\n\n更重要的是：健康是所有其他維度的基礎。沒有好的身體，再高的收入、再成功的事業，都會失去意義。\n\n建議：本月內做三件事——\n① 預約一次全面體檢，了解自己的真實健康狀況\n② 選一個最容易改變的不良習慣（比如熬夜、久坐），用30天養成一個替代行為\n③ 每天給自己留15分鐘「什麼都不做」的時間，只是靜靜地坐著，讓大腦休息\n\n照顧好自己的身體，是對未來的自己最大的負責。'
+        : '多个健康指标显示，你的身体可能正在承受超出负荷的压力。不良习惯、睡眠问题、慢性疲劳——这些不是「小毛病」，而是身体在用自己的方式告诉你：我需要被照顾了。\n\n很多人有一个误区：觉得年轻就可以透支健康，等以后再补回来。但健康不是银行存款，透支了可以还上。很多慢性病一旦形成，就是不可逆的。\n\n更重要的是：健康是所有其他维度的基础。没有好的身体，再高的收入、再成功的事业，都会失去意义。\n\n建议：本月内做三件事——\n① 预约一次全面体检，了解自己的真实健康状况\n② 选一个最容易改变的不良习惯（比如熬夜、久坐），用30天养成一个替代行为\n③ 每天给自己留15分钟「什么都不做」的时间，只是静静地坐着，让大脑休息\n\n照顾好自己的身体，是对未来的自己最大的负责。'
+    });
+  }
+
+  /* ── Pattern 7: Energy Crisis ── */
+  if(energyScore>=3 && sleepScore>=3){
+    rows.push({cls:'warn',icon:'🔋',
+      title:isTW?'你的能量正在枯竭':'你的能量正在枯竭',
+      body:isTW
+        ? '你報告了持續的疲勞感和睡眠問題。這不是「懶」或「不夠努力」，而是你的身心正在發出求救信號。\n\n長期的低能量狀態，往往不只是身體問題，而是生活方式整體失衡的結果。可能是工作壓力太大、可能是情緒消耗過多、也可能是你一直在做讓自己內耗的事。\n\n很多人面對這種狀態的反應是「撐下去」，覺得休息是浪費時間。但真相是：在能量枯竭的狀態下堅持，效率會低到可怕，而且會加速燃盡。\n\n建議：這週就做一件事——找到一個可以「真正休息」的方式。不是刷手機，不是看劇，而是讓大腦真正放鬆的事情。可能是散步、冥想、泡澡、或者只是發呆。\n\n每天給自己30分鐘這樣的時間，連續一週。你會驚訝地發現：當能量恢復了，很多事情會變得容易得多。'
+        : '你报告了持续的疲劳感和睡眠问题。这不是「懒」或「不够努力」，而是你的身心正在发出求救信号。\n\n长期的低能量状态，往往不只是身体问题，而是生活方式整体失衡的结果。可能是工作压力太大、可能是情绪消耗过多、也可能是你一直在做让自己内耗的事。\n\n很多人面对这种状态的反应是「撑下去」，觉得休息是浪费时间。但真相是：在能量枯竭的状态下坚持，效率会低到可怕，而且会加速燃尽。\n\n建议：这周就做一件事——找到一个可以「真正休息」的方式。不是刷手机，不是看剧，而是让大脑真正放松的事情。可能是散步、冥想、泡澡、或者只是发呆。\n\n每天给自己30分钟这样的时间，连续一周。你会惊讶地发现：当能量恢复了，很多事情会变得容易得多。'
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     FINANCIAL PATTERNS
+     ════════════════════════════════════════════════════════ */
+
+  /* ── Pattern 8: Financial Vulnerability ── */
+  var savings=a('QK19'), runway=a('QK20'), income=a('QK7');
   if(savings===0 && runway<=1){
     rows.push({cls:'warn',icon:'💸',
-      title:ql('财务安全垫极薄','財務安全墊極薄','Dangerously Thin Financial Cushion','Colchón financiero peligrosamente delgado'),
-      body:ql('你的储蓄水平和财务跑道同时处于最低区间，这意味着任何突发事件（失业、疾病、意外）都可能造成严重财务危机。紧急行动：本月起暂停所有非必要消费，启动"50/30/20预算法"强制储蓄。目标：3个月内建立至少1个月的应急储备。','你的儲蓄水平和財務跑道同時處於最低區間，這意味著任何突發事件（失業、疾病、意外）都可能造成嚴重財務危機。緊急行動：本月起暫停所有非必要消費，啟動"50/30/20預算法"強制儲蓄。目標：3個月內建立至少1個月的應急儲備。','Your savings and financial runway are both at the very bottom. Any unexpected event — job loss, illness, accident — could trigger a serious financial crisis. Emergency action: pause all non-essential spending this month, apply the 50/30/20 budget rule, and build at least one month of emergency reserves within 3 months.','Tus ahorros y tu pista financiera están en el nivel más bajo. Cualquier evento inesperado podría desencadenar una crisis financiera grave. Acción de emergencia: pausa todos los gastos no esenciales este mes, aplica la regla presupuestaria 50/30/20 y construye al menos un mes de reservas de emergencia en 3 meses.')
+      title:isTW?'財務安全網幾乎為零':'财务安全网几乎为零',
+      body:isTW
+        ? '你的儲蓄水平和財務緩衝都處於極低區間。這意味著任何突發事件——失業、疾病、意外——都可能讓你陷入嚴重的財務困境。\n\n我知道，對很多人來說，「存錢」是一件說起來容易做起來難的事。房租、生活費、各種開銷，每個月的工資似乎總是不夠用。\n\n但這裡有一個你可能沒有想過的視角：存不下錢，往往不是因為賺太少，而是因為我們的消費習慣已經「自動化」了。很多支出，其實並不是真正的「必需」。\n\n建議：本月做一個簡單的實驗——\n① 記錄每一筆支出（不用很詳細，大概類別就行）\n② 月底回顧，找出三筆「花了但沒有真正帶來快樂」的錢\n③ 下個月，把這三筆錢自動轉到一個獨立帳戶，命名為「我的安全網」\n\n哪怕每個月只存下500塊，一年也有6000塊。這6000塊，可能就是你某次危機時的救命稻草。'
+        : '你的储蓄水平和财务缓冲都处于极低区间。这意味着任何突发事件——失业、疾病、意外——都可能让你陷入严重的财务困境。\n\n我知道，对很多人来说，「存钱」是一件说起来容易做起来难的事。房租、生活费、各种开销，每个月的工资似乎总是不够用。\n\n但这里有一个你可能没有想过的视角：存不下钱，往往不是因为赚太少，而是因为我们的消费习惯已经「自动化」了。很多支出，其实并不是真正的「必需」。\n\n建议：本月做一个简单的实验——\n① 记录每一笔支出（不用很详细，大概类别就行）\n② 月底回顾，找出三笔「花了但没有真正带来快乐」的钱\n③ 下个月，把这三笔钱自动转到一个独立账户，命名为「我的安全网」\n\n哪怕每个月只存下500块，一年也有6000块。这6000块，可能就是你某次危机时的救命稻草。'
     });
   }
 
-  /* ── Work-life imbalance ── */
-  var overtime=a('QK12'), stress=a('QK13');
-  if(overtime>=3 && stress>=3){
+  /* ── Pattern 9: Income-Lifestyle Mismatch ── */
+  if(income>=3 && savings<=1 && runway<=2){
+    rows.push({cls:'warn',icon:'🕳️',
+      title:isTW?'收入不錯，但錢總是留不住':'收入不错，但钱总是留不住',
+      body:isTW
+        ? '你的收入水平其實不算低，但儲蓄卻很少。這是一個很常見的現象，心理學家叫它「生活方式膨脹」——收入增加的同時，支出也同步增加，最後還是月月光。\n\n問題不在於你不會理財，而在於：我們的消費決策，很多時候是「自動駕駛」的。發了工資，先還信用卡、再交房租、然後各種訂閱服務自動扣款……還沒反應過來，錢就沒了。\n\n改變這種狀態的關鍵，不是「少花錢」，而是「改變花錢的順序」。\n\n建議：試試「先存後花」——\n發薪日的第二天，自動轉走薪水的10%到一個獨立帳戶（這個帳戶不要綁定任何支付工具）。\n\n10%聽起來不多，但如果你的月薪是8000，一年就是9600。更重要的是，你會開始建立「我有能力存錢」的信心。而這個信心，會讓存錢變得越來越容易。'
+        : '你的收入水平其实不算低，但储蓄却很少。这是一个很常见的现象，心理学家叫它「生活方式膨胀」——收入增加的同时，支出也同步增加，最后还是月月光。\n\n问题不在于你不会理财，而在于：我们的消费决策，很多时候是「自动驾驶」的。发了工资，先还信用卡、再交房租、然后各种订阅服务自动扣款……还没反应过来，钱就没了。\n\n改变这种状态的关键，不是「少花钱」，而是「改变花钱的顺序」。\n\n建议：试试「先存后花」——\n发薪日的第二天，自动转走薪水的10%到一个独立账户（这个账户不要绑定任何支付工具）。\n\n10%听起来不多，但如果你的月薪是8000，一年就是9600。更重要的是，你会开始建立「我有能力存钱」的信心。而这个信心，会让存钱变得越来越容易。'
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     WORK & CAREER PATTERNS
+     ════════════════════════════════════════════════════════ */
+
+  /* ── Pattern 10: Burnout Risk ── */
+  var overtime=a('QK12'), stress=a('QK13'), workLife=a('QK18');
+  if((overtime>=3 && stress>=3) || (stress>=3 && workLife>=3)){
     rows.push({cls:'warn',icon:'🔥',
-      title:ql('严重的工作-生活失衡','嚴重的工作-生活失衡','Severe Work-Life Imbalance','Grave desequilibrio trabajo-vida'),
-      body:ql('你同时报告了高加班时长和高工作压力，这是职业倦怠的典型前兆。研究表明，长期超负荷工作不会提升产出，反而会导致决策质量下降、免疫力降低和人际关系恶化。本周就做一件事：设定一个"每日停工时间"（比如晚上8点），超过后完全不看工作消息，坚持7天。','你同時報告了高加班時長和高工作壓力，這是職業倦怠的典型前兆。研究表明，長期超負荷工作不會提升產出，反而會導致決策質量下降、免疫力降低和人際關係惡化。本週就做一件事：設定一個"每日停工時間"（比如晚上8點），超過後完全不看工作消息，堅持7天。','You reported both heavy overtime and high work pressure — the classic precursor to burnout. Research shows chronic overwork reduces output quality, weakens your immune system, and damages relationships. One thing to do this week: set a hard daily \'shutdown time\' (e.g. 8 PM) and enforce a complete work-message blackout after that. Hold it for 7 days.','Reportaste tanto horas extra intensas como alta presión laboral — el precursor clásico del burnout. Una cosa esta semana: establece una \'hora de cierre\' diaria estricta (ej. 8 PM) y aplica un bloqueo total de mensajes de trabajo después de esa hora. Mantenlo 7 días.')
+      title:isTW?'你離燃盡只差一步':'你离燃尽只差一步',
+      body:isTW
+        ? '高壓力、長工時、工作與生活失衡——這三個因素的組合，是職業倦怠的經典配方。\n\n倦怠不是「懶」或「不夠拼」，而是一種真實的身心耗竭狀態。它的症狀包括：持續疲勞、對工作失去熱情、效率下降、情緒低落、甚至身體出現各種不明原因的不適。\n\n很多人以為「撐過這段就好了」，但倦怠不會自己消失。如果不主動干預，它會持續惡化，最終可能導致嚴重的心理健康問題，甚至迫使你完全停下來。\n\n建議：本週就做這三件事——\n① 設定一個「每日停工時間」（比如晚上8點），超過這個時間，工作消息一律不回\n② 每天給自己留30分鐘「完全屬於自己」的時間，做一件與工作無關的事\n③ 找一個信任的人，告訴TA你現在的狀態。說出來本身就有療癒效果\n\n記住：休息不是獎勵，而是必需品。你不需要等到「完成所有事情」才休息，因為事情永遠做不完。'
+        : '高压力、长工时、工作与生活失衡——这三个因素的组合，是职业倦怠的经典配方。\n\n倦怠不是「懒」或「不够拼」，而是一种真实的身心耗竭状态。它的症状包括：持续疲劳、对工作失去热情、效率下降、情绪低落、甚至身体出现各种不明原因的不适。\n\n很多人以为「撑过这段就好了」，但倦怠不会自己消失。如果不主动干预，它会持续恶化，最终可能导致严重的心理健康问题，甚至迫使你完全停下来。\n\n建议：本周就做这三件事——\n① 设定一个「每日停工时间」（比如晚上8点），超过这个时间，工作消息一律不回\n② 每天给自己留30分钟「完全属于自己」的时间，做一件与工作无关的事\n③ 找一个信任的人，告诉TA你现在的状态。说出来本身就有疗愈效果\n\n记住：休息不是奖励，而是必需品。你不需要等到「完成所有事情」才休息，因为事情永远做不完。'
     });
   }
 
-  /* ── Social isolation ── */
-  var confide=a('QK33'), parents=a('QK28a'), siblings=a('QK28b');
-  if(confide===4 || (confide===-1 && parents>=2 && siblings>=2)){
-    rows.push({cls:'purple',icon:'🫂',
-      title:ql('社交支持系统薄弱','社交支持系統薄弱','Weak Social Support System','Sistema de apoyo social débil'),
-      body:ql('你缺乏可以倾诉的对象，同时家庭关系也不够亲密。社交孤立是心理健康最大的隐形杀手——它对寿命的负面影响相当于每天抽15根烟。建议：本月尝试加入一个兴趣社群（线上或线下），或者约一位老朋友进行一次真正的深度对话。','你缺乏可以傾訴的對象，同時家庭關係也不夠親密。社交孤立是心理健康最大的隱形殺手——它對壽命的負面影響相當於每天抽15根菸。建議：本月嘗試加入一個興趣社群（線上或線下），或者約一位老朋友進行一次真正的深度對話。','You lack people to confide in, and family relationships are strained. Social isolation is the biggest invisible threat to mental health — its effect on longevity is equivalent to smoking 15 cigarettes a day. This month: join one interest community (online or in person), or reach out to an old friend for a genuine, deep conversation.','Te faltan personas en quienes confiar y las relaciones familiares son tensas. El aislamiento social es la mayor amenaza invisible para la salud mental. Este mes: únete a una comunidad de intereses (en línea o en persona), o contacta a un viejo amigo para una conversación genuina y profunda.')
+  /* ── Pattern 11: Golden Cage ── */
+  var satisfaction=a('QK39'), agency=a('QK37');
+  if(income>=3 && (satisfaction>=3 || agency>=3)){
+    rows.push({cls:'purple',icon:'🔒',
+      title:isTW?'高薪的代價，你正在默默承受':'高薪的代价，你正在默默承受',
+      body:isTW
+        ? '你的收入不低，但你對工作的滿意度或掌控感卻很低。這是一個很多人正在經歷卻不敢承認的困境：高薪把你「困」在了一份並不喜歡的工作裡。\n\n這就是所謂的「金色牢籠」——看起來光鮮，實際上是一種隱形的囚禁。你不敢離開，因為怕找不到同樣薪水的工作；你不敢改變，因為怕失去現有的穩定。\n\n但這裡有一個你可能沒有想過的問題：如果繼續這樣下去，五年後的你會是什麼樣子？\n\n建議：做一個「最壞情況演練」——\n① 如果你明天辭職，最壞的結果是什麼？\n② 這個結果，你真的無法承受嗎？\n③ 為了避免這個結果，你現在可以做什麼準備？\n\n通常你會發現：真實的風險，遠小於你想像的。而「準備」這個行為本身，就會讓你感到更有掌控感。\n\n你不是一定要現在就辭職，但你應該開始為自己創造選擇權。'
+        : '你的收入不低，但你对工作的满意度或掌控感却很低。这是一个很多人正在经历却不敢承认的困境：高薪把你「困」在了一份并不喜欢的工作里。\n\n这就是所谓的「金色牢笼」——看起来光鲜，实际上是一种隐形的囚禁。你不敢离开，因为怕找不到同样薪水的工作；你不敢改变，因为怕失去现有的稳定。\n\n但这里有一个你可能没有想过的问题：如果继续这样下去，五年后的你会是什么样子？\n\n建议：做一个「最坏情况演练」——\n① 如果你明天辞职，最坏的结果是什么？\n② 这个结果，你真的无法承受吗？\n③ 为了避免这个结果，你现在可以做什么准备？\n\n通常你会发现：真实的风险，远小于你想象的。而「准备」这个行为本身，就会让你感到更有掌控感。\n\n你不是一定要现在就辞职，但你应该开始为自己创造选择权。'
     });
   }
 
-  /* ── Strong internal identity ── */
-  var curiosity=a('QK34'), persist=a('QK35'), emotion=a('QK36'), agency=a('QK37');
+  /* ════════════════════════════════════════════════════════
+     RELATIONSHIP PATTERNS
+     ════════════════════════════════════════════════════════ */
+
+  /* ── Pattern 12: Social Isolation ── */
+  var confide=a('QK33'), friends=a('QK30'), familyClose=a('QK28a');
+  if(confide===4 || (confide===-1 && friends>=3 && familyClose>=2)){
+    rows.push({cls:'warn',icon:'🫂',
+      title:isTW?'你身邊的人，可能比你想像的少':'你身边的人，可能比你想像的少',
+      body:isTW
+        ? '測試結果顯示，你可能缺乏可以真正傾訴的對象，同時與家人、朋友的連結也不夠緊密。\n\n在這個「社群媒體時代」，我們很容易有一種錯覺：認識很多人，有很多「朋友」。但真正的問題是：當你深夜難過的時候，你可以打電話給誰？當你遇到困難的時候，誰會毫不猶豫地幫你？\n\n研究顯示，社交孤立對健康的負面影響，相當於每天抽15根菸。我們是社會性動物，需要真實的連結才能健康生存。\n\n建議：本月嘗試做這三件事——\n① 聯繫一個很久沒見的老朋友，約出來喝杯咖啡，認真聊聊彼此的生活\n② 加入一個興趣社群（線上或線下都可以），認識一些有共同愛好的人\n③ 每週給家人打一次電話，不是為了「完成任務」，而是真正關心他們的近況\n\n建立關係需要時間，但第一步永遠是「主動」。你不需要有很多朋友，你只需要有幾個真正懂你的人。'
+        : '测试结果显示，你可能缺乏可以真正倾诉的对象，同时与家人、朋友的连结也不够紧密。\n\n在这个「社交媒体时代」，我们很容易有一种错觉：认识很多人，有很多「朋友」。但真正的问题是：当你深夜难过的时候，你可以打电话给谁？当你遇到困难的时候，谁会毫不犹豫地帮你？\n\n研究显示，社交孤立对健康的负面影响，相当于每天抽15根烟。我们是社会性动物，需要真实的连结才能健康生存。\n\n建议：本月尝试做这三件事——\n① 联系一个很久没见的老朋友，约出来喝杯咖啡，认真聊聊彼此的生活\n② 加入一个兴趣社群（线上或线下都可以），认识一些有共同爱好的人\n③ 每周给家人打一次电话，不是为了「完成任务」，而是真正关心他们的近况\n\n建立关系需要时间，但第一步永远是「主动」。你不需要有很多朋友，你只需要有几个真正懂你的人。'
+    });
+  }
+
+  /* ── Pattern 13: Relationship Crisis ── */
+  var romantic=a('QK23'), relationshipStress=a('QK24');
+  if((romantic>=5 && romantic<=8) || (romantic>=0 && romantic<=3 && relationshipStress>=3)){
+    rows.push({cls:'warn',icon:'💔',
+      title:isTW?'你的感情，可能正在消耗你':'你的感情，可能正在消耗你',
+      body:isTW
+        ? '測試結果顯示，你的親密關係可能正處於高壓狀態——無論是正在經歷危機，還是關係本身帶來了巨大的壓力。\n\n親密關係的問題有一個特點：它會像漏水的水管一樣，持續消耗你在其他所有維度的能量。你可能發現自己工作效率下降、情緒變得易怒、對其他事情也失去了興趣。\n\n很多人面對這種狀態的反應是「想辦法解決問題」，但這可能不是最好的第一步。當你處於高壓情緒中時，你的判斷力會受到嚴重影響，這時做出的決定往往會讓事情變得更糟。\n\n建議：在做任何重大決定之前，先做這三件事——\n① 找到一個安全的情緒出口：約一位信任的朋友深聊，或者預約一次心理諮詢\n② 每天給自己留30分鐘「與關係無關」的時間，做一件讓自己平靜的事\n③ 如果可能的話，和伴侶約定一個「冷靜期」——在這段時間裡，雙方都不討論敏感的話題\n\n記住：你的情緒健康比這段關係更重要。先讓自己回到基準線，再決定下一步該怎麼走。'
+        : '测试结果显示，你的亲密关系可能正处于高压状态——无论是正在经历危机，还是关系本身带来了巨大的压力。\n\n亲密关系的问题有一个特点：它会像漏水的水管一样，持续消耗你在其他所有维度的能量。你可能发现自己工作效率下降、情绪变得易怒、对其他事情也失去了兴趣。\n\n很多人面对这种状态的反应是「想办法解决问题」，但这可能不是最好的第一步。当你处于高压情绪中时，你的判断力会受到严重影响，这时做出的决定往往会让事情变得更糟。\n\n建议：在做任何重大决定之前，先做这三件事——\n① 找到一个安全的情绪出口：约一位信任的朋友深聊，或者预约一次心理咨询\n② 每天给自己留30分钟「与关系无关」的时间，做一件让自己平静的事\n③ 如果可能的话，和伴侣约定一个「冷静期」——在这段时间里，双方都不讨论敏感的话题\n\n记住：你的情绪健康比这段关系更重要。先让自己回到基准线，再决定下一步该怎么走。'
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     INNER WORLD PATTERNS
+     ════════════════════════════════════════════════════════ */
+
+  /* ── Pattern 14: Growth Mindset ── */
+  var curiosity=a('QK34'), persist=a('QK35'), emotion=a('QK36');
   if(curiosity<=1 && persist<=1 && emotion<=1){
     rows.push({cls:'good',icon:'💎',
-      title:ql('强大的内在驱动力','強大的內在驅動力','Powerful Inner Drive','Fuerte impulso interior'),
-      body:ql('你在好奇心、坚持力和情绪管理方面都表现出色。这三项能力的组合被心理学家称为"成长型人格"——拥有它的人在面对挫折时恢复速度更快，长期成就的上限更高。建议：利用这个优势去挑战一个你一直犹豫要不要开始的大项目。','你在好奇心、堅持力和情緒管理方面都表現出色。這三項能力的組合被心理學家稱為"成長型人格"——擁有它的人在面對挫折時恢復速度更快，長期成就的上限更高。建議：利用這個優勢去挑戰一個你一直猶豫要不要開始的大項目。','You score strongly on curiosity, persistence, and emotional regulation. Psychologists call this combination a \'growth personality\' — people who have it bounce back from setbacks faster and achieve more over the long run. Use this edge to tackle the big project you\'ve been hesitating to start.','Obtienes puntuaciones altas en curiosidad, persistencia y regulación emocional. Los psicólogos llaman a esta combinación \'personalidad de crecimiento\'. Usa esta ventaja para enfrentar el gran proyecto que has dudado en comenzar.')
+      title:isTW?'你擁有稀缺的「成長型人格」':'你拥有稀缺的「成长型人格」',
+      body:isTW
+        ? '好奇心、堅持力、情緒穩定性——這三項能力的組合，在心理學中被稱為「成長型人格」。擁有它的人，在面對挫折時恢復更快，長期成就的上限也更高。\n\n更難得的是，這些特質很大程度上是天生的，或者是在早年形成的。這意味著你擁有一個很多人羨慕的「內在優勢」。\n\n但擁有優勢只是起點，關鍵是如何利用它。很多擁有成長型人格的人，因為太習慣自己的「穩定」，反而選擇了過於保守的路徑，最終沒有發揮出應有的潛力。\n\n建議：利用你的情緒穩定性和堅持力，去挑戰一個讓你感到興奮但有點害怕的目標。\n\n你的內在系統足夠強大，可以承受失敗和挫折。而這些失敗和挫折，會讓你成長得更快。不要浪費你的天賦。'
+        : '好奇心、坚持力、情绪稳定性——这三项能力的组合，在心理学中被称为「成长型人格」。拥有它的人，在面对挫折时恢复更快，长期成就的上限也更高。\n\n更难得的是，这些特质很大程度上是天生的，或者是在早年形成的。这意味着你拥有一个很多人羡慕的「内在优势」。\n\n但拥有优势只是起点，关键是如何利用它。很多拥有成长型人格的人，因为太习惯自己的「稳定」，反而选择了过于保守的路径，最终没有发挥出应有的潜力。\n\n建议：利用你的情绪稳定性和坚持力，去挑战一个让你感到兴奋但有点害怕的目标。\n\n你的内在系统足够强大，可以承受失败和挫折。而这些失败和挫折，会让你成长得更快。不要浪费你的天赋。'
     });
   }
 
-  /* ── High income but low savings ── */
-  var income=a('QK7');
-  if(income>=3 && savings<=1){
-    rows.push({cls:'warn',icon:'🕳️',
-      title:ql('高收入低储蓄陷阱','高收入低儲蓄陷阱','High Income, Low Savings Trap','Trampa de altos ingresos y bajos ahorros'),
-      body:ql('你的收入水平不低，但储蓄却很少——这是典型的"收入膨胀"陷阱：收入增长被同比例的消费升级完全吞噬。解决方案不是"少花钱"，而是在收入到账的那一刻就自动转走固定比例。建议设置月薪20%的自动转存到一个不易取用的账户。','你的收入水平不低，但儲蓄卻很少——這是典型的"收入膨脹"陷阱：收入增長被同比例的消費升級完全吞噬。解決方案不是"少花錢"，而是在收入到賬的那一刻就自動轉走固定比例。建議設置月薪20%的自動轉存到一個不易取用的帳戶。','Your income is solid, but savings are minimal — classic lifestyle inflation: every raise gets absorbed by upgraded spending. The fix isn\'t \'spend less\'; it\'s auto-transferring a fixed percentage the moment your paycheck hits. Set up a 20% automatic transfer to a hard-to-touch savings account today.','Tus ingresos son sólidos, pero los ahorros son mínimos — inflación de estilo de vida clásica. La solución no es \'gastar menos\'; es transferir automáticamente un porcentaje fijo en el momento en que llega tu cheque. Configura una transferencia automática del 20% a una cuenta de difícil acceso hoy.')
-    });
-  }
-
-  /* ── Good base, untapped social ── */
-  if(dimPct && dimPct.basic>75 && dimPct.social<55){
-    rows.push({cls:'purple',icon:'🚀',
-      title:ql('基础优秀但潜力未释放','基礎優秀但潛力未釋放','Strong Foundation, Untapped Potential','Base sólida, potencial sin aprovechar'),
-      body:ql('你的基础条件（健康、教育、环境）优于大多数人，但社会生活方向维度还未跟上。这说明你的外部资源转化效率有待提升——你拥有比你意识到的更多的起点优势。建议：认真审视你的职业路径，考虑是否需要一次主动的职业跃升（跳槽、谈薪或创业）。','你的基礎條件（健康、教育、環境）優於大多數人，但社會生活方向維度還未跟上。這說明你的外部資源轉化效率有待提升——你擁有比你意識到的更多的起點優勢。建議：認真審視你的職業路徑，考慮是否需要一次主動的職業躍升（跳槽、談薪或創業）。','Your baseline (health, education, environment) is stronger than most people\'s, but your Social & Life dimension hasn\'t caught up. You have more starting-line advantages than you realize — the conversion efficiency just needs work. Seriously review your career path: do you need a proactive leap — a new job, a raise negotiation, or a side business?','Tu base (salud, educación, entorno) es más sólida que la de la mayoría, pero tu dimensión Social y Vida no ha alcanzado ese nivel. Tienes más ventajas de partida de las que reconoces. Revisa seriamente tu trayectoria profesional: ¿necesitas un salto proactivo — un nuevo trabajo, negociar un aumento o un negocio secundario?')
-    });
-  }
-
-  /* ── Romantic distress pattern ── */
-  var romantic=a('QK23');
-  if(romantic>=5 && romantic<=8){
-    rows.push({cls:'warn',icon:'💔',
-      title:ql('亲密关系正在经历严重危机','親密關係正在經歷嚴重危機','Relationship in Serious Crisis','Relación en crisis grave'),
-      body:ql('你的感情状态显示关系正处于高压或破裂状态。这会像漏水的水管一样持续消耗你在其他所有维度的精力和判断力。最重要的第一步不是"解决问题"，而是为自己找到一个安全的情绪出口——约一位信任的朋友深聊，或预约一次心理咨询。在做任何重大关系决定之前，先让自己的情绪回到基准线。','你的感情狀態顯示關係正處於高壓或破裂狀態。這會像漏水的水管一樣持續消耗你在其他所有維度的精力和判斷力。最重要的第一步不是"解決問題"，而是為自己找到一個安全的情緒出口——約一位信任的朋友深聊，或預約一次心理諮詢。在做任何重大關係決定之前，先讓自己的情緒回到基準線。','Your relationship status signals high strain or near-breakdown. This drains your energy and judgment in every other dimension — like a constant leak. The most important first step isn\'t \'solving the problem\': it\'s finding a safe emotional outlet. Talk to a trusted friend or book a therapy session. Before any major relationship decision, get your emotional baseline back first.','Tu estado de relación señala alta tensión o cercanía a una ruptura. Esto drena tu energía en cada otra dimensión. El primer paso más importante no es \'resolver el problema\': es encontrar una salida emocional segura. Habla con un amigo de confianza o reserva una sesión de terapia. Antes de cualquier decisión importante de relación, recupera primero tu línea de base emocional.')
-    });
-  }
-
-  /* ── Youth potential pattern (under-25 with high curiosity/persistence) ── */
-  if(a('QK1')<=1 && curiosity<=1 && persist<=1){
-    rows.push({cls:'good',icon:'🌅',
-      title:ql('年轻且拥有稀缺的成长型特质','年輕且擁有稀缺的成長型特質','Young With Rare Growth Mindset','Joven con mentalidad de crecimiento poco común'),
-      body:ql('你在25岁之前就展现出了强烈的好奇心和坚持力——这两项特质的组合在同龄人中极为罕见。研究表明，这种"成长型人格"在30岁后会转化为显著的职业和收入优势。你现在最需要做的不是追求稳定，而是大胆试错：尝试不同的行业、城市和生活方式，因为你的试错成本在人生中处于最低点，而学习回报率处于最高点。','你在25歲之前就展現出了強烈的好奇心和堅持力——這兩項特質的組合在同齡人中極為罕見。研究表明，這種"成長型人格"在30歲後會轉化為顯著的職業和收入優勢。你現在最需要做的不是追求穩定，而是大膽試錯：嘗試不同的行業、城市和生活方式，因為你的試錯成本在人生中處於最低點，而學習回報率處於最高點。','You\'re showing strong curiosity and persistence before 25 — that combination is rare among your peers. Research shows this \'growth personality\' translates into significant career and income advantages after 30. What you need most right now isn\'t stability — it\'s bold experimentation. Try different industries, cities, and lifestyles. Your cost of failure is at its lifetime low; your learning rate is at its peak.','Muestras fuerte curiosidad y persistencia antes de los 25 — esa combinación es poco común entre tus pares. Lo que más necesitas ahora no es estabilidad — es experimentación audaz. Prueba diferentes industrias, ciudades y estilos de vida. Tu costo de error está en el mínimo de tu vida; tu tasa de aprendizaje está en su punto máximo.')
-    });
-  }
-
-  /* ── Career stagnation: high income but low agency/satisfaction ── */
-  if(income>=3 && (agency>=3 || a('QK39')>=3)){
-    rows.push({cls:'purple',icon:'🔒',
-      title:ql('高收入陷阱：金色牢笼效应','高收入陷阱：金色牢籠效應','High Income Trap: The Golden Cage','Trampa de altos ingresos: La jaula dorada'),
-      body:ql('你的收入不低，但你对人生的掌控感或成就感却很弱。这是经典的"金色牢笼"——高薪让你不敢离开，但工作本身正在消磨你的生命力。建议做一个"最坏情况演练"：如果你明天辞职，最坏的结果是什么？你能承受吗？通常你会发现，真实的风险远小于你想象的。然后制定一个6个月的"逃离计划"——不是明天就辞职，而是系统性地为自己创造选择权。','你的收入不低，但你對人生的掌控感或成就感卻很弱。這是經典的"金色牢籠"——高薪讓你不敢離開，但工作本身正在消磨你的生命力。建議做一個"最壞情況演練"：如果你明天辭職，最壞的結果是什麼？你能承受嗎？通常你會發現，真實的風險遠小於你想像的。然後制定一個6個月的"逃離計劃"——不是明天就辭職，而是系統性地為自己創造選擇權。','You earn well, but your sense of control or fulfillment is low — the classic golden cage. High pay makes you afraid to leave, but the work itself is slowly draining your vitality. Run a \'worst-case drill\': if you quit tomorrow, what\'s the worst outcome? Can you survive it? Usually the real risk is far smaller than imagined. Then build a 6-month \'options plan\' — not quitting tomorrow, but systematically creating freedom of choice.','Ganas bien, pero tu sentido de control o realización es bajo — la jaula dorada clásica. Realiza un \'simulacro del peor caso\': si renunciaras mañana, ¿cuál sería el peor resultado? Luego construye un \'plan de opciones\' de 6 meses — no renunciar mañana, sino crear sistemáticamente libertad de elección.')
-    });
-  }
-
-  /* ── Retirement risk: retired with low quality ── */
-  var retireQuality=a('QK8b');
-  if(a('QK3')===4 && retireQuality>=3){
-    rows.push({cls:'warn',icon:'🏚️',
-      title:ql('退休生活质量预警','退休生活質量預警','Retirement Quality Warning','Alerta de calidad de jubilación'),
-      body:ql('你的退休生活质量评分偏低。退休后最常见的三大问题是：社交圈急剧缩小、日常结构感消失、以及"被需要感"的丧失。建议本月做3件事：①加入一个每周固定聚会的社区团体（太极/书法/棋牌）②设定每天的"小目标"时间表（哪怕只是散步+读报）③每周至少和子女或老朋友进行一次15分钟以上的通话。这些看似简单的行动，能显著提升退休生活的幸福感。','你的退休生活質量評分偏低。退休後最常見的三大問題是：社交圈急劇縮小、日常結構感消失、以及"被需要感"的喪失。建議本月做3件事：①加入一個每週固定聚會的社區團體（太極/書法/棋牌）②設定每天的"小目標"時間表（哪怕只是散步+讀報）③每週至少和子女或老朋友進行一次15分鐘以上的通話。這些看似簡單的行動，能顯著提升退休生活的幸福感。','Your retirement quality score is low. The three most common post-retirement problems are: social circle shrinking rapidly, loss of daily structure, and loss of feeling needed. This month, do 3 things: ① Join a weekly community group (walking club, book club, pickleball) ② Set a daily \'small goals\' schedule ③ Call a family member or old friend for at least 15 minutes each week. These simple actions significantly improve retirement well-being.','Tu puntaje de calidad de jubilación es bajo. Los tres problemas más comunes post-jubilación son: círculo social que se reduce rápidamente, pérdida de estructura diaria y pérdida de sentirse necesitado. Este mes, haz 3 cosas: ① Únete a un grupo comunitario semanal ② Establece un horario diario de \'pequeñas metas\' ③ Llama a un familiar o viejo amigo al menos 15 minutos cada semana.')
-    });
-  }
-
-  /* ── Age-specific: 56–75 targeted analysis ── */
-  if(a('QK1')>=5 && a('QK1')<=6){
-    var s561=a('QKS56_1'), s562=a('QKS56_2'), s563=a('QKS56_3');
-    if(s561>=2 || s562>=2 || s563>=2){
-      rows.push({cls:'warn',icon:'🧭',
-        title:ql('56–75岁阶段：转换期风险提示','56–75歲階段：轉換期風險提示','Ages 56–75: Transition Risk Alert','Edades 56–75: Alerta de riesgo de transición'),
-        body:ql('你正处在“工作—退休—家庭角色”快速重构的阶段。若健康管理、现金流安排与社交节律任一失衡，后续风险会明显放大。建议优先把三件事流程化：固定健康追踪、每月现金流盘点、每周社交活动安排。','你正處在「工作—退休—家庭角色」快速重構的階段。若健康管理、現金流安排與社交節律任一失衡，後續風險會明顯放大。建議優先把三件事流程化：固定健康追蹤、每月現金流盤點、每週社交活動安排。','You are in the rapid restructuring phase of work → retirement → family roles. If health management, cash flow, or social rhythm gets off-balance, downstream risks multiply. Systematize 3 things now: regular health monitoring, monthly cash flow review, weekly social activities.','Estás en la fase de reestructuración de trabajo → jubilación → roles familiares. Sistematiza 3 cosas: monitoreo regular de salud, revisión mensual del flujo de caja, actividades sociales semanales.')
-      });
-    } else {
-      rows.push({cls:'good',icon:'✅',
-        title:ql('56–75岁阶段：结构稳定','56–75歲階段：結構穩定','Ages 56–75: Structurally Stable','Edades 56–75: Estructuralmente estable'),
-        body:ql('你在过渡期的健康、财务与社交三项关键结构相对稳定。下一步可聚焦在“低风险高回报”：维持规律节奏、提升日常幸福感，并把经验转化为家庭与社群价值。','你在過渡期的健康、財務與社交三項關鍵結構相對穩定。下一步可聚焦在「低風險高回報」：維持規律節奏、提升日常幸福感、並把經驗轉化為家庭與社群價值。','Your health, finances, and social structure are relatively stable during this transition. Focus on low-risk, high-return moves: maintain regular routines, improve daily well-being, and convert your experience into value for family and community.','Tu salud, finanzas y estructura social son relativamente estables en esta transición. Enfócate en movimientos de bajo riesgo y alto retorno: mantén rutinas regulares, mejora el bienestar diario y convierte tu experiencia en valor para familia y comunidad.')
-      });
-    }
-  }
-
-  /* ── Age-specific: 76–100 targeted analysis ── */
-  if(a('QK1')>=7 && a('QK1')<=8){
-    var s761=a('QKS76_1'), s762=a('QKS76_2'), s763=a('QKS76_3');
-    if(s761>=2 || s762>=2 || s763>=2){
-      rows.push({cls:'warn',icon:'🛡️',
-        title:ql('76–100岁阶段：安全与连续性优先','76–100歲階段：安全與連續性優先','Ages 76–100: Safety & Continuity First','Edades 76–100: Seguridad y continuidad primero'),
-        body:ql('此年龄段最重要的不是“再提升多少”，而是“稳定地过好每一天”。若行动独立性、就医连续性或情绪安稳感偏弱，建议立刻补齐：居家防跌倒、紧急联络机制、规律陪伴与复诊节奏。','此年齡段最重要的不是「再提升多少」，而是「穩定地過好每一天」。若行動獨立性、就醫連續性或情緒安穩感偏弱，建議立刻補齊：居家防跌倒、緊急聯絡機制、規律陪伴與復診節奏。','At this age the priority isn\'t \'how much more to improve\' — it\'s \'living each day steadily and well.\' If functional independence, healthcare continuity, or emotional stability are weak, address them now: home fall prevention, emergency contact systems, and regular medical check-ins.','En esta edad la prioridad no es \'cuánto más mejorar\' — es \'vivir cada día de forma estable\'. Si la independencia funcional, la continuidad médica o la estabilidad emocional son débiles, abórdalas de inmediato.')
-      });
-    } else {
-      rows.push({cls:'good',icon:'🌿',
-        title:ql('76–100岁阶段：高质量稳定状态','76–100歲階段：高品質穩定狀態','Ages 76–100: High-Quality Stable State','Edades 76–100: Estado estable de alta calidad'),
-        body:ql('你在这一阶段维持了难得的功能稳定与心理平和。建议继续保持“低波动日常”：固定作息、适度活动、稳定社交触点，让生活质量可持续。','你在這一階段維持了難得的功能穩定與心理平和。建議繼續保持「低波動日常」：固定作息、適度活動、穩定社交觸點，讓生活品質可持續。','You have maintained rare functional stability and mental calm. Keep your low-volatility daily routine: fixed schedule, moderate activity, stable social touchpoints. This is how quality of life stays sustainable.','Has mantenido una estabilidad funcional y calma mental poco comunes. Mantén tu rutina diaria de baja volatilidad: horario fijo, actividad moderada, contactos sociales estables. Así la calidad de vida se mantiene sostenible.')
-      });
-    }
-  }
-
-  /* ── Sedentary + screen addiction combo ── */
-  if(answerMap['QK14'] && Array.isArray(answerMap['QK14'].selectedIndices)){
-    var habits14=answerMap['QK14'].selectedIndices;
-    var hasSedentary=habits14.indexOf(1)>=0, hasScreen=habits14.indexOf(6)>=0, hasLateNight=habits14.indexOf(4)>=0;
-    if(hasSedentary && (hasScreen || hasLateNight)){
-      rows.push({cls:'warn',icon:'📱',
-        title:ql('久坐+屏幕成瘾：慢性健康定时炸弹','久坐+螢幕成癮：慢性健康定時炸彈','Sedentary + Screen Addiction: Slow-Burn Health Bomb','Sedentarismo + pantallas: bomba de tiempo para tu salud'),
-        body:ql('你同时存在久坐和屏幕过度使用的问题，这个组合会加速颈椎退化、视力下降和睡眠质量恶化。立即可执行的解法：在手机上设置每小时震动一次的提醒，每次站起来做2分钟的拉伸（特别是颈部和髋部）。同时，把手机的屏幕设为晚上10点后自动变灰阶——这会让你的大脑自然失去刷屏的冲动。','你同時存在久坐和螢幕過度使用的問題，這個組合會加速頸椎退化、視力下降和睡眠質量惡化。立即可執行的解法：在手機上設置每小時震動一次的提醒，每次站起來做2分鐘的拉伸（特別是頸部和髖部）。同時，把手機的螢幕設為晚上10點後自動變灰階——這會讓你的大腦自然失去刷屏的衝動。','You have both a sedentary lifestyle and excessive screen use — a combination that accelerates cervical degeneration, vision decline, and sleep quality erosion. Immediately actionable fix: set an hourly phone vibration reminder to stand and stretch for 2 minutes (focus on neck and hips). Also, enable grayscale mode on your phone after 10 PM — your brain naturally loses the urge to scroll.','Tienes tanto un estilo de vida sedentario como uso excesivo de pantallas. Solución inmediatamente ejecutable: configura una vibración horaria en tu teléfono para pararte y estirarte 2 minutos. Además, activa el modo escala de grises en tu teléfono después de las 10 PM — tu cerebro pierde naturalmente el impulso de hacer scroll.')
-      });
-    }
-  }
-
-  /* ── High identity, low social — Thinker pattern ── */
-  if(dimPct && dimPct.identity>75 && dimPct.social<55){
-    rows.push({cls:'purple',icon:'💭',
-      title:ql('思考者，但行动力不足','思考者，但行動力不足','Thinker Without Enough Action','Pensador sin suficiente acción'),
-      body:ql('你的内在认知和价值观非常成熟，但还没有充分转化为外部成就。你可能有完美主义倾向——总觉得"还没准备好"。解药：每周设定一个30分钟的"执行时段"，专门用于推进你脑海中已经有答案但一直没动手的事。完成度比完美度重要得多。','你的內在認知和價值觀非常成熟，但還沒有充分轉化為外部成就。你可能有完美主義傾向——總覺得"還沒準備好"。解藥：每週設定一個30分鐘的"執行時段"，專門用於推進你腦海中已經有答案但一直沒動手的事。完成度比完美度重要得多。','Your inner clarity and values are mature, but they haven\'t fully converted into external results. You may have perfectionist tendencies — always feeling \'not ready yet.\' The antidote: schedule one 30-minute \'execution window\' each week, dedicated entirely to moving forward the one thing you already know the answer to. Done beats perfect, every time.','Tu claridad interior y tus valores son maduros, pero no se han convertido plenamente en resultados externos. Puede que tengas tendencias perfeccionistas. El antídoto: programa una \'ventana de ejecución\' de 30 minutos cada semana, dedicada a avanzar en lo que ya sabes que debes hacer. Lo hecho supera a lo perfecto, siempre.')
-    });
-  }
-
-  /* ── Overall high scorer ── */
-  if(finalScore>=85 && !bonusScore){
-    rows.push({cls:'good',icon:'⭐',
-      title:ql('你正处于人生高点——但要警惕高原效应','你正處於人生高點——但要警惕高原效應','At Your Peak — Watch Out for the Plateau Effect','En tu punto máximo — cuidado con el efecto meseta'),
-      body:ql('85分以上的基础分意味着你在大多数维度都表现出色。但高分者最大的风险不是"退步"，而是"停滞"——当一切都"还不错"的时候，人会失去主动突破的动力。建议：给自己设定一个"舒适区之外"的90天挑战——可以是学一门新语言、尝试一个新运动、或者主动承接一个超出你当前能力的项目。保持成长的引擎运转。','85分以上的基礎分意味著你在大多數維度都表現出色。但高分者最大的風險不是"退步"，而是"停滯"——當一切都"還不錯"的時候，人會失去主動突破的動力。建議：給自己設定一個"舒適區之外"的90天挑戰——可以是學一門新語言、嘗試一個新運動、或者主動承接一個超出你當前能力的項目。保持成長的引擎運轉。','A base score above 85 means you\'re doing well across most dimensions. But the biggest risk for high scorers isn\'t regression — it\'s stagnation. When everything is \'pretty good,\' people lose the impulse to push further. Set yourself a 90-day out-of-comfort-zone challenge: learn a new language, try a new sport, or proactively take on a project beyond your current level. Keep the growth engine running.','Una puntuación base superior a 85 significa que te está yendo bien en la mayoría de dimensiones. Pero el mayor riesgo para los que puntúan alto no es el retroceso — es el estancamiento. Establece un desafío de 90 días fuera de tu zona de confort: aprende un nuevo idioma, prueba un nuevo deporte, o asume proactivamente un proyecto más allá de tu nivel actual.')
-    });
-  }
-
-  /* ── Low emotional management + high stress combo ── */
+  /* ── Pattern 15: Emotional Struggle ── */
   if(emotion>=3 && (stress>=2 || overtime>=2)){
     rows.push({cls:'warn',icon:'🌊',
-      title:ql('情绪管理+高压力：燃尽综合症风险','情緒管理+高壓力：燃盡綜合症風險','Poor Emotional Control + High Stress: Burnout Risk','Mal control emocional + alta presión: riesgo de burnout'),
-      body:ql('你的情绪管理能力偏弱，同时又处于高压环境中——这是心理健康危机的典型前兆组合。不要等到崩溃才行动。本周做2件事：①下载一个冥想App（如潮汐/小睡眠），每天睡前做5分钟呼吸练习②找一位你信任的人，花15分钟把你最近的压力说出来——不需要解决方案，只是说出来本身就有疗愈效果。','你的情緒管理能力偏弱，同時又處於高壓環境中——這是心理健康危機的典型前兆組合。不要等到崩潰才行動。本週做2件事：①下載一個冥想App（如潮汐/小睡眠），每天睡前做5分鐘呼吸練習②找一位你信任的人，花15分鐘把你最近的壓力說出來——不需要解決方案，只是說出來本身就有療癒效果。','Poor emotional regulation combined with a high-pressure environment is the classic precursor to a mental health crisis. Don\'t wait until you crash to act. This week, do 2 things: ① Download a meditation app (Calm, Headspace, Insight Timer) and do 5 minutes of breathing before bed ② Tell one person you trust about your recent stress for 15 minutes — no solutions needed, just saying it out loud has therapeutic value.','La regulación emocional deficiente combinada con un entorno de alta presión es el precursor clásico de una crisis de salud mental. Esta semana, haz 2 cosas: ① Descarga una app de meditación (Calm, Headspace) y haz 5 minutos de respiración antes de dormir ② Cuéntale a alguien de confianza sobre tu estrés reciente durante 15 minutos — solo decirlo en voz alta tiene valor terapéutico.')
+      title:isTW?'你的情緒正在超負荷運轉':'你的情绪正在超负荷运转',
+      body:isTW
+        ? '情緒管理能力偏弱，同時又處於高壓環境中——這是一個危險的組合。\n\n很多人有一個誤解：覺得情緒問題是「軟弱」的表現，應該靠意志力克服。但情緒和大腦的生理機制密切相關，當壓力持續超過負荷時，任何人都會出現情緒問題。這不是軟弱，這是正常的人類反應。\n\n問題在於：如果我們不及時處理，情緒問題會逐漸累積，最終可能發展成焦慮症、抑鬱症等更嚴重的心理健康問題。\n\n建議：本週就做這兩件事——\n① 下載一個冥想App（如潮汐、小睡眠、Headspace），每天睡前做5-10分鐘的呼吸練習。這不是「玄學」，而是經過科學驗證的情緒調節方法\n② 找一個你信任的人，花15分鐘把你最近的壓力說出來。不需要對方給解決方案，只是說出來本身就有療癒效果\n\n記住：照顧自己的情緒，和照顧自己的身體一樣重要。你不需要等到「崩潰」才求助。'
+        : '情绪管理能力偏弱，同时又处于高压环境中——这是一个危险的组合。\n\n很多人有一个误解：觉得情绪问题是「软弱」的表现，应该靠意志力克服。但情绪和大脑的生理机制密切相关，当压力持续超过负荷时，任何人都会出现情绪问题。这不是软弱，这是正常的人类反应。\n\n问题在于：如果我们不及时处理，情绪问题会逐渐累积，最终可能发展成焦虑症、抑郁症等更严重的心理健康问题。\n\n建议：本周就做这两件事——\n① 下载一个冥想App（如潮汐、小睡眠、Headspace），每天睡前做5-10分钟的呼吸练习。这不是「玄学」，而是经过科学验证的情绪调节方法\n② 找一个你信任的人，花15分钟把你最近的压力说出来。不需要对方给解决方案，只是说出来本身就有疗愈效果\n\n记住：照顾自己的情绪，和照顾自己的身体一样重要。你不需要等到「崩溃」才求助。'
     });
   }
 
-  /* ── Weighted low-score personalized feedback (covers all answered scores) ── */
-  var weighted = [];
-  bank.forEach(function(q){
-    if(!q.scorable||q.bonus||q.multi||!answerMap[q.id]) return;
-    var oi=answerMap[q.id].questionIdx;
-    var opt=q.options[oi];
-    if(!opt) return;
-    var maxScore=Math.max.apply(null,q.options.map(function(o){ return o.score||0; }));
-    if(maxScore<=0) return;
-    var pct=(opt.score||0)/maxScore;
-    var weight=q.section==='social'?1.15:q.section==='identity'?1.05:1.0;
-    weighted.push({
-      q:q,
-      opt:opt,
-      pct:pct,
-      weight:weight,
-      impact:(1-pct)*weight
-    });
-  });
-  weighted.sort(function(a,b){ return b.impact-a.impact; });
-  weighted.slice(0,3).forEach(function(w){
-    var qText=window.qlang?window.qlang(w.q):(isTW?(w.q.tw||w.q.cn):(w.q.cn||w.q.tw));
-    var oText=window.qlang?window.qlang(w.opt):(isTW?(w.opt.tw||w.opt.cn):(w.opt.cn||w.opt.tw));
-    var scorePct=Math.round(w.pct*100);
-    var secTxt=ql(
-      w.q.section==='basic'?'健康/基础':w.q.section==='social'?'生存/社会':'内在/情绪',
-      w.q.section==='basic'?'健康/基礎':w.q.section==='social'?'生存/社會':'內在/情緒',
-      w.q.section==='basic'?'Health/Baseline':w.q.section==='social'?'Social/Life':'Identity/Inner',
-      w.q.section==='basic'?'Salud/Base':w.q.section==='social'?'Social/Vida':'Identidad/Interior'
-    );
-    rows.push({
-      cls:'warn',
-      icon:'🧩',
-      title:ql('基于得分权重的个性化提示','基於得分權重的個人化提示','Personalized Insight Based on Score Weight','Perspectiva personalizada basada en el peso del puntaje'),
-      body:ql(
-        '在"'+qText+'"你的当前选项是"'+oText+'"，完成度约'+scorePct+'%，属于"'+secTxt+'"维度，建议优先改善。',
-        '在「'+qText+'」你的當前選項是「'+oText+'」，完成度約'+scorePct+'%，屬於「'+secTxt+'」維度，建議優先改善。',
-        '"'+qText+'" — your answer "'+oText+'" scores '+scorePct+'% in the "'+secTxt+'" dimension. This is dragging your overall score. Prioritize improving it.',
-        '"'+qText+'" — tu respuesta "'+oText+'" obtiene '+scorePct+'% en la dimensión "'+secTxt+'". Está bajando tu puntaje. Prioriza mejorarlo.'
-      )
-    });
-  });
+  /* ════════════════════════════════════════════════════════
+     LIFE STAGE PATTERNS
+     ════════════════════════════════════════════════════════ */
 
-  /* Render */
+  /* ── Pattern 16: Young Explorer (under 25) ── */
+  var age=a('QK1');
+  if(age<=1 && curiosity<=2){
+    rows.push({cls:'good',icon:'🌅',
+      title:isTW?'25歲前，你的試錯成本最低':'25岁前，你的试错成本最低',
+      body:isTW
+        ? '你還年輕，而且擁有強烈的好奇心——這是人生中一個非常珍貴的組合。\n\n很多人25歲後最後悔的，不是「做錯了什麼」，而是「沒有嘗試過什麼」。因為一旦進入30歲，家庭、房貸、職業路徑的慣性，會讓改變變得越來越難。\n\n你現在擁有的最大資產，不是技能，不是經驗，而是「時間」和「可塑性」。你可以承受失敗，可以承受走彎路，因為你有足夠的時間重新開始。\n\n建議：趁著年輕，大膽去試——\n① 嘗試不同的行業、不同的城市、不同的生活方式\n② 不要急著「定下來」，先找到自己真正熱愛的事情\n③ 建立一些可以持續一生的好習慣（運動、閱讀、儲蓄）\n\n記住：25歲前的每一次「錯誤」，都是在為30歲後的正確選擇積累數據。不要害怕走彎路，害怕的是從來沒有出發。'
+        : '你还年轻，而且拥有强烈的好奇心——这是人生中一个非常珍贵的组合。\n\n很多人25岁最后悔的，不是「做错了什么」，而是「没有尝试过什么」。因为一旦进入30岁，家庭、房贷、职业路径的惯性，会让改变变得越来越难。\n\n你现在拥有的最大资产，不是技能，不是经验，而是「时间」和「可塑性」。你可以承受失败，可以承受走弯路，因为你有足够的时间重新开始。\n\n建议：趁着年轻，大胆去试——\n① 尝试不同的行业、不同的城市、不同的生活方式\n② 不要急着「定下来」，先找到自己真正热爱的事情\n③ 建立一些可以持续一生的好习惯（运动、阅读、储蓄）\n\n记住：25岁前的每一次「错误」，都是在为30岁后的正确选择积累数据。不要害怕走弯路，害怕的是从来没有出发。'
+    });
+  }
+
+  /* ── Pattern 17: Mid-life Transition (35-50) ── */
+  if(age>=3 && age<=4 && dimPct && dimPct.social<=55 && dimPct.identity>=60){
+    rows.push({cls:'purple',icon:'🌊',
+      title:isTW?'35歲後，是時候問自己一些問題了':'35岁后，是时候问自己一些问题了',
+      body:isTW
+        ? '你可能已經在職場打滾了十幾年，有了穩定的收入和一定的社會地位。但與此同時，你可能也開始感到一種說不清的「空虛」——好像擁有了很多，卻不知道這一切是為了什麼。\n\n這不是「中年危機」的陳詞濫調，而是一個真實的人生階段：當外在的追求達到一定程度後，我們會自然開始追問內在的意義。\n\n這種追問可能會讓你感到不安，但它其實是一個禮物——它在提醒你：人生不只有一種活法，而你還有時間去選擇。\n\n建議：找一個安靜的週末，認真回答這些問題——\n① 如果明天我不需要為錢工作，我會選擇做什麼？\n② 什麼事情讓我感到真正的滿足（不是成就感，是滿足）？\n③ 我希望十年後的自己，過著什麼樣的生活？\n\n這些問題沒有標準答案，但思考它們，會幫助你找到下一個階段的方向。'
+        : '你可能已经在职场打滚了十几年，有了稳定的收入和一定的社会地位。但与此同时，你可能也开始感到一种说不清的「空虚」——好像拥有了很多，却不知道这一切是为了什么。\n\n这不是「中年危机」的陈词滥调，而是一个真实的人生阶段：当外在的追求达到一定程度后，我们会自然开始追问内在的意义。\n\n这种追问可能会让你感到不安，但它其实是一个礼物——它在提醒你：人生不只有一种活法，而你还有时间去选择。\n\n建议：找一个安静的周末，认真回答这些问题——\n① 如果明天我不需要为钱工作，我会选择做什么？\n② 什么事情让我感到真正的满足（不是成就感，是满足）？\n③ 我希望十年后的自己，过着什么样的生活？\n\n这些问题没有标准答案，但思考它们，会帮助你找到下一个阶段的方向。'
+    });
+  }
+
+  /* ════════════════════════════════════════════════════════
+     LIFESTYLE PATTERNS
+     ════════════════════════════════════════════════════════ */
+
+  /* ── Pattern 18: Sedentary Lifestyle ── */
+  if(answerMap['QK14'] && Array.isArray(answerMap['QK14'].selectedIndices)){
+    var habits14=answerMap['QK14'].selectedIndices;
+    var hasSedentary=habits14.indexOf(1)>=0;
+    var hasScreen=habits14.indexOf(6)>=0;
+    var hasLateNight=habits14.indexOf(4)>=0;
+    if(hasSedentary && (hasScreen || hasLateNight)){
+      rows.push({cls:'warn',icon:'📱',
+        title:isTW?'現代生活的隱形殺手，正在影響你':'现代生活的隐形杀手，正在影响你',
+        body:isTW
+          ? '久坐、長時間盯著螢幕、熬夜——這三個習慣的組合，是現代都市人的「健康殺手三件套」。\n\n它們不會讓你立刻生病，但會在不知不覺中侵蝕你的健康：頸椎和腰椎開始僵硬、視力逐漸下降、睡眠質量變差、白天越來越沒精神。\n\n很多人知道這些習慣不好，但改變起來卻很難。問題在於：我們總是想「從明天開始徹底改變」，結果明天永遠沒有到來。\n\n建議：不要試圖一次性改變所有習慣，而是從最小的一步開始——\n① 在手機上設置每小時一次的提醒，每次站起來做2分鐘的拉伸（重點是頸部和腰部）\n② 晚上10點後，把手機螢幕設為灰階模式（這會讓你自然失去刷屏的慾望）\n③ 每天比現在早睡15分鐘，堅持一週後再提早15分鐘\n\n記住：改變不需要完美，只需要持續。哪怕每天只進步1%，一年後就是37倍的成長。'
+          : '久坐、长时间盯着屏幕、熬夜——这三个习惯的组合，是现代都市人的「健康杀手三件套」。\n\n它们不会让你立刻生病，但会在不知不觉中侵蚀你的健康：颈椎和腰椎开始僵硬、视力逐渐下降、睡眠质量变差、白天越来越没精神。\n\n很多人知道这些习惯不好，但改变起来却很难。问题在于：我们总想「从明天开始彻底改变」，结果明天永远没有到来。\n\n建议：不要试图一次性改变所有习惯，而是从最小的一步开始——\n① 在手机上设置每小时一次的提醒，每次站起来做2分钟的拉伸（重点是颈部和腰部）\n② 晚上10点后，把手机屏幕设为灰阶模式（这会让你自然失去刷屏的欲望）\n③ 每天比现在早睡15分钟，坚持一周后再提早15分钟\n\n记住：改变不需要完美，只需要持续。哪怕每天只进步1%，一年后就是37倍的成长。'
+      });
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════
+     FALLBACK — When no specific patterns match
+     ════════════════════════════════════════════════════════ */
+
   if(!rows.length){
+    var weakest=getWeakestDim();
+    var strongest=getStrongestDim();
+    var dimNames={basic:isTW?'健康與基礎':'健康与基础',social:isTW?'職業與社交':'职业与社交',identity:isTW?'內在與認同':'内在与认同'};
+
     rows.push({cls:'good',icon:'📊',
-      title:ql('整体表现稳健','整體表現穩健','Overall Performance Stable','Desempeño general estable'),
-      body:ql('你的各项指标没有触发特定的模式预警，整体处于健康稳定的状态。建议：选择你最感兴趣的1个维度继续深耕，并定期重测追踪自己的成长轨迹。','你的各項指標沒有觸發特定的模式預警，整體處於健康穩定的狀態。建議：選擇你最感興趣的1個維度繼續深耕，並定期重測追蹤自己的成長軌跡。','None of your indicators triggered specific pattern warnings — you\'re in a healthy, stable state overall. Recommendation: pick the one dimension you\'re most excited about and go deeper. Retest periodically to track your growth.','Ninguno de tus indicadores activó advertencias de patrones específicos — estás en un estado general saludable y estable. Recomendación: elige la dimensión que más te emociona y profundiza. Retoma la prueba periódicamente para seguir tu crecimiento.')
+      title:isTW?'你的整體狀態相對均衡':'你的整体状态相对均衡',
+      body:isTW
+        ? '測試結果顯示，你的各項指標沒有觸發特定的風險預警，整體處於相對穩定的狀態。\n\n這是一個不錯的起點，但「穩定」不代表「完美」。每個人都有自己的成長空間，關鍵是找到最值得投入精力的方向。\n\n從你的測試結果來看：\n• 你的「'+dimNames[strongest]+'」維度表現較好，這是你的優勢所在\n• 你的「'+dimNames[weakest]+'」維度相對較弱，可能是優先改善的方向\n\n建議：選擇一個你最感興趣、也最願意投入時間的維度，制定一個30天的改善計劃。不需要很宏大，只需要具體可行。\n\n記住：成長不是一蹴而就的，而是由無數個小進步累積而成。'
+        : '测试结果显示，你的各项指标没有触发特定的风险预警，整体处于相对稳定的状态。\n\n这是一个不错的起点，但「稳定」不代表「完美」。每个人都有自己的成长空间，关键是找到最值得投入精力的方向。\n\n从你的测试结果来看：\n• 你的「'+dimNames[strongest]+'」维度表现较好，这是你的优势所在\n• 你的「'+dimNames[weakest]+'」维度相对较弱，可能是优先改善的方向\n\n建议：选择一个你最感兴趣、也最愿意投入时间的维度，制定一个30天的改善计划。不需要很宏大，只需要具体可行。\n\n记住：成长不是一蹴而就的，而是由无数个小进步累积而成。'
     });
   }
+
+  /* ════════════════════════════════════════════════════════
+     RENDER INSIGHTS
+     ════════════════════════════════════════════════════════ */
+
   rows.forEach(function(r){
     var el=document.createElement('div');
     el.className='insight-row'+(r.cls==='warn'?' insight-row--warn':r.cls==='good'?' insight-row--good':r.cls==='purple'?' insight-row--purple':'');
@@ -1873,54 +1481,44 @@ function buildInsights(lang){
 
 var PERSONAS = {
   S: {
-    animal:'🦅', name_cn:'鹰', name_tw:'鷹', name_en:'Eagle', name_es:'Águila', tier:'S',
-    title_cn:'S级 · 天际之鹰', title_tw:'S級 · 天際之鷹', title_en:'S Tier · Sky Eagle', title_es:'Nivel S · Águila del Cielo',
-    traits_cn:['战略视野','极致执行力','资源整合者','精神自由'], traits_en:['Strategic Vision','Elite Execution','Resource Master','Inner Freedom'], traits_es:['Visión Estratégica','Ejecución Élite','Maestro de Recursos','Libertad Interior'],
+    animal:'🦅', name_cn:'鹰', name_tw:'鷹', tier:'S',
+    title_cn:'S级 · 天际之鹰', title_tw:'S級 · 天際之鷹',
+    traits_cn:['战略视野','极致执行力','资源整合者','精神自由'],
     traits_tw:['戰略視野','極致執行力','資源整合者','精神自由'],
     desc_cn:'你是极少数站在人生金字塔顶端的人。鹰是所有鸟类中视野最广的——它可以在3000米高空看清地面上一只兔子的动作。你就像这只鹰：你不仅看得远，而且在关键时刻能以俯冲式的精准执行力锁定目标。你的人生不是"一帆风顺"——事实上，鹰的羽毛每10年必须经历一次痛苦的重生脱换——但你选择了在每一次危机中蜕变而非退缩。你拥有罕见的组合：清晰的价值观、强大的情绪掌控力、和持续创造价值的系统能力。你最大的风险不是失败，而是高处不胜寒的孤独。记住：即使是鹰，也需要在风暴中找到气流来借力。你的下一个挑战不是飞得更高，而是带领更多人看到你所看到的风景。',
     desc_tw:'你是極少數站在人生金字塔頂端的人。鷹是所有鳥類中視野最廣的——它可以在3000米高空看清地面上一隻兔子的動作。你就像這隻鷹：你不僅看得遠，而且在關鍵時刻能以俯衝式的精準執行力鎖定目標。你的人生不是「一帆風順」——事實上，鷹的羽毛每10年必須經歷一次痛苦的重生脫換——但你選擇了在每一次危機中蛻變而非退縮。你擁有罕見的組合：清晰的價值觀、強大的情緒掌控力、和持續創造價值的系統能力。你最大的風險不是失敗，而是高處不勝寒的孤獨。記住：即使是鷹，也需要在風暴中找到氣流來借力。你的下一個挑戰不是飛得更高，而是帶領更多人看到你所看到的風景。',
-    desc_en:'You are among the rare few who stand at the peak. The eagle has the widest field of vision of any bird — it can spot a rabbit from 10,000 feet. You operate with the same clarity: you see far, and when it matters most, you execute with predatory precision. Your life wasn\'t easy — eagles shed their feathers in a painful renewal every decade — but you chose transformation over retreat at every crisis. You have a rare combination: clear values, powerful emotional control, and systems that keep creating value. Your greatest risk isn\'t failure; it\'s the loneliness of altitude. Even eagles need to find updrafts in storms. Your next challenge isn\'t flying higher — it\'s helping more people see what you can see.',
-    desc_es:'Estás entre los pocos que se encuentran en la cima. El águila tiene el campo de visión más amplio de cualquier ave. Operas con la misma claridad: ves lejos y ejecutas con precisión. Tu mayor riesgo no es el fracaso; es la soledad de la altura. Tu próximo desafío no es volar más alto — es ayudar a más personas a ver lo que tú puedes ver.',
   },
   A: {
-    animal:'🐺', name_cn:'狼', name_tw:'狼', name_en:'Wolf', name_es:'Lobo', tier:'A',
-    title_cn:'A级 · 原野之狼', title_tw:'A級 · 原野之狼', title_en:'A Tier · Wolf of the Plains', title_es:'Nivel A · Lobo de la Pradera',
-    traits_cn:['目标驱动','社群领袖','适应力强','行动果断'], traits_en:['Goal-Driven','Community Leader','Highly Adaptable','Decisive'], traits_es:['Orientado a metas','Líder comunitario','Muy adaptable','Decisivo'],
+    animal:'🐺', name_cn:'狼', name_tw:'狼', tier:'A',
+    title_cn:'A级 · 原野之狼', title_tw:'A級 · 原野之狼',
+    traits_cn:['目标驱动','社群领袖','适应力强','行动果断'],
     traits_tw:['目標驅動','社群領袖','適應力強','行動果斷'],
     desc_cn:'你是一匹狼——不是孤狼，而是狼群中的头狼。狼是自然界中最懂得"平衡个人能力与团队协作"的动物：它们独自狩猎时足够强悍，而在群体中又能做出最优的战术配合。你目前的人生状态展现了类似的模式：你有明确的目标、不错的执行力、和相对健康的社交支撑系统。你的财务状况稳健，健康习惯尚可，内心也有清晰的价值锚点。但狼的故事也有另一面——它们永远在奔跑。你可能时常感到"还不够"的焦虑，即使已经超越了大多数人。你现在需要做的不是继续加速，而是学会在奔跑中抬头看路，确认你追逐的方向仍然是你真正想去的地方。你的终极进化方向是：从"追猎者"变成"领地的守护者"——不仅为自己而战，也为你在乎的人创造安全感。',
     desc_tw:'你是一匹狼——不是孤狼，而是狼群中的頭狼。狼是自然界中最懂得「平衡個人能力與團隊協作」的動物：牠們獨自狩獵時足夠強悍，而在群體中又能做出最優的戰術配合。你目前的人生狀態展現了類似的模式：你有明確的目標、不錯的執行力、和相對健康的社交支撐系統。你的財務狀況穩健，健康習慣尚可，內心也有清晰的價值錨點。但狼的故事也有另一面——牠們永遠在奔跑。你可能時常感到「還不夠」的焦慮，即使已經超越了大多數人。你現在需要做的不是繼續加速，而是學會在奔跑中抬頭看路，確認你追逐的方向仍然是你真正想去的地方。',
-    desc_en:'You are a wolf — not a lone wolf, but the alpha. Wolves are nature\'s masters of balancing individual strength with team coordination: fierce enough to hunt alone, smart enough to lead a pack with perfect tactical cooperation. Your current life shows this pattern: clear goals, solid execution, and a relatively healthy social support system. But the wolf\'s story has another side — they never stop running. You may often feel \'not enough\' anxiety even when you\'ve surpassed most people. What you need now isn\'t to accelerate further — it\'s to lift your head while running and confirm that the direction you\'re chasing is still where you actually want to go.',
-    desc_es:'Eres un lobo — no un lobo solitario, sino el alfa. Los lobos son maestros del equilibrio entre fuerza individual y coordinación de equipo. Tu patrón de vida actual muestra esto: metas claras, buena ejecución y un sistema de apoyo social relativamente saludable. Lo que necesitas ahora no es acelerar más — es levantar la cabeza mientras corres y confirmar que la dirección que persigues es adonde realmente quieres ir.',
   },
   B: {
-    animal:'🐎', name_cn:'马', name_tw:'馬', name_en:'Horse', name_es:'Caballo', tier:'B',
-    title_cn:'B级 · 草原之马', title_tw:'B級 · 草原之馬', title_en:'B Tier · Prairie Horse', title_es:'Nivel B · Caballo de Pradera',
-    traits_cn:['稳步前进','耐力持久','忠诚可靠','潜力未尽'], traits_en:['Steady Progress','Lasting Endurance','Loyal & Reliable','Untapped Potential'], traits_es:['Progreso constante','Resistencia duradera','Leal y confiable','Potencial sin explotar'],
+    animal:'🐎', name_cn:'马', name_tw:'馬', tier:'B',
+    title_cn:'B级 · 草原之马', title_tw:'B級 · 草原之馬',
+    traits_cn:['稳步前进','耐力持久','忠诚可靠','潜力未尽'],
     traits_tw:['穩步前進','耐力持久','忠誠可靠','潛力未盡'],
     desc_cn:'你是一匹草原上的马——稳健、有耐力、值得信赖。马不是最快的动物，但它是唯一能在长途跋涉中保持节奏而不崩溃的物种。你的人生正是这样：你可能不是每个维度的佼佼者，但你在大多数方面都维持着"足够好"的状态。这是绝大多数人的位置，但也是最容易陷入"还行吧"惯性的位置。马的历史告诉我们一件事：同样的一匹马，套上不同的鞍具、遇到不同的骑手，命运天差地别。你现在的"B级"不是你的天花板，而是你的发射台。你目前最缺的不是能力，而是一个清晰的、值得全力以赴的目标。当马知道自己要去哪里的时候，它可以跑到不可思议的速度。给自己设定一个90天的挑战：在你最弱的维度中，选1个最想改变的点，全力突破。你会惊讶于自己的潜力。',
     desc_tw:'你是一匹草原上的馬——穩健、有耐力、值得信賴。馬不是最快的動物，但牠是唯一能在長途跋涉中保持節奏而不崩潰的物種。你的人生正是這樣：你可能不是每個維度的佼佼者，但你在大多數方面都維持著「足夠好」的狀態。這是絕大多數人的位置，但也是最容易陷入「還行吧」慣性的位置。你目前最缺的不是能力，而是一個清晰的、值得全力以赴的目標。當馬知道自己要去哪裡的時候，牠可以跑到不可思議的速度。給自己設定一個90天的挑戰：在你最弱的維度中，選1個最想改變的點，全力突破。',
-    desc_en:'You are a horse — steady, enduring, trustworthy. The horse isn\'t the fastest animal, but it\'s the only one that can maintain its rhythm across a long journey without breaking down. Your life is like this: you may not lead every dimension, but you sustain \'good enough\' across most. This is where most people are — but it\'s also where it\'s easiest to fall into comfortable inertia. The same horse, with different gear and a different rider, can have a completely different destiny. Your current \'B tier\' isn\'t your ceiling; it\'s your launch pad. What you\'re missing isn\'t ability — it\'s one clear, worthy target to go all-in on. Set yourself a 90-day challenge in your weakest dimension and commit fully. You\'ll surprise yourself.',
-    desc_es:'Eres un caballo — estable, resistente, confiable. El caballo no es el animal más rápido, pero es el único que puede mantener su ritmo en un largo viaje sin derrumbarse. Tu \'nivel B\' actual no es tu techo; es tu plataforma de lanzamiento. Establece un desafío de 90 días en tu dimensión más débil y comprométete completamente. Te sorprenderás.',
   },
   C: {
-    animal:'🦊', name_cn:'狐', name_tw:'狐', name_en:'Fox', name_es:'Zorro', tier:'C',
-    title_cn:'C级 · 丛林之狐', title_tw:'C級 · 叢林之狐', title_en:'C Tier · Forest Fox', title_es:'Nivel C · Zorro del Bosque',
-    traits_cn:['机敏灵活','逆境求生','独立性强','需要方向'], traits_en:['Sharp & Agile','Thrives Under Pressure','Fiercely Independent','Needs Direction'], traits_es:['Ágil e inteligente','Prospera bajo presión','Muy independiente','Necesita dirección'],
+    animal:'🦊', name_cn:'狐', name_tw:'狐', tier:'C',
+    title_cn:'C级 · 丛林之狐', title_tw:'C級 · 叢林之狐',
+    traits_cn:['机敏灵活','逆境求生','独立性强','需要方向'],
     traits_tw:['機敏靈活','逆境求生','獨立性強','需要方向'],
     desc_cn:'你是一只狐狸——聪明、灵活、独立，但正在一片并不完全友好的丛林中寻找自己的位置。狐狸是自然界最会"以小博大"的动物：它们体型不大，但靠着敏锐的观察力和灵活的策略，在狼群和熊的领地缝隙中活得有声有色。你的人生状态和这只狐狸很像：你可能在某些维度（尤其是财务或社会生活方向）处于起步阶段，但你并不缺乏潜力——你缺乏的是一个系统性的突破路径。你身上最大的资产不是现有的分数，而是你的适应能力和独立精神。很多"高分者"一旦失去现有优势就会崩溃，而你正因为一直在不完美的条件下生存，反而锻造了罕见的韧性。你现在的任务是：停止在多个方向上分散精力，选定一个战场，用你的灵活性集中突破。狐狸不需要变成狼——它需要找到最适合自己的猎场。',
     desc_tw:'你是一隻狐狸——聰明、靈活、獨立，但正在一片並不完全友好的叢林中尋找自己的位置。狐狸是自然界最會「以小博大」的動物：牠們體型不大，但靠著敏銳的觀察力和靈活的策略，在狼群和熊的領地縫隙中活得有聲有色。你可能在某些維度處於起步階段，但你並不缺乏潛力。你身上最大的資產不是現有的分數，而是你的適應能力和獨立精神。你現在的任務是：停止在多個方向上分散精力，選定一個戰場，用你的靈活性集中突破。狐狸不需要變成狼——牠需要找到最適合自己的獵場。',
-    desc_en:'You are a fox — sharp, flexible, independent, finding your place in a jungle that isn\'t always friendly. Foxes are nature\'s greatest \'big results from small resources\' specialists: not the biggest, but sharp enough to thrive in the gaps between wolves and bears using observation and adaptable strategy. You may be in the early stages in some dimensions — especially financially or socially — but you don\'t lack potential. Your biggest asset isn\'t your current score; it\'s your adaptability and independent spirit. Many high scorers collapse the moment their advantages disappear — you\'ve been forged by imperfect conditions, giving you rare resilience. Your task now: stop spreading energy in multiple directions. Choose one battlefield and concentrate your flexibility there. A fox doesn\'t need to become a wolf — it needs to find the perfect hunting ground.',
-    desc_es:'Eres un zorro — inteligente, flexible, independiente. Los zorros son los mejores especialistas de la naturaleza en \'grandes resultados con pocos recursos\'. Tu mayor activo no es tu puntaje actual; es tu adaptabilidad y espíritu independiente. Tu tarea ahora: deja de dispersar energía en múltiples direcciones. Elige un campo de batalla y concentra allí tu flexibilidad. Un zorro no necesita convertirse en lobo — necesita encontrar el territorio de caza perfecto.',
   },
   D: {
-    animal:'🐢', name_cn:'龟', name_tw:'龜', name_en:'Turtle', name_es:'Tortuga', tier:'D',
-    title_cn:'D级 · 深潜之龟', title_tw:'D級 · 深潛之龜', title_en:'D Tier · Deep-Diving Turtle', title_es:'Nivel D · Tortuga de las Profundidades',
-    traits_cn:['厚积薄发','防御坚固','内敛沉稳','蓄势待起'], traits_en:['Slow Build, Big Burst','Strong Defenses','Calm & Reserved','Gathering Strength'], traits_es:['Acumulación lenta, gran impulso','Defensas sólidas','Calmado y reservado','Acumulando fuerzas'],
+    animal:'🐢', name_cn:'龟', name_tw:'龜', tier:'D',
+    title_cn:'D级 · 深潜之龟', title_tw:'D級 · 深潛之龜',
+    traits_cn:['厚积薄发','防御坚固','内敛沉稳','蓄势待起'],
     traits_tw:['厚積薄發','防禦堅固','內斂沉穩','蓄勢待起'],
     desc_cn:'你是一只龟——而龟，是地球上最古老的幸存者之一。在恐龙灭绝的灾难中，龟活了下来。在冰河期的极端环境中，龟活了下来。在每一次看似不可能生存的条件下，龟都凭借一个策略活了下来：缩进壳里，保存能量，等待时机。你现在的状态正是如此。你的分数不高，这意味着你可能在健康、财务、关系或心理状态方面正面临真实的困难。但这里有一个绝大多数人不知道的事实：所有最戏剧性的人生逆转故事，都从比你现在更低的起点开始。龟的壳不是弱点——它是进化了2亿年的完美防护。你此刻需要的不是和别人比较，而是找到你的"壳"——那个让你在困难时刻也能感到安全的最小稳定结构。它可以是一个固定的作息、一份哪怕微薄但稳定的收入、或者一个你信任的人。先稳住，再出发。记住龟赛跑的故事：不是因为龟跑得快，而是因为龟从不停下来。',
     desc_tw:'你是一隻龜——而龜，是地球上最古老的倖存者之一。在恐龍滅絕的災難中，龜活了下來。你現在的狀態正是如此。你的分數不高，這意味著你可能在健康、財務、關係或心理狀態方面正面臨真實的困難。但所有最戲劇性的人生逆轉故事，都從比你現在更低的起點開始。你此刻需要的是找到你的「殼」——那個讓你在困難時刻也能感到安全的最小穩定結構。它可以是一個固定的作息、一份哪怕微薄但穩定的收入、或者一個你信任的人。先穩住，再出發。記住龜賽跑的故事：不是因為龜跑得快，而是因為龜從不停下來。',
-    desc_en:'You are a turtle — and turtles are among Earth\'s oldest survivors. They outlasted the dinosaurs, survived ice ages, made it through every seemingly impossible condition using one strategy: retreat into the shell, conserve energy, wait for the right moment. Your situation may be similar. Your score is lower, which means you may be facing real challenges in health, finances, relationships, or mental state. But here\'s something most people don\'t know: every dramatic life-turnaround story starts from a lower point than where you are. The turtle\'s shell isn\'t a weakness — it\'s 200 million years of perfect protection. What you need right now isn\'t comparison — it\'s your \'shell\': the minimum stable structure that lets you feel safe even in hard times. It could be a fixed daily routine, a modest but steady income, or one person you trust. Stabilize first, then launch. Remember the race: not because the turtle is fast, but because the turtle never stops.',
-    desc_es:'Eres una tortuga — y las tortugas son de los supervivientes más antiguos de la Tierra. Tu caparazón no es una debilidad — es protección perfecta de 200 millones de años. Lo que necesitas ahora no es comparación — es tu \'caparazón\': la estructura mínima estable que te permite sentirte seguro incluso en tiempos difíciles. Estabilízate primero, luego lanza. Recuerda la carrera: no porque la tortuga sea rápida, sino porque la tortuga nunca se detiene.',
   },
 };
 
@@ -1936,16 +1534,1737 @@ function buildPersona(lang){
   var p=getPersona();
   var isTW=lang==='zh-TW';
   var el=document.getElementById('personaAnimal'); if(el) el.textContent=p.animal;
-  var tier=document.getElementById('personaTier'); if(tier) tier.textContent='TIER '+p.tier;
-  var name=document.getElementById('personaName'); if(name) name.textContent=ql(p.title_cn,p.title_tw,p.title_en,p.title_es);
-  var desc=document.getElementById('personaDesc'); if(desc) desc.textContent=ql(p.desc_cn,p.desc_tw,p.desc_en||p.desc_cn,p.desc_es||p.desc_cn);
+  var tierEl=document.getElementById('personaTier'); if(tierEl) tierEl.textContent='TIER '+p.tier;
+  var nameEl=document.getElementById('personaName'); if(nameEl) nameEl.textContent=isTW?p.title_tw:p.title_cn;
+  var desc=document.getElementById('personaDesc'); if(desc) desc.textContent=isTW?p.desc_tw:p.desc_cn;
   var traits=document.getElementById('personaTraits');
   if(traits){
-    var lang2=window.I18N_CURRENT||'zh-CN'; var arr=lang2==='en-US'?(p.traits_en||p.traits_cn):lang2==='en-PH'?(p.traits_en||p.traits_cn):lang2==='es-US'?(p.traits_es||p.traits_en||p.traits_cn):(isTW?p.traits_tw:p.traits_cn);
+    var arr=isTW?p.traits_tw:p.traits_cn;
     traits.innerHTML=arr.map(function(t){ return '<span class="persona-trait">'+t+'</span>'; }).join('');
+  }
+
+  /* ── Dimension mini-bars inside persona card ── */
+  var dimsEl=document.getElementById('personaDims');
+  if(dimsEl && dimPct){
+    var dimConf=[
+      {key:'basic',   label_cn:'基础维度',     label_tw:'基礎維度',     color:'#7dd3fc'},
+      {key:'social',  label_cn:'社会生活方向', label_tw:'社會生活方向', color:'#0ea5e9'},
+      {key:'identity',label_cn:'个人认同',     label_tw:'個人認同',     color:'#10b981'},
+    ];
+    var strongest=null, weakest=null, sVal=-1, wVal=999;
+    dimConf.forEach(function(d){
+      var v=dimPct[d.key]||0;
+      if(v>sVal){sVal=v;strongest=d;}
+      if(v<wVal){wVal=v;weakest=d;}
+    });
+
+    var barsHtml=dimConf.map(function(d){
+      var v=dimPct[d.key]||0;
+      return '<div class="pdim-row">'+
+        '<div class="pdim-label">'+(isTW?d.label_tw:d.label_cn)+'</div>'+
+        '<div class="pdim-track"><div class="pdim-fill" data-pct="'+v+'" style="width:0;background:'+d.color+'"></div></div>'+
+        '<div class="pdim-val">'+v+'</div>'+
+      '</div>';
+    }).join('');
+
+    /* Stats grid */
+    var statsHtml=
+      '<div class="persona-stats">'+
+        '<div class="pstat-item"><div class="pstat-val">'+finalScore+'</div><div class="pstat-label">'+(isTW?'綜合分':'综合分')+'</div></div>'+
+        '<div class="pstat-item"><div class="pstat-val">'+(bonusScore>0?'+'+bonusScore:'0')+'</div><div class="pstat-label">'+(isTW?'加分題':'加分题')+'</div></div>'+
+      '</div>';
+
+    dimsEl.innerHTML=barsHtml+statsHtml;
+    setTimeout(function(){
+      dimsEl.querySelectorAll('.pdim-fill').forEach(function(f){f.style.width=f.dataset.pct+'%';});
+    },400);
+  }
+
+  /* ── Tier classification sub-section ── */
+  var tierSec=document.getElementById('personaTierSection');
+  if(tierSec){
+    renderMilitaryProgressBar(tierSec, finalScore, isTW);
+  }
+
+  /* ── Next tier preview — HIDDEN ── */
+  var nextEl=document.getElementById('personaNextTier');
+  if(nextEl){
+    nextEl.style.display='none';
   }
 }
 
+
+/* ════════════════════════════════════════════════════════════════════════
+   USER TIER SYSTEM — 11-rank military classification based on score
+   ────────────────────────────────────────────────────────────────────────
+   Only rank title + score band is used. No subtitles, no descriptions, no
+   trait tags — the rank name itself is the label, and deep analysis is
+   delegated to the LLM feedback layer.
+   ════════════════════════════════════════════════════════════════════════ */
+
+var USER_TIERS = {
+  /* 一级上将 (136-150) — 万里挑一 */
+  general: {
+    id: 'general',
+    cn: { title: '一级上将', desc: '万里挑一' },
+    tw: { title: '一級上將', desc: '萬裡挑一' },
+    color: '#FFD700',
+    bgGradient: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+    icon: '⭐',
+    minScore: 136,
+    maxScore: 150
+  },
+  /* 中将 (121-135) — 千里挑一 */
+  lieutenantGeneral: {
+    id: 'lieutenantGeneral',
+    cn: { title: '中将', desc: '千里挑一' },
+    tw: { title: '中將', desc: '千裡挑一' },
+    color: '#E6B800',
+    bgGradient: 'linear-gradient(135deg, #F5CF47 0%, #D4A017 100%)',
+    icon: '🎖️',
+    minScore: 121,
+    maxScore: 135
+  },
+  /* 少将 (101-120) — 百里挑一 */
+  majorGeneral: {
+    id: 'majorGeneral',
+    cn: { title: '少将', desc: '百里挑一' },
+    tw: { title: '少將', desc: '百裡挑一' },
+    color: '#C0C0C0',
+    bgGradient: 'linear-gradient(135deg, #E8E8E8 0%, #A8A8A8 100%)',
+    icon: '🎖️',
+    minScore: 101,
+    maxScore: 120
+  },
+  /* 大校 (81-100) — 人中翘楚 */
+  seniorColonel: {
+    id: 'seniorColonel',
+    cn: { title: '大校', desc: '人中翘楚' },
+    tw: { title: '大校', desc: '人中翹楚' },
+    color: '#8E6F3E',
+    bgGradient: 'linear-gradient(135deg, #C19A6B 0%, #8E6F3E 100%)',
+    icon: '🏅',
+    minScore: 81,
+    maxScore: 100
+  },
+  /* 上校 (71-80) — 出类拔萃 */
+  colonel: {
+    id: 'colonel',
+    cn: { title: '上校', desc: '出类拔萃' },
+    tw: { title: '上校', desc: '出類拔萃' },
+    color: '#6B8E23',
+    bgGradient: 'linear-gradient(135deg, #9CB872 0%, #6B8E23 100%)',
+    icon: '🏅',
+    minScore: 71,
+    maxScore: 80
+  },
+  /* 中校 (61-70) — 略胜一筹 */
+  lieutenantColonel: {
+    id: 'lieutenantColonel',
+    cn: { title: '中校', desc: '略胜一筹' },
+    tw: { title: '中校', desc: '略勝一籌' },
+    color: '#4A7A2A',
+    bgGradient: 'linear-gradient(135deg, #7CA55A 0%, #4A7A2A 100%)',
+    icon: '🏅',
+    minScore: 61,
+    maxScore: 70
+  },
+  /* 少校 (51-60) — 芸芸众生 */
+  major: {
+    id: 'major',
+    cn: { title: '少校', desc: '芸芸众生' },
+    tw: { title: '少校', desc: '芸芸眾生' },
+    color: '#2E7D32',
+    bgGradient: 'linear-gradient(135deg, #66BB6A 0%, #2E7D32 100%)',
+    icon: '🎗️',
+    minScore: 51,
+    maxScore: 60
+  },
+  /* 上尉 (41-50) — 平凡之辈 */
+  captain: {
+    id: 'captain',
+    cn: { title: '上尉', desc: '平凡之辈' },
+    tw: { title: '上尉', desc: '平凡之輩' },
+    color: '#1976D2',
+    bgGradient: 'linear-gradient(135deg, #64B5F6 0%, #1976D2 100%)',
+    icon: '🎗️',
+    minScore: 41,
+    maxScore: 50
+  },
+  /* 中尉 (31-40) — 艰辛相伴 */
+  firstLieutenant: {
+    id: 'firstLieutenant',
+    cn: { title: '中尉', desc: '艰辛相伴' },
+    tw: { title: '中尉', desc: '艱辛相伴' },
+    color: '#1565C0',
+    bgGradient: 'linear-gradient(135deg, #5C9DD8 0%, #1565C0 100%)',
+    icon: '🎗️',
+    minScore: 31,
+    maxScore: 40
+  },
+  /* 少尉 (21-30) — 步履维艰 */
+  secondLieutenant: {
+    id: 'secondLieutenant',
+    cn: { title: '少尉', desc: '步履维艰' },
+    tw: { title: '少尉', desc: '步履維艱' },
+    color: '#0D47A1',
+    bgGradient: 'linear-gradient(135deg, #4A8CCB 0%, #0D47A1 100%)',
+    icon: '🎗️',
+    minScore: 21,
+    maxScore: 30
+  },
+  /* 列兵 (0-20) — 人生悲剧 */
+  private: {
+    id: 'private',
+    cn: { title: '列兵', desc: '人生悲剧' },
+    tw: { title: '列兵', desc: '人生悲劇' },
+    color: '#616161',
+    bgGradient: 'linear-gradient(135deg, #9E9E9E 0%, #616161 100%)',
+    icon: '🪖',
+    minScore: 0,
+    maxScore: 20
+  }
+};
+
+/* Get user tier based on score */
+function getUserTier(score) {
+  for (var key in USER_TIERS) {
+    var tier = USER_TIERS[key];
+    if (score >= tier.minScore && score <= tier.maxScore) {
+      return tier;
+    }
+  }
+  return USER_TIERS.private;
+}
+
+/* ══════════════════════════════════════════════════════ */
+
+
+/* ════════════════════════════════════════════════════════════════════════
+   AI PAYLOAD AGGREGATOR — Step 1 of dynamic LLM feedback system
+   ────────────────────────────────────────────────────────────────────────
+   prepareAIPayload(state, scores)
+   - state  : user's answer map ({qid: {questionIdx, optionText_cn, optionText_tw}})
+              Falls back to module-level `answerMap` if not provided.
+   - scores : computed score bundle ({finalScore, finalScorePrecise, dimPct, bonusScore})
+              Falls back to module-level globals if not provided.
+
+   Returns a structured object ready to serialize into an LLM prompt:
+   {
+     lang, totalScore (/150), totalScorePrecise, bonusScore,
+     verdict (SSS..F),
+     tier: {id, title, subtitle},
+     persona: {animal, title, tier},
+     tags: [...],                // combined persona + tier traits
+     dimensions: {basic, social, identity} each {label, score (/100)},
+     strongestDimension, weakestDimension,
+     objectiveFacts: [...],      // user's immutable reality (profession,
+                                 //   wealth, marital status, etc.) — context
+                                 //   for the LLM, NOT behaviors to grade
+     bestHabits: [top 2 highest-normalized actionable behaviors],
+     worstHabits: [bottom 2 lowest-normalized actionable behaviors],
+   }
+   ════════════════════════════════════════════════════════════════════════ */
+function prepareAIPayload(state, scores){
+  state  = state  || answerMap || {};
+  scores = scores || {};
+
+  var lang  = window.I18N_CURRENT || 'zh-CN';
+  var isTW  = lang === 'zh-TW';
+
+  var total         = (typeof scores.finalScore         === 'number') ? scores.finalScore         : finalScore;
+  var totalPrecise  = (typeof scores.finalScorePrecise  === 'number') ? scores.finalScorePrecise  : finalScorePrecise;
+  var dims          = scores.dimPct || dimPct || {};
+  var bonus         = (typeof scores.bonusScore         === 'number') ? scores.bonusScore         : (bonusScore || 0);
+
+  /* ── Identity labels: verdict / tier / persona ───────────────────── */
+  var verdict  = getVerdict(total);
+  var persona  = getPersona();
+  var tierData = getUserTier(total);
+
+  /* ── Tags: persona traits only (tiers are now military ranks,
+        carrying no trait words of their own). ───────────────────────── */
+  var tags = [];
+  var personaTraits = isTW ? persona.traits_tw : persona.traits_cn;
+  personaTraits.forEach(function(t){ if(tags.indexOf(t)<0) tags.push(t); });
+
+  /* ── Dimensions (each /100) with localized labels ────────────────── */
+  var DIM_LABELS = {
+    basic:    {cn:'基础维度',     tw:'基礎維度'},
+    social:   {cn:'社会生活方向', tw:'社會生活方向'},
+    identity: {cn:'个人认同',     tw:'個人認同'},
+  };
+  var dimsOut = {};
+  var strongestKey = null, weakestKey = null, sVal = -1, wVal = 101;
+  Object.keys(DIM_LABELS).forEach(function(k){
+    var v = (typeof dims[k] === 'number') ? dims[k] : 0;
+    dimsOut[k] = { key:k, label: isTW?DIM_LABELS[k].tw:DIM_LABELS[k].cn, score: v };
+    if(v > sVal){ sVal = v; strongestKey = k; }
+    if(v < wVal){ wVal = v; weakestKey   = k; }
+  });
+
+  /* ── Habit ranking + factual bifurcation ────────────────────────────
+     Two-bucket classification for every answered scorable single-choice
+     question:
+
+     • EXCLUDE_IDS — pure demographics the user has no control over
+       (age, gender, birthplace, parents' background). These are dropped
+       entirely — they don't even reach the LLM.
+
+     • FACTUAL_IDS — the user's immutable REALITY/BACKGROUND
+       (profession, income bracket, net worth, marital status, legal
+       record, medical history, military service, highest degree). These
+       get surfaced to the LLM as `objectiveFacts` — context that shapes
+       the analysis, NOT behaviors the user should "improve."
+
+     • Everything else — actionable behaviors/habits. These go into the
+       `ranked` array and become `bestHabits` / `worstHabits`.
+
+     This split prevents the LLM from reading a low score on a factual
+     question (e.g., "didn't complete military service") as evidence of
+     psychological defect.
+  ─────────────────────────────────────────────────────────────────── */
+  var EXCLUDE_IDS = new Set([
+    /* Uncontrollable demographics — never sent to the LLM */
+    'A1','A3h','A3hf','A4',
+    'QK1','QK2','QK4m','QK4f','QK5m','QK5f',
+    'QKC8','QKD13','QKC6','QKB3','QKT5','QKT1'
+  ]);
+
+  var FACTUAL_IDS = new Set([
+    /* Profession / career identity
+       NOTE: QKBON_AB8 is now a bonus question (see post-loop pass below
+       for how its answer still reaches objectiveFacts). */
+    'QKC1','A15',
+    /* Income / wealth / financial position */
+    'QK7','QKAB4','QKAB6','QKAG1','QKAI2','QKC2','QKC3',
+    'B3','B3b','B3c','B4','B4b','B4c','B4e','B4f','B4g',
+    'QK19','QK20',
+    /* Legal / criminal record */
+    'QKC6',
+    /* Military service */
+    'A_mil',
+    /* Education / degree (one's own + parents) */
+    'A6','B17b',
+    /* Relationship / marital status (the fact of being married/single/etc.) */
+    'QKB1',
+    /* Medical / chronic health history (the fact, not ongoing behavior) */
+    'A8',
+    /* Housing tenure / living environment — reality, not habit */
+    'A5','B14','A_home'
+  ]);
+
+  /* Bonus questions that represent the user's objective reality (not a
+     behavior to grade). These are normally filtered out of the main loop
+     because `q.bonus === true`, but their *answers* still belong in the
+     `objectiveFacts` context surfaced to the LLM. */
+  var BONUS_FACTUAL_IDS = new Set(['QKBON_AB8']);
+
+  var objectiveFacts = [];
+  var ranked = [];
+
+  getBank().forEach(function(q){
+    if(!q.scorable || q.bonus || q.multi) return;
+    if(EXCLUDE_IDS.has(q.id)) return;
+    var ans = state[q.id];
+    if(!ans) return;
+    var opt = q.options && q.options[ans.questionIdx];
+    if(!opt) return;
+
+    var questionText = isTW ? (q.tw || q.cn) : (q.cn || q.tw);
+    var answerText   = isTW ? (ans.optionText_tw || ans.optionText_cn || '')
+                            : (ans.optionText_cn || ans.optionText_tw || '');
+
+    /* Factual question → objectiveFacts (no score, no ranking) */
+    if(FACTUAL_IDS.has(q.id)){
+      if(answerText){
+        objectiveFacts.push({
+          id:       q.id,
+          section:  q.section || null,
+          question: questionText,
+          answer:   answerText,
+        });
+      }
+      return;
+    }
+
+    /* Behavioral question → ranked pool for best/worst habits */
+    if(typeof opt.score !== 'number') return;
+    var maxScore = 0;
+    q.options.forEach(function(o){ if((o.score||0) > maxScore) maxScore = o.score||0; });
+    if(maxScore <= 0) return;
+
+    ranked.push({
+      id:         q.id,
+      section:    q.section || null,
+      question:   questionText,
+      answer:     answerText,
+      rawScore:   opt.score,
+      maxScore:   maxScore,
+      normalized: opt.score / maxScore,
+    });
+  });
+
+  /* Post-loop pass: surface bonus questions that describe the user's
+     objective reality (profession, etc.) as objectiveFacts. The score
+     earned is NOT passed — only the textual fact. Skip the "none of
+     these apply" opt-out answer (score === 0 with no factual content). */
+  getBank().forEach(function(q){
+    if(!q.bonus || !BONUS_FACTUAL_IDS.has(q.id)) return;
+    var ans = state[q.id];
+    if(!ans) return;
+    var opt = q.options && q.options[ans.questionIdx];
+    if(!opt) return;
+    /* Skip the neutral "none" opt-out (always 0 points, no useful fact) */
+    if((opt.score || 0) === 0) return;
+    var questionText = isTW ? (q.tw || q.cn) : (q.cn || q.tw);
+    var answerText   = isTW ? (ans.optionText_tw || ans.optionText_cn || '')
+                            : (ans.optionText_cn || ans.optionText_tw || '');
+    if(!answerText) return;
+    objectiveFacts.push({
+      id:       q.id,
+      section:  'profession',  /* logical grouping, not bank section */
+      question: questionText,
+      answer:   answerText,
+    });
+  });
+
+  function mapHabit(r){
+    return {
+      id:       r.id,
+      section:  r.section,
+      question: r.question,
+      answer:   r.answer,
+      score:    Math.round(r.normalized * 100),  /* % of max for this question */
+    };
+  }
+
+  /* Best: sort desc by normalized, take top 2 */
+  var bestSorted = ranked.slice().sort(function(a,b){
+    if(b.normalized !== a.normalized) return b.normalized - a.normalized;
+    return b.rawScore - a.rawScore;
+  });
+  var bestHabits = bestSorted.slice(0, 2).map(mapHabit);
+
+  /* Worst: sort asc by normalized, take bottom 2.
+     De-dupe against bestHabits so a tiny question bank doesn't double-list. */
+  var bestIds = new Set(bestHabits.map(function(h){ return h.id; }));
+  var worstSorted = ranked.slice().sort(function(a,b){
+    if(a.normalized !== b.normalized) return a.normalized - b.normalized;
+    return a.rawScore - b.rawScore;
+  });
+  var worstHabits = worstSorted
+    .filter(function(r){ return !bestIds.has(r.id); })
+    .slice(0, 2)
+    .map(mapHabit);
+
+  return {
+    lang: lang,
+    totalScore:        total,          /* out of 150 */
+    totalScorePrecise: totalPrecise,
+    bonusScore:        bonus,
+    verdict:           verdict,        /* SSS / SS / S / A / B / C / D / F */
+    tier: {
+      id:    tierData.id,
+      title: isTW ? tierData.tw.title : tierData.cn.title,
+      minScore: tierData.minScore,
+      maxScore: tierData.maxScore,
+    },
+    persona: {
+      animal: persona.animal,
+      title:  isTW ? persona.title_tw : persona.title_cn,
+      tier:   persona.tier,
+    },
+    tags:               tags,
+    dimensions:         dimsOut,
+    strongestDimension: strongestKey ? dimsOut[strongestKey] : null,
+    weakestDimension:   weakestKey   ? dimsOut[weakestKey]   : null,
+    objectiveFacts:     objectiveFacts,
+    bestHabits:         bestHabits,
+    worstHabits:        worstHabits,
+  };
+}
+/* Expose for downstream modules (Step 2+) and console debugging */
+window.prepareAIPayload = prepareAIPayload;
+
+/* ════════════════════════════════════════════════════════════════════════
+   MILITARY PROGRESS BAR — Fog-of-War / Tech-Tree Timeline
+   ────────────────────────────────────────────────────────────────────────
+   Renders the user's rank journey as a horizontal continuous track with
+   11 evenly-spaced nodes. Each node is styled by its index relative to
+   the user's current rank:
+
+     1. Achieved (idx < current)     → lit, bright, checkmark, opacity 1
+     2. Current  (idx === current)   → glowing, enlarged, rank icon
+     3. Pending  (idx === current+1) → rank name visible but dim + 🔒
+     4. Fog      (idx > current+1)   → anonymous dot only, no name
+
+   The colored fill bar stretches from the start of the track and stops
+   exactly at the current node's center.
+
+   Injected CSS is scoped under #milProg and guarded against double-insert.
+   ════════════════════════════════════════════════════════════════════════ */
+
+var RANK_ORDER = [
+  'private','secondLieutenant','firstLieutenant','captain','major',
+  'lieutenantColonel','colonel','seniorColonel','majorGeneral',
+  'lieutenantGeneral','general'
+];
+
+function injectMilitaryProgressStyles(){
+  if (document.getElementById('milProgressStyles')) return;
+  var css = [
+    /* ── Host card ── */
+    '#milProg{padding:4px 0;}',
+
+    /* ── Header: icon + title + desc chip ── */
+    '#milProg .mp-header{display:flex;align-items:center;gap:14px;margin-bottom:18px;}',
+    '#milProg .mp-icon{flex:none;width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;box-shadow:0 10px 24px rgba(15,23,42,0.12);}',
+    '#milProg .mp-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}',
+    '#milProg .mp-title{font-size:22px;font-weight:800;letter-spacing:0.02em;line-height:1.2;}',
+    '#milProg .mp-chip{align-self:flex-start;padding:3px 12px;border-radius:999px;font-size:12.5px;font-weight:600;letter-spacing:0.04em;}',
+
+    /* ── Score line ── */
+    '#milProg .mp-score{display:flex;align-items:baseline;gap:6px;margin-bottom:22px;font-variant-numeric:tabular-nums;}',
+    '#milProg .mp-score-val{font-size:15px;font-weight:700;color:#1f2937;}',
+    '#milProg .mp-score-max{font-size:13px;color:#94a3b8;font-weight:500;}',
+
+    /* ── Thematic header above the track (Dribbble-style subtitle) ── */
+    '#milProg .mp-theme-head{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:4px 0 6px;border-radius:12px;background:linear-gradient(90deg,rgba(148,163,184,0.08) 0%,rgba(148,163,184,0.02) 100%);border-left:3px solid color-mix(in srgb,var(--theme-accent,#6366f1) 55%,transparent);font-size:13px;font-weight:500;letter-spacing:0.02em;color:#64748b;line-height:1.55;}',
+    '#milProg .mp-theme-head-emoji{flex:none;font-size:15px;filter:grayscale(0.15);}',
+    '#milProg .mp-theme-head-text{flex:1;min-width:0;}',
+
+    /* ── Barnum-style phase analysis below the track ── */
+    '#milProg .mp-phase{margin-top:6px;padding:18px 20px;border-radius:16px;background:linear-gradient(180deg,rgba(248,250,252,0.7) 0%,rgba(241,245,249,0.5) 100%);border:1px solid rgba(226,232,240,0.8);}',
+    '#milProg .mp-phase-label{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--theme-accent,#6366f1);margin-bottom:10px;opacity:0.85;}',
+    '#milProg .mp-phase-label::before{content:"";display:inline-block;width:18px;height:1.5px;background:currentColor;opacity:0.55;}',
+    '#milProg .mp-phase-title{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:8px;letter-spacing:0.01em;}',
+    '#milProg .mp-phase-body{font-size:13.5px;line-height:1.75;color:#475569;letter-spacing:0.01em;}',
+    '#milProg .mp-phase-body strong{color:#334155;font-weight:600;}',
+    '#milProg .mp-phase-body .mp-pro{color:#0f766e;font-weight:600;}',
+    '#milProg .mp-phase-body .mp-con{color:#b45309;font-weight:600;}',
+
+    /* ── Horizontal track ── */
+    '#milProg .mp-track-wrap{position:relative;padding:42px 0 56px;margin:0 14px;}',
+    /* Base rail */
+    '#milProg .mp-rail{position:absolute;left:0;right:0;top:50%;height:4px;border-radius:2px;background:linear-gradient(90deg,#e2e8f0 0%,#e2e8f0 60%,#eef2f7 100%);transform:translateY(-50%);overflow:hidden;}',
+    /* Fog overlay on rail past the current position — subtle crosshatch */
+    '#milProg .mp-rail::after{content:"";position:absolute;top:0;bottom:0;right:0;width:var(--fog-width,0%);background:repeating-linear-gradient(90deg,rgba(148,163,184,0.18) 0 6px,rgba(148,163,184,0.06) 6px 12px);pointer-events:none;}',
+    /* Filled bar from start up to current node */
+    '#milProg .mp-fill{position:absolute;left:0;top:50%;height:6px;border-radius:3px;transform:translateY(-50%);width:0;background:var(--fill-grad,linear-gradient(90deg,#6366f1,#8b5cf6));box-shadow:0 4px 12px color-mix(in srgb,var(--fill-color,#6366f1) 35%,transparent);transition:width 900ms cubic-bezier(.22,.8,.34,1);}',
+
+    /* ── Node (anchor for each rank) ── */
+    '#milProg .mp-node{position:absolute;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;}',
+
+    /* Marker — the circle on the track */
+    '#milProg .mp-marker{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #cbd5e1;box-sizing:border-box;transition:transform .3s ease,box-shadow .3s ease;z-index:2;}',
+
+    /* Label block (above or below the rail, alternating for density) */
+    '#milProg .mp-label{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;text-align:center;font-size:11.5px;letter-spacing:0.03em;z-index:3;}',
+    '#milProg .mp-node--above .mp-label{bottom:calc(50% + 16px);}',
+    '#milProg .mp-node--below .mp-label{top:calc(50% + 16px);}',
+    '#milProg .mp-label-name{font-weight:700;line-height:1.25;}',
+    '#milProg .mp-label-score{font-size:10.5px;color:#94a3b8;font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums;}',
+
+    /* ── State 1: achieved (idx < current) — lit, bright ── */
+    '#milProg .mp-node--achieved .mp-marker{width:18px;height:18px;background:var(--node-color,#6366f1);border-color:var(--node-color,#6366f1);box-shadow:0 0 0 4px color-mix(in srgb,var(--node-color,#6366f1) 18%,transparent);}',
+    '#milProg .mp-node--achieved .mp-marker::before{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;line-height:1;}',
+    '#milProg .mp-node--achieved .mp-marker{position:relative;}',
+    '#milProg .mp-node--achieved .mp-label-name{color:var(--node-color,#6366f1);}',
+
+    /* ── State 2: current (idx === current) — glowing, enlarged ── */
+    '#milProg .mp-node--current .mp-marker{width:30px;height:30px;background:var(--node-color,#6366f1);border:3px solid #fff;box-shadow:0 0 0 4px var(--node-color,#6366f1),0 0 0 10px color-mix(in srgb,var(--node-color,#6366f1) 20%,transparent),0 8px 22px color-mix(in srgb,var(--node-color,#6366f1) 45%,transparent);animation:mpPulse 2.4s ease-in-out infinite;}',
+    '#milProg .mp-node--current .mp-marker::before{content:attr(data-icon);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;}',
+    '#milProg .mp-node--current .mp-marker{position:relative;}',
+    '#milProg .mp-node--current .mp-label-name{font-size:13px;font-weight:800;color:var(--node-color,#6366f1);}',
+    '#milProg .mp-node--current .mp-label-desc{display:block;font-size:11px;font-weight:600;color:#475569;margin-top:1px;letter-spacing:0.04em;}',
+    '@keyframes mpPulse{0%,100%{box-shadow:0 0 0 4px var(--node-color,#6366f1),0 0 0 10px color-mix(in srgb,var(--node-color,#6366f1) 20%,transparent),0 8px 22px color-mix(in srgb,var(--node-color,#6366f1) 45%,transparent);}50%{box-shadow:0 0 0 4px var(--node-color,#6366f1),0 0 0 16px color-mix(in srgb,var(--node-color,#6366f1) 10%,transparent),0 8px 30px color-mix(in srgb,var(--node-color,#6366f1) 60%,transparent);}}',
+
+    /* ── State 3: pending unlock (idx === current+1) — name visible but dim ── */
+    '#milProg .mp-node--pending .mp-marker{width:16px;height:16px;background:#fff;border:2px dashed var(--node-color,#94a3b8);opacity:0.8;}',
+    '#milProg .mp-node--pending .mp-label{opacity:0.45;}',
+    '#milProg .mp-node--pending .mp-label-name{color:#64748b;font-weight:600;}',
+    '#milProg .mp-node--pending .mp-label-name::before{content:"🔒 ";font-size:10px;}',
+
+    /* ── State 4: fog of war (idx > current+1) — anonymous dot ── */
+    '#milProg .mp-node--fog .mp-marker{width:8px;height:8px;background:#cbd5e1;border:none;opacity:0.55;}',
+    /* Hide the full label; replace with neutral tick mark below rail */
+    '#milProg .mp-node--fog .mp-label{display:none;}',
+    '#milProg .mp-node--fog .mp-label-tick{display:block;position:absolute;left:50%;top:calc(50% + 14px);transform:translateX(-50%);color:#cbd5e1;font-size:10px;letter-spacing:0.2em;font-weight:700;}',
+
+    /* ── Responsive — vertical fallback on narrow screens ── */
+    '@media (max-width:640px){',
+      '#milProg .mp-icon{width:46px;height:46px;font-size:22px;border-radius:14px;}',
+      '#milProg .mp-title{font-size:19px;}',
+      '#milProg .mp-track-wrap{margin:0 8px;padding:36px 0 48px;}',
+      '#milProg .mp-label-name{font-size:10.5px;}',
+      '#milProg .mp-label-score{font-size:9.5px;}',
+      '#milProg .mp-node--current .mp-label-name{font-size:12px;}',
+      '#milProg .mp-node--current .mp-label-desc{font-size:10px;}',
+      '#milProg .mp-theme-head{font-size:12px;padding:9px 12px;gap:8px;}',
+      '#milProg .mp-phase{padding:15px 16px;}',
+      '#milProg .mp-phase-title{font-size:14px;}',
+      '#milProg .mp-phase-body{font-size:12.5px;line-height:1.7;}',
+    '}',
+
+    /* ══════════════════════════════════════════════════════════════════
+       VISUAL PHASE TIERS — dramatic progression by score band
+       ══════════════════════════════════════════════════════════════════ */
+
+    /* ── TIER 1 · phase-junior (0–50) · Slate / steel, grounded, raw ── */
+    '#milProg.phase-junior{padding:22px 24px;border-radius:18px;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border:1px solid #334155;color:#e2e8f0;}',
+    '#milProg.phase-junior .mp-title{color:#f1f5f9 !important;text-shadow:none;font-weight:800;}',
+    '#milProg.phase-junior .mp-chip{background:rgba(148,163,184,0.14) !important;color:#cbd5e1 !important;border:1px solid rgba(148,163,184,0.25);}',
+    '#milProg.phase-junior .mp-score-val{color:#e2e8f0;}',
+    '#milProg.phase-junior .mp-score-max{color:#64748b;}',
+    '#milProg.phase-junior .mp-theme-head{background:rgba(51,65,85,0.4);color:#94a3b8;border-left-color:#64748b;}',
+    '#milProg.phase-junior .mp-rail{background:linear-gradient(90deg,#334155 0%,#1e293b 60%,#0f172a 100%);}',
+    '#milProg.phase-junior .mp-rail::after{background:repeating-linear-gradient(90deg,rgba(71,85,105,0.35) 0 6px,rgba(71,85,105,0.12) 6px 12px);}',
+    '#milProg.phase-junior .mp-label-score{color:#64748b;}',
+    '#milProg.phase-junior .mp-node--pending .mp-label-name{color:#94a3b8;}',
+    '#milProg.phase-junior .mp-node--fog .mp-marker{background:#475569;}',
+    '#milProg.phase-junior .mp-node--achieved .mp-marker{box-shadow:none;}',
+    '#milProg.phase-junior .mp-phase{background:rgba(15,23,42,0.55);border-color:#334155;}',
+    '#milProg.phase-junior .mp-phase-title{color:#f1f5f9;}',
+    '#milProg.phase-junior .mp-phase-body{color:#cbd5e1;}',
+    '#milProg.phase-junior .mp-phase-body strong{color:#f1f5f9;}',
+    '#milProg.phase-junior .mp-phase-body .mp-pro{color:#5eead4;}',
+    '#milProg.phase-junior .mp-phase-body .mp-con{color:#fcd34d;}',
+
+    /* ── TIER 2 · phase-field (51–100) · Navy / bronze, tactical, glass ── */
+    '#milProg.phase-field{padding:24px 26px;border-radius:22px;background:linear-gradient(135deg,rgba(23,44,76,0.96) 0%,rgba(14,30,56,0.98) 60%,rgba(20,26,40,0.98) 100%);border:1px solid rgba(184,134,79,0.32);color:#e8efff;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 8px 32px rgba(0,0,0,0.35),0 0 28px rgba(184,134,79,0.12),inset 0 1px 0 rgba(255,255,255,0.06);}',
+    '#milProg.phase-field .mp-title{color:#ffffff !important;text-shadow:0 2px 10px rgba(184,134,79,0.45),0 1px 2px rgba(0,0,0,0.5);font-weight:800;letter-spacing:0.03em;}',
+    '#milProg.phase-field .mp-chip{background:rgba(184,134,79,0.18) !important;color:#e4c48a !important;border:1px solid rgba(184,134,79,0.4);backdrop-filter:blur(8px);}',
+    '#milProg.phase-field .mp-score-val{color:#f1f5f9;}',
+    '#milProg.phase-field .mp-score-max{color:#94a3b8;}',
+    '#milProg.phase-field .mp-theme-head{background:linear-gradient(90deg,rgba(184,134,79,0.14) 0%,rgba(184,134,79,0.02) 100%);color:#b8ccea;border-left-color:#b8864f;}',
+    '#milProg.phase-field .mp-rail{background:linear-gradient(90deg,rgba(71,85,105,0.6) 0%,rgba(30,41,59,0.7) 100%);}',
+    '#milProg.phase-field .mp-rail::after{background:repeating-linear-gradient(90deg,rgba(148,163,184,0.25) 0 6px,rgba(148,163,184,0.08) 6px 12px);}',
+    '#milProg.phase-field .mp-label-score{color:#94a3b8;}',
+    '#milProg.phase-field .mp-node--pending .mp-label-name{color:#b8ccea;}',
+    '#milProg.phase-field .mp-node--fog .mp-marker{background:#475569;}',
+    '#milProg.phase-field .mp-phase{background:rgba(14,30,56,0.55);border-color:rgba(184,134,79,0.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);}',
+    '#milProg.phase-field .mp-phase-label{color:#e4c48a !important;}',
+    '#milProg.phase-field .mp-phase-title{color:#f1f5f9;text-shadow:0 1px 2px rgba(0,0,0,0.3);}',
+    '#milProg.phase-field .mp-phase-body{color:#cbd5e1;}',
+    '#milProg.phase-field .mp-phase-body strong{color:#e8efff;}',
+    '#milProg.phase-field .mp-phase-body .mp-pro{color:#5eead4;}',
+    '#milProg.phase-field .mp-phase-body .mp-con{color:#fbbf77;}',
+
+    /* ── TIER 3 · phase-general (101–150) · Obsidian / gold, epic, legendary ── */
+    '#milProg.phase-general{position:relative;padding:28px 30px;border-radius:24px;background:radial-gradient(ellipse at 18% 25%,rgba(255,215,0,0.18) 0%,transparent 48%),radial-gradient(ellipse at 82% 78%,rgba(139,35,97,0.24) 0%,transparent 52%),linear-gradient(135deg,#0a0a12 0%,#1a0a1e 45%,#0a0510 100%);border:1px solid rgba(255,215,0,0.28);color:#ffffff;overflow:hidden;box-shadow:0 0 30px rgba(255,215,0,0.4),0 14px 50px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,215,0,0.12);animation:mpEpicBreathe 6.5s ease-in-out infinite;}',
+    '@keyframes mpEpicBreathe{0%,100%{box-shadow:0 0 30px rgba(255,215,0,0.4),0 14px 50px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,215,0,0.12);}50%{box-shadow:0 0 55px rgba(255,215,0,0.6),0 18px 64px rgba(139,35,97,0.35),inset 0 1px 0 rgba(255,215,0,0.18);}}',
+
+    /* Sweeping diagonal shimmer — runs occasionally (~90% idle, ~10% sweep) */
+    '#milProg.phase-general::after{content:"";position:absolute;top:-80%;left:-60%;width:220%;height:260%;background:linear-gradient(115deg,transparent 38%,rgba(255,215,0,0.08) 46%,rgba(255,255,255,0.22) 50%,rgba(255,215,0,0.08) 54%,transparent 62%);transform:translateX(-100%);animation:mpEpicShimmer 7s ease-in-out infinite;pointer-events:none;z-index:1;}',
+    '@keyframes mpEpicShimmer{0%,82%,100%{transform:translateX(-100%);opacity:0;}86%{opacity:0.5;}92%{transform:translateX(40%);opacity:0.35;}97%{transform:translateX(100%);opacity:0;}}',
+
+    /* Keep content above the shimmer layer */
+    '#milProg.phase-general > *{position:relative;z-index:2;}',
+
+    /* Metallic gold animated title */
+    '#milProg.phase-general .mp-title{color:transparent !important;background:linear-gradient(120deg,#fff3b0 0%,#ffd700 28%,#b8860b 52%,#ffd700 74%,#fff8c2 100%);background-size:220% 220%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 24px rgba(255,215,0,0.5);animation:mpGoldShift 4.5s ease-in-out infinite;font-weight:900;font-size:24px;letter-spacing:0.04em;}',
+    '@keyframes mpGoldShift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}',
+
+    '#milProg.phase-general .mp-chip{background:rgba(255,215,0,0.15) !important;color:#ffd700 !important;border:1px solid rgba(255,215,0,0.42);backdrop-filter:blur(8px);text-shadow:0 0 6px rgba(255,215,0,0.3);}',
+    '#milProg.phase-general .mp-score-val{color:#ffd700;text-shadow:0 0 14px rgba(255,215,0,0.6);font-size:17px;}',
+    '#milProg.phase-general .mp-score-max{color:#d4af37;}',
+
+    '#milProg.phase-general .mp-theme-head{background:linear-gradient(90deg,rgba(255,215,0,0.12) 0%,rgba(139,35,97,0.06) 100%);color:#e8d78a;border-left:3px solid #ffd700;box-shadow:inset 0 1px 0 rgba(255,215,0,0.08);}',
+
+    '#milProg.phase-general .mp-rail{background:linear-gradient(90deg,rgba(255,215,0,0.22) 0%,rgba(139,35,97,0.18) 100%);}',
+    '#milProg.phase-general .mp-rail::after{background:repeating-linear-gradient(90deg,rgba(255,215,0,0.2) 0 6px,rgba(255,215,0,0.05) 6px 12px);}',
+    '#milProg.phase-general .mp-label-score{color:#c9a94e;}',
+    '#milProg.phase-general .mp-node--pending .mp-label-name{color:#d4af37;}',
+    '#milProg.phase-general .mp-node--fog .mp-marker{background:rgba(212,175,55,0.35);}',
+
+    '#milProg.phase-general .mp-phase{background:linear-gradient(180deg,rgba(20,10,30,0.55) 0%,rgba(10,5,20,0.72) 100%);border:1px solid rgba(255,215,0,0.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,215,0,0.08),0 6px 20px rgba(0,0,0,0.4);}',
+    '#milProg.phase-general .mp-phase-label{color:#ffd700 !important;text-shadow:0 0 8px rgba(255,215,0,0.35);}',
+    '#milProg.phase-general .mp-phase-title{color:#fff3b0;text-shadow:0 1px 8px rgba(255,215,0,0.2);}',
+    '#milProg.phase-general .mp-phase-body{color:#d4c8a0;}',
+    '#milProg.phase-general .mp-phase-body strong{color:#fff3b0;}',
+    '#milProg.phase-general .mp-phase-body .mp-pro{color:#86efac;}',
+    '#milProg.phase-general .mp-phase-body .mp-con{color:#fcd34d;}',
+
+    /* Reduced motion — respect user preference across all epic animations */
+    '@media (prefers-reduced-motion:reduce){',
+      '#milProg.phase-general{animation:none;}',
+      '#milProg.phase-general::after{animation:none;opacity:0;}',
+      '#milProg.phase-general .mp-title{animation:none;background-position:50% 50%;}',
+    '}',
+
+    /* Mobile tweaks for phase tiers */
+    '@media (max-width:640px){',
+      '#milProg.phase-junior,#milProg.phase-field,#milProg.phase-general{padding:18px 16px;border-radius:16px;}',
+      '#milProg.phase-general .mp-title{font-size:20px;}',
+    '}',
+
+    '@supports not (color:color-mix(in srgb,#000 10%,#fff 90%)){',
+      '#milProg .mp-node--achieved .mp-marker{box-shadow:none;}',
+      '#milProg .mp-node--current .mp-marker{box-shadow:0 0 0 4px #6366f1,0 8px 22px rgba(99,102,241,0.4);}',
+    '}',
+  ].join('');
+  var styleEl = document.createElement('style');
+  styleEl.id = 'milProgressStyles';
+  styleEl.textContent = css;
+  document.head.appendChild(styleEl);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   RANK PHASE DESCRIPTIONS — "Barnum Effect" ambiguous analysis
+   ────────────────────────────────────────────────────────────────────────
+   Four broad phases mapped to the 11 military ranks. Each paragraph is
+   written to resonate universally while feeling deeply personal — leaning
+   on the Barnum / Forer effect: concrete enough to feel tailored, broad
+   enough that almost any reader in that score band will nod along.
+
+     Phase 1 · Junior Ranks       ( 0–40 )  列兵 · 少尉 · 中尉
+     Phase 2 · Field Officers     (41–70 )  上尉 · 少校 · 中校
+     Phase 3 · Senior Officers    (71–120)  上校 · 大校 · 少将
+     Phase 4 · Generals           (121–150) 中将 · 一级上将
+   ════════════════════════════════════════════════════════════════════════ */
+var RANK_PHASES = {
+  junior: {
+    minScore: 0, maxScore: 40,
+    cn: {
+      label: '阶段一 · 新兵集结',
+      title: '潜力无限的起点，亦是最混乱的战场',
+      body:
+        '你正处在人生最原始、也最具韧性的阶段。表面上，日子像是被琐碎的战术行动填满——为资源奔波、为身份焦虑、为方向摇摆。但在喧嚣之下，你其实握有很多人已经失去的东西：几乎没有退路的勇气、对规则尚未完全妥协的敏锐、以及一张能被重新书写的地图。' +
+        '<br><br>' +
+        '<span class="mp-pro">优势：</span>身段轻、包袱少、容错率高；一次关键的判断就可能改变后续十年的轨迹。' +
+        '<br>' +
+        '<span class="mp-con">挑战：</span>资源有限、支援不足，日常的消耗战容易让人忘记远方；你需要的不是更多的努力，而是更清晰的坐标。'
+    },
+    tw: {
+      label: '階段一 · 新兵集結',
+      title: '潛力無限的起點，亦是最混亂的戰場',
+      body:
+        '你正處在人生最原始、也最具韌性的階段。表面上，日子像是被瑣碎的戰術行動填滿——為資源奔波、為身份焦慮、為方向搖擺。但在喧囂之下，你其實握有很多人已經失去的東西：幾乎沒有退路的勇氣、對規則尚未完全妥協的敏銳、以及一張能被重新書寫的地圖。' +
+        '<br><br>' +
+        '<span class="mp-pro">優勢：</span>身段輕、包袱少、容錯率高；一次關鍵的判斷就可能改變後續十年的軌跡。' +
+        '<br>' +
+        '<span class="mp-con">挑戰：</span>資源有限、支援不足，日常的消耗戰容易讓人忘記遠方；你需要的不是更多的努力，而是更清晰的座標。'
+    }
+  },
+  field: {
+    minScore: 41, maxScore: 70,
+    cn: {
+      label: '阶段二 · 多线推进',
+      title: '基础已筑，但正陷入人生的"中层指挥"',
+      body:
+        '你已经不再是新兵，也还没到能俯瞰全局的高度。在这个阶段，你多半已经建立了自己的一套章法：有可依靠的技能、有稳定的收入来源、有一小群愿意并肩的人。但与此同时，你也开始同时应付多条战线——事业的推进、家庭的责任、身体的信号、以及内心偶尔袭来的倦意。' +
+        '<br><br>' +
+        '<span class="mp-pro">优势：</span>你具备执行力、积累了真实可用的资源，能把复杂任务拆解为可交付的成果。' +
+        '<br>' +
+        '<span class="mp-con">挑战：</span>多线作战的代价是"哪边都不能输"，你容易被紧迫的事情吞没，失去主动选择战场的权力；警惕长期消耗带来的系统性疲劳。'
+    },
+    tw: {
+      label: '階段二 · 多線推進',
+      title: '基礎已築，但正陷入人生的「中層指揮」',
+      body:
+        '你已經不再是新兵，也還沒到能俯瞰全局的高度。在這個階段，你多半已經建立了自己的一套章法：有可依靠的技能、有穩定的收入來源、有一小群願意並肩的人。但與此同時，你也開始同時應付多條戰線——事業的推進、家庭的責任、身體的訊號、以及內心偶爾襲來的倦意。' +
+        '<br><br>' +
+        '<span class="mp-pro">優勢：</span>你具備執行力、積累了真實可用的資源，能把複雜任務拆解為可交付的成果。' +
+        '<br>' +
+        '<span class="mp-con">挑戰：</span>多線作戰的代價是「哪邊都不能輸」，你容易被緊迫的事情吞沒，失去主動選擇戰場的權力；警惕長期消耗帶來的系統性疲勞。'
+    }
+  },
+  senior: {
+    minScore: 71, maxScore: 120,
+    cn: {
+      label: '阶段三 · 战区统筹',
+      title: '你已经能调动资源，真正的对手是"规模的复杂度"',
+      body:
+        '你已经走到了大多数人仰望的位置——不是靠运气偶得，而是靠多年累积下来的判断、人脉与执行。此刻你面对的问题，已经很少是"能不能做到"，而更多是"该不该做"、"值不值得做"、以及"做了之后谁来承担"。你比过去任何时候都更懂得取舍，也更清楚每一次取舍的代价。' +
+        '<br><br>' +
+        '<span class="mp-pro">优势：</span>战略视角清晰、资源充沛、能影响他人的决策与路径，你在自己擅长的领域已经拥有相当程度的话语权。' +
+        '<br>' +
+        '<span class="mp-con">挑战：</span>规模会放大每一个失误；能与你真正对话的人变少，孤独感不再是情绪而是结构性问题；最大的敌人，往往是过去那个成功的自己。'
+    },
+    tw: {
+      label: '階段三 · 戰區統籌',
+      title: '你已經能調動資源，真正的對手是「規模的複雜度」',
+      body:
+        '你已經走到了大多數人仰望的位置——不是靠運氣偶得，而是靠多年累積下來的判斷、人脈與執行。此刻你面對的問題，已經很少是「能不能做到」，而更多是「該不該做」、「值不值得做」、以及「做了之後誰來承擔」。你比過去任何時候都更懂得取捨，也更清楚每一次取捨的代價。' +
+        '<br><br>' +
+        '<span class="mp-pro">優勢：</span>戰略視角清晰、資源充沛、能影響他人的決策與路徑，你在自己擅長的領域已經擁有相當程度的話語權。' +
+        '<br>' +
+        '<span class="mp-con">挑戰：</span>規模會放大每一個失誤；能與你真正對話的人變少，孤獨感不再是情緒而是結構性問題；最大的敵人，往往是過去那個成功的自己。'
+    }
+  },
+  general: {
+    minScore: 121, maxScore: 150,
+    cn: {
+      label: '阶段四 · 最高统帅',
+      title: '站在山巅，真正的战役是"寻找下一场值得打的仗"',
+      body:
+        '你已经抵达一个极少数人才能触及的位置。外部的战役——名声、财富、影响力、专业深度——大多已经结束，或已经不再是你真正关心的事。此刻你需要回答的，是一个比所有战术问题都更艰难的问题：当你已经赢得了过去所有在意的东西，什么才值得用余下的时间去守护、去建造、去传递？' +
+        '<br><br>' +
+        '<span class="mp-pro">优势：</span>你拥有近乎绝对的自主权——时间、资源、选择权、以及定义成功的标准本身。' +
+        '<br>' +
+        '<span class="mp-con">挑战：</span>高处风景独美，亦独寒；维持帝国的代价是持续的警觉，而真正的危险往往不是失败，而是失去意义感——你需要的不再是更大的战场，而是更深的意义。'
+    },
+    tw: {
+      label: '階段四 · 最高統帥',
+      title: '站在山巔，真正的戰役是「尋找下一場值得打的仗」',
+      body:
+        '你已經抵達一個極少數人才能觸及的位置。外部的戰役——名聲、財富、影響力、專業深度——大多已經結束，或已經不再是你真正關心的事。此刻你需要回答的，是一個比所有戰術問題都更艱難的問題：當你已經贏得了過去所有在意的東西，什麼才值得用餘下的時間去守護、去建造、去傳遞？' +
+        '<br><br>' +
+        '<span class="mp-pro">優勢：</span>你擁有近乎絕對的自主權——時間、資源、選擇權、以及定義成功的標準本身。' +
+        '<br>' +
+        '<span class="mp-con">挑戰：</span>高處風景獨美，亦獨寒；維持帝國的代價是持續的警覺，而真正的危險往往不是失敗，而是失去意義感——你需要的不再是更大的戰場，而是更深的意義。'
+    }
+  }
+};
+
+function getRankPhaseDescription(score){
+  var s = (typeof score === 'number' && !isNaN(score)) ? score : 0;
+  if (s <= 40)      return RANK_PHASES.junior;
+  if (s <= 70)      return RANK_PHASES.field;
+  if (s <= 120)     return RANK_PHASES.senior;
+  return RANK_PHASES.general;
+}
+window.getRankPhaseDescription = getRankPhaseDescription;
+
+/* ────────────────────────────────────────────────────────────────────────
+   VISUAL PHASE CLASS — drives dramatic 3-tier CSS theming on the rank card.
+   Independent from the text-phase mapping above; this one controls the
+   look/feel (background, glow, typography) based on military rank family.
+
+     phase-junior  (  0– 50 )  列兵 · 少尉 · 中尉 · 上尉   — Slate / steel, flat
+     phase-field   ( 51–100 )  少校 · 中校 · 上校 · 大校   — Navy / bronze, glass
+     phase-general (101–150 )  少将 · 中将 · 一级上将      — Obsidian / gold, epic
+   ──────────────────────────────────────────────────────────────────────── */
+function getVisualPhaseClass(score){
+  var s = (typeof score === 'number' && !isNaN(score)) ? score : 0;
+  if (s <= 50)  return 'phase-junior';
+  if (s <= 100) return 'phase-field';
+  return 'phase-general';
+}
+window.getVisualPhaseClass = getVisualPhaseClass;
+
+function renderMilitaryProgressBar(container, score, isTW){
+  if (!container) return;
+  injectMilitaryProgressStyles();
+
+  var currentTier = getUserTier(score);
+  var currentIdx  = RANK_ORDER.indexOf(currentTier.id);
+  if (currentIdx < 0) currentIdx = 0;
+
+  var tTitle = isTW ? currentTier.tw.title : currentTier.cn.title;
+  var tDesc  = isTW ? currentTier.tw.desc  : currentTier.cn.desc;
+
+  /* Fill bar width: percentage from first node center to current node center.
+     Nodes are laid out at positions i/(n-1) for i in 0..n-1.
+     First node = 0%, last node = 100%. */
+  var nMax    = RANK_ORDER.length - 1;
+  var fillPct = nMax > 0 ? (currentIdx / nMax) * 100 : 0;
+  var fogPct  = 100 - fillPct;
+
+  /* Build the nodes. Alternate labels above/below so dense horizontal
+     labels don't overlap on narrower layouts. */
+  var nodesHtml = '';
+  for (var i = 0; i < RANK_ORDER.length; i++){
+    var t = USER_TIERS[RANK_ORDER[i]];
+    var pos = nMax > 0 ? (i / nMax) * 100 : 0;
+    var state;
+    if (i < currentIdx)          state = 'achieved';
+    else if (i === currentIdx)   state = 'current';
+    else if (i === currentIdx+1) state = 'pending';
+    else                         state = 'fog';
+
+    var placement = (i % 2 === 0) ? 'above' : 'below';
+    /* On the CURRENT node, always show labels above for emphasis. */
+    if (state === 'current') placement = 'above';
+
+    var classes = 'mp-node mp-node--'+state+' mp-node--'+placement;
+    var styleVar = '--node-color:'+t.color;
+
+    var labelHtml = '';
+    var tickHtml  = '';
+
+    if (state === 'achieved'){
+      var achievedName = isTW ? t.tw.title : t.cn.title;
+      labelHtml =
+        '<div class="mp-label">'+
+          '<div class="mp-label-name">'+achievedName+'</div>'+
+          '<div class="mp-label-score">'+t.minScore+'-'+t.maxScore+'</div>'+
+        '</div>';
+    } else if (state === 'current'){
+      var curName = isTW ? t.tw.title : t.cn.title;
+      var curDesc = isTW ? t.tw.desc  : t.cn.desc;
+      labelHtml =
+        '<div class="mp-label">'+
+          '<div class="mp-label-name">'+curName+'</div>'+
+          '<div class="mp-label-desc">'+curDesc+'</div>'+
+          '<div class="mp-label-score">'+t.minScore+'-'+t.maxScore+'</div>'+
+        '</div>';
+    } else if (state === 'pending'){
+      var pendName = isTW ? t.tw.title : t.cn.title;
+      labelHtml =
+        '<div class="mp-label">'+
+          '<div class="mp-label-name">'+pendName+'</div>'+
+          '<div class="mp-label-score">'+t.minScore+'-'+t.maxScore+'</div>'+
+        '</div>';
+    } else {
+      /* Fog: no name/score shown, just a neutral three-dot tick */
+      tickHtml = '<div class="mp-label-tick">···</div>';
+    }
+
+    var markerAttrs = (state === 'current') ? ' data-icon="'+t.icon+'"' : '';
+
+    nodesHtml +=
+      '<div class="'+classes+'" style="left:'+pos+'%;'+styleVar+'">'+
+        '<div class="mp-marker"'+markerAttrs+'></div>'+
+        labelHtml + tickHtml +
+      '</div>';
+  }
+
+  /* Fill bar gradient — blend current color with a mid-tone for warmth */
+  var fillGrad = 'linear-gradient(90deg,' +
+    'color-mix(in srgb,'+currentTier.color+' 55%,#ffffff 45%) 0%,' +
+    currentTier.color + ' 100%)';
+
+  /* Thematic header (above track) + Barnum-style phase paragraph (below track) */
+  var phase      = getRankPhaseDescription(score);
+  var phaseCopy  = isTW ? phase.tw : phase.cn;
+  var phaseClass = getVisualPhaseClass(score);
+  var themeText  = isTW
+    ? '如果你的人生是一場戰役，你目前的軍銜座標在此：'
+    : '如果你的人生是一场战役，你目前的军衔坐标在此：';
+
+  container.id = container.id || 'personaTierSection';
+  /* Give it the host class so our scoped CSS targets it */
+  container.setAttribute('data-mil-prog','1');
+  container.innerHTML =
+    '<div id="milProg" class="'+phaseClass+'" style="--theme-accent:'+currentTier.color+'">'+
+      '<div class="mp-header">'+
+        '<div class="mp-icon" style="background:'+currentTier.bgGradient+'">'+currentTier.icon+'</div>'+
+        '<div class="mp-meta">'+
+          '<div class="mp-title" style="color:'+currentTier.color+'">'+tTitle+'</div>'+
+          '<div class="mp-chip" style="background:'+currentTier.color+'1a;color:'+currentTier.color+'">'+tDesc+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="mp-score">'+
+        '<span class="mp-score-val">'+score+'</span>'+
+        '<span class="mp-score-max">/ 150</span>'+
+      '</div>'+
+      '<div class="mp-theme-head">'+
+        '<span class="mp-theme-head-emoji">🎖️</span>'+
+        '<span class="mp-theme-head-text">'+themeText+'</span>'+
+      '</div>'+
+      '<div class="mp-track-wrap" style="--fill-color:'+currentTier.color+';--fill-grad:'+fillGrad+';--fog-width:'+fogPct+'%">'+
+        '<div class="mp-rail"></div>'+
+        '<div class="mp-fill" data-target="'+fillPct+'"></div>'+
+        nodesHtml +
+      '</div>'+
+      '<div class="mp-phase">'+
+        '<div class="mp-phase-label">'+phaseCopy.label+'</div>'+
+        '<div class="mp-phase-title">'+phaseCopy.title+'</div>'+
+        '<div class="mp-phase-body">'+phaseCopy.body+'</div>'+
+      '</div>'+
+    '</div>';
+
+  /* Animate the fill bar width after the DOM settles */
+  setTimeout(function(){
+    var fill = container.querySelector('.mp-fill');
+    if (fill) fill.style.width = fillPct + '%';
+  }, 60);
+}
+window.renderMilitaryProgressBar = renderMilitaryProgressBar;
+
+/* ════════════════════════════════════════════════════════════════════════
+   DYNAMIC INSIGHTS RENDERER — seamless native section
+   ────────────────────────────────────────────────────────────────────────
+   Replaces the static insight / highlight / improve / tip / next-steps
+   cards with a single dynamic section below the persona card.
+
+   Flow:
+     1. On result page load → auto-trigger fetchResultFromAI().
+     2. Hash the payload. If a cached success exists in sessionStorage,
+        render instantly with no typewriter (user has seen it before).
+     3. Otherwise show a minimal loading state, POST /api/generate-result,
+        then reveal each card and stream its body text character-by-character
+        (ChatGPT-style) to simulate a real-time thought process.
+     4. On failure (4xx / 5xx / network) show a soft error banner with
+        a Retry button. Only successful responses are cached.
+
+   Visual language: very light glassmorphism — no heavy gradients. Accent
+   colors are used ONLY on the small icon badges; cards themselves share
+   a uniform neutral surface.
+
+   All markup + styles injected from JS — result.html requires no changes.
+   ════════════════════════════════════════════════════════════════════════ */
+
+var AI_ENDPOINT         = '/api/generate-result';
+var AI_CACHE_PREFIX     = 'ls_ai_v1_';
+var AI_SECTION_INJECTED = false;
+var AI_STATIC_CARD_IDS  = ['insightsCard','highlightCard','improveCard','resultTip','nextStepsCard'];
+
+/* Per-module metadata. `accent` drives the icon badge + number badge accent;
+   `accentBg` is the pill/li tint; `gradient` is the two-stop gradient used
+   on the card title for a vibrant, Dribbble-esque pop. */
+var AI_MODULE_LABELS = {
+  grade:       { cn:'分级评价',   tw:'分級評價',   icon:'🏅', accent:'#a78bfa', accentBg:'rgba(167,139,250,0.12)', gradient:'linear-gradient(135deg,#a78bfa 0%,#6366f1 100%)' },
+  insight:     { cn:'个性化洞察', tw:'個性化洞察', icon:'🧠', accent:'#f472b6', accentBg:'rgba(244,114,182,0.12)', gradient:'linear-gradient(135deg,#f472b6 0%,#e11d48 100%)' },
+  highlights:  { cn:'亮点回顾',   tw:'亮點回顧',   icon:'✨', accent:'#34d399', accentBg:'rgba(52,211,153,0.12)',  gradient:'linear-gradient(135deg,#34d399 0%,#0ea5e9 100%)' },
+  weakness:    { cn:'提升空间',   tw:'提升空間',   icon:'🎯', accent:'#fbbf24', accentBg:'rgba(251,191,36,0.12)',  gradient:'linear-gradient(135deg,#fbbf24 0%,#f97316 100%)' },
+  suggestions: { cn:'提升建议',   tw:'提升建議',   icon:'💡', accent:'#38bdf8', accentBg:'rgba(56,189,248,0.12)',  gradient:'linear-gradient(135deg,#38bdf8 0%,#6366f1 100%)' },
+  actionPlan:  { cn:'行动计划',   tw:'行動計劃',   icon:'🗺️', accent:'#a78bfa', accentBg:'rgba(167,139,250,0.12)', gradient:'linear-gradient(135deg,#a78bfa 0%,#ec4899 100%)' },
+};
+var AI_ACTION_LABELS = {
+  work:   { cn:'工作事业', tw:'工作事業', icon:'💼' },
+  social: { cn:'社交人脉', tw:'社交人脈', icon:'🤝' },
+  family: { cn:'家庭伴侣', tw:'家庭伴侶', icon:'🏡' },
+};
+
+/* Simple stable hash (djb2 variant) — only needs to change when payload changes. */
+function aiHashString(str){
+  var h = 5381, i = str.length;
+  while (i) { h = (h * 33) ^ str.charCodeAt(--i); }
+  return (h >>> 0).toString(36);
+}
+
+function aiEscapeHtml(s){
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* Hide the legacy static cards that this section replaces. */
+function aiHideStaticSections(){
+  AI_STATIC_CARD_IDS.forEach(function(id){
+    var el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
+/* Inject CSS once per page — scoped under #aiSection. Deliberately minimal:
+   light glassmorphism, uniform card surface, accent color confined to the
+   small icon badges. No large gradients, no gradient text. */
+/* Active interval ID for the rotating loading status text. */
+var AI_STATUS_INTERVAL = null;
+
+function aiInjectStyles(){
+  if (document.getElementById('aiSectionStyles')) return;
+  var style = document.createElement('style');
+  style.id = 'aiSectionStyles';
+  style.textContent = [
+    '#aiSection{margin:28px 0;display:flex;flex-direction:column;gap:18px;}',
+
+    /* [hidden] must beat display:flex from class selectors */
+    '#aiSection [hidden]{display:none!important;}',
+
+    /* ══════════════ LOADING STATE ══════════════ */
+    '#aiSection .ai-loading{display:flex;align-items:center;gap:22px;padding:32px 36px;border-radius:28px;background:linear-gradient(135deg,#ffffff 0%,#f5f7ff 100%);border:1px solid rgba(99,102,241,0.14);box-shadow:0 20px 40px rgba(99,102,241,0.08);animation:aiLoadBreathe 3.2s ease-in-out infinite;}',
+    '@keyframes aiLoadBreathe{0%,100%{box-shadow:0 20px 40px rgba(99,102,241,0.08);}50%{box-shadow:0 24px 52px rgba(99,102,241,0.14);}}',
+
+    /* Orb */
+    '#aiSection .ai-loading-orb{flex:none;width:52px;height:52px;border-radius:50%;position:relative;}',
+    '#aiSection .ai-loading-orb::before{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 32% 32%,#c4b5fd 0%,#8b5cf6 50%,#4f46e5 100%);box-shadow:0 8px 24px rgba(99,102,241,0.5),inset 0 0 12px rgba(255,255,255,0.25);animation:aiOrbPulse 2.2s ease-in-out infinite;}',
+    '#aiSection .ai-loading-orb::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:1.5px solid rgba(99,102,241,0.3);animation:aiOrbRing 2.2s ease-in-out infinite;}',
+    '@keyframes aiOrbPulse{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}',
+    '@keyframes aiOrbRing{0%{transform:scale(1);opacity:0.6;}100%{transform:scale(1.6);opacity:0;}}',
+
+    /* Title + status */
+    '#aiSection .ai-loading-stack{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px;}',
+    '#aiSection .ai-loading-title{font-size:20px;font-weight:700;line-height:1.35;letter-spacing:0.01em;background:linear-gradient(90deg,#1f2937 0%,#1f2937 38%,#6366f1 50%,#1f2937 62%,#1f2937 100%);background-size:240% 100%;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:#1f2937;animation:aiTitleShimmer 3s linear infinite;}',
+    '@keyframes aiTitleShimmer{0%{background-position:200% 0;}100%{background-position:-200% 0;}}',
+    '#aiSection .ai-loading-status{display:flex;align-items:center;gap:10px;}',
+    '#aiSection .ai-status-dot{flex:none;width:7px;height:7px;border-radius:50%;background:#6366f1;animation:aiDotBreathe 1.5s ease-in-out infinite;}',
+    '@keyframes aiDotBreathe{0%,100%{opacity:0.3;transform:scale(0.85);}50%{opacity:1;transform:scale(1.15);}}',
+    '#aiSection .ai-status-text{font-size:14px;font-weight:500;color:#64748b;letter-spacing:0.01em;transition:opacity .28s ease;}',
+
+    /* ══════════════ ERROR BANNER ══════════════ */
+    '#aiSection .ai-error{padding:24px 28px;border-radius:20px;background:#fff5f5;border:1px solid rgba(239,68,68,0.18);box-shadow:0 12px 28px rgba(239,68,68,0.08);}',
+    '#aiSection .ai-error-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}',
+    '#aiSection .ai-error-icon{font-size:18px;}',
+    '#aiSection .ai-error-title{color:#b91c1c;font-size:15px;font-weight:700;letter-spacing:0.01em;}',
+    '#aiSection .ai-error-msg{color:#7f1d1d;font-size:14px;line-height:1.7;margin-bottom:14px;word-break:break-word;}',
+    '#aiSection .ai-retry-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:999px;border:none;background:#ef4444;color:#fff;font-size:13.5px;font-weight:600;cursor:pointer;box-shadow:0 6px 16px rgba(239,68,68,0.28);transition:transform .18s ease,box-shadow .18s ease;}',
+    '#aiSection .ai-retry-btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(239,68,68,0.36);}',
+
+    /* ══════════════ RESULTS CONTAINER ══════════════ */
+    '#aiSection .ai-results{display:flex;flex-direction:column;gap:18px;}',
+
+    /* ══════════════ CARD — large radius, airy padding, soft shadow ══════════════ */
+    '#aiSection .ai-card{position:relative;padding:32px 34px;border-radius:24px;background:#ffffff;border:1px solid rgba(15,23,42,0.05);box-shadow:0 20px 40px rgba(15,23,42,0.05),0 2px 4px rgba(15,23,42,0.03);opacity:0;transform:translateY(10px);transition:opacity .55s ease,transform .55s ease,box-shadow .25s ease;overflow:hidden;}',
+    '#aiSection .ai-card.is-revealed{opacity:1;transform:translateY(0);}',
+    '#aiSection .ai-card:hover{box-shadow:0 28px 52px rgba(15,23,42,0.08),0 2px 4px rgba(15,23,42,0.03);}',
+
+    /* Subtle gradient corner glow on each card using the module accent */
+    '#aiSection .ai-card::before{content:"";position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;background:var(--accent,#6366f1);opacity:0.06;filter:blur(40px);pointer-events:none;}',
+
+    /* ── Card header ── */
+    '#aiSection .ai-card-head{display:flex;align-items:center;gap:14px;margin-bottom:22px;position:relative;}',
+    '#aiSection .ai-card-icon{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:14px;font-size:20px;line-height:1;background:var(--accent-bg,rgba(99,102,241,0.12));flex:none;animation:aiIconFloat 3.5s ease-in-out infinite;}',
+    '@keyframes aiIconFloat{0%,100%{transform:translateY(0) rotate(0);}50%{transform:translateY(-3px) rotate(-4deg);}}',
+    '#aiSection .ai-card-title{font-size:17px;font-weight:700;letter-spacing:0.02em;background:var(--grad,linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%));background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:#6366f1;}',
+
+    /* ── Prose body (when no list) ── */
+    '#aiSection .ai-card-body{font-size:15.5px;line-height:1.8;letter-spacing:0.01em;color:#1f2937;white-space:pre-wrap;min-height:1.8em;font-weight:400;}',
+
+    /* ══════════════ CHECKLIST LIST ══════════════ */
+    '#aiSection .ai-list{display:flex;flex-direction:column;gap:14px;margin:0;padding:0;}',
+    '#aiSection .ai-li{position:relative;display:flex;gap:16px;align-items:flex-start;padding:18px 22px 18px 24px;border-radius:18px;background:var(--accent-bg,rgba(99,102,241,0.06));border:1px solid rgba(15,23,42,0.04);opacity:0;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease,box-shadow .25s ease;}',
+    '#aiSection .ai-li::before{content:"";position:absolute;left:0;top:18px;bottom:18px;width:3px;border-radius:0 3px 3px 0;background:var(--accent,#6366f1);opacity:0.9;}',
+    '#aiSection .ai-li.is-revealed{opacity:1;transform:translateY(0);}',
+    '#aiSection .ai-li:hover{box-shadow:0 10px 24px rgba(15,23,42,0.06);}',
+    '#aiSection .ai-li-num{flex:none;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--grad,var(--accent,#6366f1));color:#fff;font-size:13px;font-weight:800;line-height:1;margin-top:1px;letter-spacing:0;box-shadow:0 6px 14px rgba(15,23,42,0.12);}',
+    '#aiSection .ai-li-text{flex:1;min-width:0;font-size:15px;line-height:1.75;letter-spacing:0.01em;color:#1f2937;white-space:pre-wrap;min-height:1.75em;word-break:break-word;font-weight:400;}',
+
+    /* ══════════════ HIGHLIGHT PILL (markdown **bold**) ══════════════ */
+    '#aiSection .ai-highlight-pill{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--accent-bg,rgba(139,92,246,0.10));color:var(--accent,#8b5cf6);font-weight:700;letter-spacing:0.01em;white-space:nowrap;transition:transform .18s ease;}',
+    '#aiSection .ai-highlight-pill:hover{transform:translateY(-1px) scale(1.02);}',
+    /* Allow wrapping inside the pill when content is long */
+    '#aiSection .ai-li-text .ai-highlight-pill,#aiSection .ai-card-body .ai-highlight-pill,#aiSection .ai-grade-desc .ai-highlight-pill,#aiSection .ai-ap-body .ai-highlight-pill{white-space:normal;}',
+
+    /* ══════════════ GRADE CARD ══════════════ */
+    '#aiSection .ai-grade-title{font-size:30px;font-weight:800;line-height:1.25;letter-spacing:0.01em;margin:8px 0 14px;background:var(--grad,linear-gradient(135deg,#a78bfa 0%,#6366f1 100%));background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:#6366f1;}',
+    '#aiSection .ai-grade-desc{font-size:15.5px;line-height:1.8;letter-spacing:0.01em;color:#1f2937;white-space:pre-wrap;min-height:1.8em;font-weight:400;}',
+
+    /* ══════════════ ACTION PLAN ══════════════ */
+    '#aiSection .ai-ap-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}',
+    '#aiSection .ai-ap-item{padding:20px 22px;border-radius:18px;background:#fafbff;border:1px solid rgba(15,23,42,0.05);transition:transform .25s ease,box-shadow .25s ease;}',
+    '#aiSection .ai-ap-item:hover{transform:translateY(-2px);box-shadow:0 14px 28px rgba(15,23,42,0.06);}',
+    '#aiSection .ai-ap-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13.5px;font-weight:700;letter-spacing:0.02em;color:#475569;}',
+    '#aiSection .ai-ap-head span:first-child{font-size:18px;animation:aiIconFloat 3.5s ease-in-out infinite;}',
+    '#aiSection .ai-ap-body{font-size:14px;line-height:1.75;letter-spacing:0.01em;color:#1f2937;white-space:pre-wrap;min-height:1.75em;font-weight:400;}',
+
+    /* ══════════════ TYPEWRITER CARET ══════════════ */
+    '#aiSection .tw-cursor{display:inline-block;width:2px;height:1em;background:currentColor;margin-left:1px;vertical-align:-0.15em;opacity:0.7;animation:aiCaret 0.9s steps(1) infinite;}',
+    '@keyframes aiCaret{50%{opacity:0;}}',
+
+    /* ══════════════ DARK MODE ADJUSTMENTS ══════════════ */
+    '@media (prefers-color-scheme:dark){',
+      '#aiSection .ai-loading{background:linear-gradient(135deg,rgba(30,41,59,0.6) 0%,rgba(49,46,129,0.35) 100%);border-color:rgba(139,92,246,0.25);box-shadow:0 20px 40px rgba(0,0,0,0.35);}',
+      '#aiSection .ai-loading-title{background:linear-gradient(90deg,#f1f5f9 0%,#f1f5f9 38%,#c4b5fd 50%,#f1f5f9 62%,#f1f5f9 100%);background-size:240% 100%;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:#f1f5f9;}',
+      '#aiSection .ai-status-text{color:#cbd5e1;}',
+      '#aiSection .ai-card{background:rgba(30,41,59,0.55);border-color:rgba(255,255,255,0.08);box-shadow:0 20px 40px rgba(0,0,0,0.35),0 2px 4px rgba(0,0,0,0.2);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}',
+      '#aiSection .ai-card:hover{box-shadow:0 28px 52px rgba(0,0,0,0.45),0 2px 4px rgba(0,0,0,0.2);}',
+      '#aiSection .ai-card-body,#aiSection .ai-li-text,#aiSection .ai-grade-desc,#aiSection .ai-ap-body{color:#e2e8f0;}',
+      '#aiSection .ai-li{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.06);}',
+      '#aiSection .ai-li:hover{box-shadow:0 10px 24px rgba(0,0,0,0.3);}',
+      '#aiSection .ai-ap-item{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.06);}',
+      '#aiSection .ai-ap-item:hover{box-shadow:0 14px 28px rgba(0,0,0,0.3);}',
+      '#aiSection .ai-ap-head{color:#cbd5e1;}',
+      '#aiSection .ai-error{background:rgba(127,29,29,0.18);border-color:rgba(239,68,68,0.3);box-shadow:0 12px 28px rgba(0,0,0,0.3);}',
+      '#aiSection .ai-error-title{color:#fecaca;}',
+      '#aiSection .ai-error-msg{color:rgba(254,202,202,0.88);}',
+    '}',
+
+    /* ══════════════ RESPONSIVE ══════════════ */
+    '@media (max-width:640px){',
+      '#aiSection{gap:14px;}',
+      '#aiSection .ai-loading{padding:24px 20px;gap:16px;border-radius:22px;}',
+      '#aiSection .ai-loading-orb{width:44px;height:44px;}',
+      '#aiSection .ai-loading-title{font-size:17px;}',
+      '#aiSection .ai-status-text{font-size:13px;}',
+      '#aiSection .ai-card{padding:24px 22px;border-radius:20px;}',
+      '#aiSection .ai-card-title{font-size:15.5px;}',
+      '#aiSection .ai-card-body,#aiSection .ai-li-text,#aiSection .ai-grade-desc{font-size:14.5px;}',
+      '#aiSection .ai-grade-title{font-size:24px;}',
+      '#aiSection .ai-li{padding:16px 18px 16px 20px;border-radius:16px;gap:12px;}',
+      '#aiSection .ai-li-num{width:26px;height:26px;font-size:12px;}',
+      '#aiSection .ai-ap-grid{grid-template-columns:1fr;gap:10px;}',
+      '#aiSection .ai-ap-item{padding:18px 18px;border-radius:16px;}',
+    '}',
+  ].join('');
+  document.head.appendChild(style);
+}
+
+/* Inject the section DOM once, anchored after #personaCard.
+   Loading state (orb + title + cycling status) is the default visible state. */
+function aiInjectSection(){
+  if (AI_SECTION_INJECTED) return;
+  aiInjectStyles();
+  var anchor = document.getElementById('personaCard');
+  if (!anchor || !anchor.parentNode) return;
+
+  var lang = window.I18N_CURRENT || 'zh-CN';
+  var isTW = lang === 'zh-TW';
+  var L = {
+    loading:  isTW ? '正在為您生成專屬深度洞察' : '正在为您生成专属深度洞察',
+    errTitle: isTW ? '生成失敗'                 : '生成失败',
+    retry:    isTW ? '重試'                     : '重试',
+  };
+
+  var wrapper = document.createElement('div');
+  wrapper.id = 'aiSection';
+  wrapper.className = 'ai-section';
+  wrapper.innerHTML =
+    '<div class="ai-loading" id="aiLoading">' +
+      '<div class="ai-loading-orb" aria-hidden="true"></div>' +
+      '<div class="ai-loading-stack">' +
+        '<div class="ai-loading-title" id="aiLoadingText">' + L.loading + '</div>' +
+        '<div class="ai-loading-status">' +
+          '<span class="ai-status-dot" aria-hidden="true"></span>' +
+          '<span class="ai-status-text" id="aiLoadingStatus"></span>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="ai-error" id="aiError" hidden>' +
+      '<div class="ai-error-head">' +
+        '<span class="ai-error-icon">⚠️</span>' +
+        '<span class="ai-error-title" id="aiErrorTitle">' + L.errTitle + '</span>' +
+      '</div>' +
+      '<div class="ai-error-msg" id="aiErrorMsg"></div>' +
+      '<button type="button" class="ai-retry-btn" id="btn-ai-retry">' +
+        '<span id="aiRetryText">' + L.retry + '</span>' +
+      '</button>' +
+    '</div>' +
+    '<div class="ai-results" id="aiResults" hidden></div>';
+
+  anchor.parentNode.insertBefore(wrapper, anchor.nextSibling);
+
+  var retryBtn = document.getElementById('btn-ai-retry');
+  if (retryBtn) retryBtn.addEventListener('click', fetchResultFromAI);
+
+  AI_SECTION_INJECTED = true;
+}
+
+/* Refresh localized copy when language changes. */
+function aiRefreshLabels(){
+  if (!AI_SECTION_INJECTED) return;
+  var isTW = (window.I18N_CURRENT || 'zh-CN') === 'zh-TW';
+  var set = function(id, cn, tw){ var el=document.getElementById(id); if(el) el.textContent = isTW?tw:cn; };
+  set('aiLoadingText', '正在为您生成专属深度洞察', '正在為您生成專屬深度洞察');
+  set('aiErrorTitle',  '生成失败',                   '生成失敗');
+  set('aiRetryText',   '重试',                       '重試');
+  /* If status cycle is live, restart to re-localize immediately */
+  if (AI_STATUS_INTERVAL) aiStatusStart();
+}
+
+/* ── Rotating loading status — cycles through phases while waiting ── */
+function aiStatusStart(){
+  var isTW = (window.I18N_CURRENT || 'zh-CN') === 'zh-TW';
+  var list = isTW
+    ? ['閱讀您的答題數據', '識別行為模式與關鍵特徵', '提煉臨床觀察', '生成個人化反饋', '最後潤色中']
+    : ['阅读您的答题数据', '识别行为模式与关键特征', '提炼临床观察', '生成个性化反馈', '最后润色中'];
+  var el = document.getElementById('aiLoadingStatus');
+  if (!el) return;
+  var idx = 0;
+  el.textContent = list[0];
+  el.style.opacity = 1;
+  aiStatusStop();
+  AI_STATUS_INTERVAL = setInterval(function(){
+    if (!el.isConnected){ aiStatusStop(); return; }
+    idx = (idx + 1) % list.length;
+    el.style.opacity = 0;
+    setTimeout(function(){
+      if (!el.isConnected) return;
+      el.textContent = list[idx];
+      el.style.opacity = 1;
+    }, 280);
+  }, 2600);
+}
+function aiStatusStop(){
+  if (AI_STATUS_INTERVAL){ clearInterval(AI_STATUS_INTERVAL); AI_STATUS_INTERVAL = null; }
+}
+
+/* ── State transitions ────────────────────────────────────────────── */
+function aiShow(id){ var el = document.getElementById(id); if (el) el.hidden = false; }
+function aiHide(id){ var el = document.getElementById(id); if (el) el.hidden = true; }
+
+function aiStateLoading(){ aiShow('aiLoading'); aiHide('aiError'); aiHide('aiResults'); aiStatusStart(); }
+function aiStateError(msg){
+  aiStatusStop();
+  aiHide('aiLoading'); aiHide('aiResults');
+  var m = document.getElementById('aiErrorMsg');
+  if (m) m.textContent = msg || ((window.I18N_CURRENT==='zh-TW')?'網絡異常，請稍後再試':'网络异常，请稍后再试');
+  aiShow('aiError');
+}
+function aiStateSuccess(){ aiStatusStop(); aiHide('aiLoading'); aiHide('aiError'); aiShow('aiResults'); }
+
+/* ── List detection — if the LLM prose contains a numbered list (1. 2. 3. or
+      ①②③), return the items; otherwise return null to keep it as prose. ── */
+function aiTrySplitList(text){
+  if (!text) return null;
+  var t = String(text).trim();
+  if (t.length < 30) return null;
+
+  function extract(markers){
+    var items = [];
+    for (var i = 0; i < markers.length; i++){
+      var start = markers[i].pos + markers[i].len;
+      var end   = (i + 1 < markers.length) ? markers[i + 1].pos : t.length;
+      items.push(t.slice(start, end).trim());
+    }
+    for (var j = 0; j < items.length; j++){
+      if (items[j].length < 10) return null;  /* items must be substantive */
+    }
+    return items;
+  }
+
+  /* Strategy 1: circled numerals ①②③... */
+  var circled = '①②③④⑤⑥⑦⑧⑨';
+  var markers = [];
+  for (var k = 0; k < t.length; k++){
+    var ci = circled.indexOf(t[k]);
+    if (ci >= 0) markers.push({ pos: k, num: ci + 1, len: 1 });
+  }
+  var sequential = markers.length >= 2 && markers.every(function(m, i){ return m.num === i + 1; });
+  if (sequential){
+    var r1 = extract(markers);
+    if (r1) return r1;
+  }
+
+  /* Strategy 2: arabic "N." at sentence boundaries (start, whitespace, or
+     Chinese sentence-end punctuation). Requires the sequence to start at 1. */
+  markers = [];
+  var re = /(?:^|[\s\n。！？])([1-9])[.．、]\s*/g;
+  var m;
+  while ((m = re.exec(t)) !== null){
+    var digitPos = m.index + m[0].indexOf(m[1]);
+    var afterLen = m[0].length - (digitPos - m.index);
+    markers.push({ pos: digitPos, num: parseInt(m[1], 10), len: afterLen });
+  }
+  sequential = markers.length >= 2 && markers.every(function(mm, i){ return mm.num === i + 1; });
+  if (sequential){
+    var r2 = extract(markers);
+    if (r2) return r2;
+  }
+
+  return null;
+}
+
+/* ── Prose fallback — when no numbered markers are present but the field
+      is expected to be list-shaped, split on Chinese sentence boundaries
+      and group into roughly equal chunks. Keeps the content intact but
+      restores visual rhythm. ── */
+function aiFallbackSplitProse(text, targetCount){
+  if (!text) return null;
+  var t = String(text).trim();
+  if (t.length < 80) return null;  /* short prose: render as-is */
+
+  /* Split on 。！？ while keeping the delimiter attached to its sentence. */
+  var sentences = [];
+  var buf = '';
+  for (var i = 0; i < t.length; i++){
+    var c = t[i];
+    buf += c;
+    if (c === '。' || c === '！' || c === '？'){
+      var s = buf.trim();
+      if (s) sentences.push(s);
+      buf = '';
+    }
+  }
+  var tail = buf.trim();
+  if (tail) sentences.push(tail);
+
+  if (sentences.length < 2) return null;
+
+  /* Group sentences into `targetCount` chunks of roughly equal char-length.
+     Simple greedy: iterate sentences, start a new chunk once the running
+     length exceeds total/target. */
+  var target = Math.min(Math.max(targetCount || 2, 2), sentences.length);
+  var totalLen = t.length;
+  var idealLen = totalLen / target;
+  var chunks = [];
+  var curr = '';
+  var currLen = 0;
+  var chunksStarted = 0;
+  for (var j = 0; j < sentences.length; j++){
+    var s = sentences[j];
+    var remaining = sentences.length - j;
+    var chunksLeft = target - chunks.length;
+    /* Force-push remaining sentences into current chunk if we've already
+       filled (target-1) chunks. */
+    if (chunksLeft <= 1){
+      curr += (curr ? '' : '') + s;
+      continue;
+    }
+    /* If current chunk exceeded ideal length AND we still have sentences
+       left to fill remaining chunks, close current chunk and start new. */
+    if (currLen >= idealLen && curr){
+      chunks.push(curr.trim());
+      curr = s;
+      currLen = s.length;
+    } else {
+      curr += s;
+      currLen += s.length;
+    }
+  }
+  if (curr.trim()) chunks.push(curr.trim());
+
+  /* Must yield at least 2 substantive chunks. */
+  if (chunks.length < 2) return null;
+  for (var k = 0; k < chunks.length; k++){
+    if (chunks[k].length < 20) return null;
+  }
+  return chunks;
+}
+
+/* Target item counts per module, used by the fallback splitter. */
+var AI_LIST_TARGETS = { insight: 3, highlights: 2, weakness: 2, suggestions: 3 };
+
+/* ── Markdown tokenizer ───────────────────────────────────────────────
+   Split text into a flat array of { type, chars } segments where type is
+   either 'text' (plain) or 'pill' (was wrapped in **bold**). `chars` is
+   the code-point-safe character array for the typewriter to consume.
+   Unclosed ** is treated as literal text. Empty **  ** is skipped.
+────────────────────────────────────────────────────────────────────── */
+function aiTokenizeMarkdown(text){
+  var t = String(text || '');
+  var out = [];
+  var i = 0;
+  var buf = '';
+  function flushText(){
+    if (buf){ out.push({ type:'text', chars: Array.from(buf) }); buf = ''; }
+  }
+  while (i < t.length){
+    if (t.charCodeAt(i) === 42 && t.charCodeAt(i + 1) === 42){
+      /* Look for closing ** */
+      var close = t.indexOf('**', i + 2);
+      if (close < 0){
+        /* No closing — treat the rest as literal text */
+        buf += t.slice(i);
+        i = t.length;
+        break;
+      }
+      var inner = t.slice(i + 2, close);
+      if (inner.length === 0){
+        /* empty **** — drop */
+        i = close + 2;
+        continue;
+      }
+      flushText();
+      out.push({ type:'pill', chars: Array.from(inner) });
+      i = close + 2;
+    } else {
+      buf += t[i];
+      i++;
+    }
+  }
+  flushText();
+  return out;
+}
+
+/* ── Typewriter engine (markdown-aware) ───────────────────────────────
+   Each entry in `typers` is { el, text }.
+   The engine tokenizes text into plain / pill segments, then streams
+   them into `el` character by character. Pills render as animated
+   <span class="ai-highlight-pill"> elements that fade in once the pill
+   opens, and continue receiving characters as the typewriter advances.
+────────────────────────────────────────────────────────────────────── */
+function aiTypewrite(typers, onDone){
+  var i = 0;
+  var CHAR_MS        = 14;
+  var CHAR_JITTER_MS = 6;
+  var FIELD_PAUSE_MS = 140;
+  var CARD_FADE_MS   = 220;
+  var ROW_FADE_MS    = 180;
+
+  function runOne(){
+    if (i >= typers.length){ if (typeof onDone === 'function') onDone(); return; }
+    var item = typers[i++];
+    var el   = item.el;
+    if (!el || !el.isConnected){ runOne(); return; }
+
+    var waitForFade = 0;
+
+    /* Reveal parent card if not yet shown. */
+    var card = el.closest ? el.closest('.ai-card') : null;
+    if (card && !card.classList.contains('is-revealed')){
+      card.classList.add('is-revealed');
+      waitForFade = Math.max(waitForFade, CARD_FADE_MS);
+    }
+
+    /* Reveal parent list-item row. */
+    var row = el.closest ? el.closest('.ai-li') : null;
+    if (row && !row.classList.contains('is-revealed')){
+      row.classList.add('is-revealed');
+      waitForFade = Math.max(waitForFade, ROW_FADE_MS);
+    }
+
+    /* Clear target and prepare a trailing caret. The caret is re-parented
+       on each tick so it always sits at the end of whatever is currently
+       being written (plain text or the inside of an open pill). */
+    el.textContent = '';
+    var caret = document.createElement('span');
+    caret.className = 'tw-cursor';
+    caret.setAttribute('aria-hidden','true');
+    el.appendChild(caret);
+
+    var segments = aiTokenizeMarkdown(item.text || '');
+    var segIdx   = 0;    /* which segment we're currently streaming */
+    var charIdx  = 0;    /* position within the current segment */
+    var activeTextNode = null;  /* current Text node we're appending to */
+    var activePillEl   = null;  /* current <span.ai-highlight-pill> (if inside pill) */
+
+    function startSegment(){
+      var seg = segments[segIdx];
+      if (!seg) return;
+      if (seg.type === 'pill'){
+        activePillEl = document.createElement('span');
+        activePillEl.className = 'ai-highlight-pill';
+        activeTextNode = document.createTextNode('');
+        activePillEl.appendChild(activeTextNode);
+        el.insertBefore(activePillEl, caret);
+      } else {
+        activePillEl = null;
+        activeTextNode = document.createTextNode('');
+        el.insertBefore(activeTextNode, caret);
+      }
+    }
+
+    function tick(){
+      /* Done entirely? */
+      if (segIdx >= segments.length){
+        if (caret.parentNode) caret.parentNode.removeChild(caret);
+        setTimeout(runOne, FIELD_PAUSE_MS);
+        return;
+      }
+      var seg = segments[segIdx];
+      /* Start a new segment's DOM container if just entering. */
+      if (charIdx === 0) startSegment();
+
+      if (charIdx < seg.chars.length){
+        charIdx++;
+        activeTextNode.data = seg.chars.slice(0, charIdx).join('');
+        /* Keep the caret visually at the tail: if we're inside a pill, move
+           caret after the pill so it trails outside the badge. If we're in
+           plain text, caret is already positioned after the text node. */
+        if (activePillEl && caret.parentNode === el){
+          /* Ensure caret is immediately after the pill while we type inside it. */
+          if (activePillEl.nextSibling !== caret){
+            el.insertBefore(caret, activePillEl.nextSibling);
+          }
+        }
+      }
+      if (charIdx >= seg.chars.length){
+        /* Advance to next segment on next tick. */
+        segIdx++;
+        charIdx = 0;
+      }
+      var delay = CHAR_MS + Math.random() * CHAR_JITTER_MS;
+      setTimeout(tick, delay);
+    }
+    setTimeout(tick, waitForFade);
+  }
+
+  runOne();
+}
+
+/* Render markdown **bold** → pill spans for the instant (cache-restore) path.
+   Returns a DocumentFragment that escapes all other HTML. */
+function aiRenderMarkdown(text){
+  var frag = document.createDocumentFragment();
+  aiTokenizeMarkdown(text).forEach(function(seg){
+    if (seg.type === 'pill'){
+      var span = document.createElement('span');
+      span.className = 'ai-highlight-pill';
+      span.textContent = seg.chars.join('');
+      frag.appendChild(span);
+    } else {
+      frag.appendChild(document.createTextNode(seg.chars.join('')));
+    }
+  });
+  return frag;
+}
+
+/* Render the 6 modules into #aiResults.
+   opts.skipTypewriter = true  → reveal fully and instantly (cache restore). */
+function aiRenderResult(data, opts){
+  opts = opts || {};
+  var container = document.getElementById('aiResults');
+  if (!container || !data) return;
+  var isTW = (window.I18N_CURRENT || 'zh-CN') === 'zh-TW';
+  var html = '';
+
+  /* Helper to build a card's inline style (accent + tint + gradient). */
+  function cardStyle(lab){
+    return '--accent:' + lab.accent + ';--accent-bg:' + lab.accentBg + ';--grad:' + lab.gradient;
+  }
+
+  /* 1. Grade */
+  var g    = data.grade || {};
+  var gLab = AI_MODULE_LABELS.grade;
+  html +=
+    '<div class="ai-card ai-card-grade" style="' + cardStyle(gLab) + '">' +
+      '<div class="ai-card-head">' +
+        '<span class="ai-card-icon">' + gLab.icon + '</span>' +
+        '<span class="ai-card-title">' + (isTW ? gLab.tw : gLab.cn) + '</span>' +
+      '</div>' +
+      '<div class="ai-grade-title">' + aiEscapeHtml(g.title || '') + '</div>' +
+      '<div class="ai-grade-desc" data-raw="' + aiEscapeHtml(g.description || '') + '">' + aiEscapeHtml(g.description || '') + '</div>' +
+    '</div>';
+
+  /* 2-5. Text modules — auto-detect numbered lists and render as checklist.
+         If LLM didn't use markers, fall back to sentence-boundary split so
+         even prose still renders with visual rhythm. */
+  ['insight','highlights','weakness','suggestions'].forEach(function(k){
+    var lab  = AI_MODULE_LABELS[k];
+    var text = data[k] || '';
+    var listItems = aiTrySplitList(text) || aiFallbackSplitProse(text, AI_LIST_TARGETS[k]);
+
+    var bodyHtml;
+    if (listItems){
+      bodyHtml = '<div class="ai-list">' +
+        listItems.map(function(item, idx){
+          var esc = aiEscapeHtml(item);
+          return '<div class="ai-li">' +
+            '<div class="ai-li-num">' + (idx + 1) + '</div>' +
+            '<div class="ai-li-text" data-raw="' + esc + '">' + esc + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    } else {
+      var escText = aiEscapeHtml(text);
+      bodyHtml = '<div class="ai-card-body" data-raw="' + escText + '">' + escText + '</div>';
+    }
+
+    html +=
+      '<div class="ai-card" style="' + cardStyle(lab) + '">' +
+        '<div class="ai-card-head">' +
+          '<span class="ai-card-icon">' + lab.icon + '</span>' +
+          '<span class="ai-card-title">' + (isTW ? lab.tw : lab.cn) + '</span>' +
+        '</div>' +
+        bodyHtml +
+      '</div>';
+  });
+
+  /* 6. Action plan */
+  var ap    = data.actionPlan || {};
+  var apLab = AI_MODULE_LABELS.actionPlan;
+  var apItems = ['work','social','family'].map(function(k){
+    var sub = AI_ACTION_LABELS[k];
+    var esc = aiEscapeHtml(ap[k] || '');
+    return '<div class="ai-ap-item">' +
+      '<div class="ai-ap-head"><span>' + sub.icon + '</span><span>' + (isTW ? sub.tw : sub.cn) + '</span></div>' +
+      '<div class="ai-ap-body" data-raw="' + esc + '">' + esc + '</div>' +
+    '</div>';
+  }).join('');
+  html +=
+    '<div class="ai-card ai-card-actionplan" style="' + cardStyle(apLab) + '">' +
+      '<div class="ai-card-head">' +
+        '<span class="ai-card-icon">' + apLab.icon + '</span>' +
+        '<span class="ai-card-title">' + (isTW ? apLab.tw : apLab.cn) + '</span>' +
+      '</div>' +
+      '<div class="ai-ap-grid">' + apItems + '</div>' +
+    '</div>';
+
+  container.innerHTML = html;
+  aiStateSuccess();
+
+  /* Instant path (cache restore): reveal everything immediately, render
+     markdown pills from the raw text stored in data-raw. */
+  if (opts.skipTypewriter){
+    container.querySelectorAll('.ai-card').forEach(function(c){ c.classList.add('is-revealed'); });
+    container.querySelectorAll('.ai-li').forEach(function(li){ li.classList.add('is-revealed'); });
+    container.querySelectorAll('[data-raw]').forEach(function(el){
+      el.textContent = '';
+      el.appendChild(aiRenderMarkdown(el.getAttribute('data-raw') || ''));
+    });
+    return;
+  }
+
+  /* Streaming path: collect body-level text elements in reading order.
+     Use the raw (unescaped) text from data-raw so the typewriter can see
+     the ** markdown markers. */
+  var typers = [];
+  var pushTyper = function(el){
+    if (!el) return;
+    var raw = el.getAttribute('data-raw');
+    typers.push({ el: el, text: raw != null ? raw : el.textContent });
+    el.textContent = '';
+  };
+
+  /* Order: grade desc → 4 middle cards (list items or prose) → 3 action-plan bodies */
+  pushTyper(container.querySelector('.ai-grade-desc'));
+
+  container.querySelectorAll('.ai-card').forEach(function(card){
+    if (card.classList.contains('ai-card-grade'))      return;
+    if (card.classList.contains('ai-card-actionplan')) return;
+    var liTexts = card.querySelectorAll('.ai-li-text');
+    if (liTexts.length){
+      liTexts.forEach(pushTyper);
+    } else {
+      pushTyper(card.querySelector('.ai-card-body'));
+    }
+  });
+
+  container.querySelectorAll('.ai-ap-body').forEach(pushTyper);
+
+  aiTypewrite(typers);
+}
+
+/* Restore from cache if a successful response exists for the current payload. */
+function aiRestoreFromCache(){
+  try {
+    var payload = prepareAIPayload();
+    var key = AI_CACHE_PREFIX + aiHashString(JSON.stringify(payload));
+    var cached = sessionStorage.getItem(key);
+    if (!cached) return false;
+    var parsed = JSON.parse(cached);
+    if (parsed && parsed.grade && parsed.actionPlan){
+      aiRenderResult(parsed, { skipTypewriter: true });
+      return true;
+    }
+  } catch (e){ /* fall through */ }
+  return false;
+}
+
+/* Main: fetch → cache-check → API call → render with typewriter. */
+function fetchResultFromAI(){
+  var payload;
+  try { payload = prepareAIPayload(); }
+  catch (e){
+    console.error('[fetchResultFromAI] payload build failed:', e);
+    aiStateError((window.I18N_CURRENT==='zh-TW')?'無法構建請求數據':'无法构建请求数据');
+    return;
+  }
+
+  var payloadJson = JSON.stringify(payload);
+  var cacheKey    = AI_CACHE_PREFIX + aiHashString(payloadJson);
+
+  /* Cache hit → render instantly, no typewriter, no API call. */
+  try {
+    var cached = sessionStorage.getItem(cacheKey);
+    if (cached){
+      var parsed = JSON.parse(cached);
+      if (parsed && parsed.grade && parsed.actionPlan){
+        aiRenderResult(parsed, { skipTypewriter: true });
+        return;
+      }
+    }
+  } catch (e){ /* ignore parse/storage errors */ }
+
+  aiStateLoading();
+
+  fetch(AI_ENDPOINT, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    payloadJson,
+  }).then(function(res){
+    return res.json().then(
+      function(body){ return { ok: res.ok, status: res.status, body: body }; },
+      function()    { return { ok: res.ok, status: res.status, body: null  }; }
+    );
+  }).then(function(r){
+    if (!r.ok || !r.body || !r.body.ok || !r.body.data){
+      var isTW = (window.I18N_CURRENT||'zh-CN')==='zh-TW';
+      var msg  = (r.body && r.body.error)
+        ? r.body.error
+        : (isTW?'服務器響應異常 (HTTP ':'服务器响应异常 (HTTP ') + r.status + ')';
+      aiStateError(msg);
+      return;
+    }
+    /* Only cache on success. */
+    try { sessionStorage.setItem(cacheKey, JSON.stringify(r.body.data)); }
+    catch (e){ /* storage full / private mode — ignore */ }
+    aiRenderResult(r.body.data);   /* fresh fetch → typewriter */
+  }).catch(function(err){
+    console.error('[fetchResultFromAI] network error:', err);
+    var isTW = (window.I18N_CURRENT||'zh-CN')==='zh-TW';
+    aiStateError(isTW?'網絡連接失敗，請檢查網絡後重試':'网络连接失败，请检查网络后重试');
+  });
+}
+
+/* Expose for debugging / manual invocation. */
+window.fetchResultFromAI = fetchResultFromAI;
 
 /* ══════════════════════════════════════════════════════ */
 
@@ -1954,11 +3273,17 @@ function updateContent(){
   buildRankVerdict(lang); buildDims(lang); buildBreakdown();
   var proRadar=document.getElementById('proRadarCanvas');
   if(proRadar) drawProfessionalRadar(proRadar);
-  /* Persona */
+  /* Persona (includes tier classification) */
   buildPersona(lang);
-  /* Insights */
-  buildInsights(lang);
-  buildHighlights(lang); buildImprovements(lang); buildNextSteps(lang);
+
+  /* ── Dynamic insights section replaces static insight / highlight /
+        improve / tip / nextSteps cards. Auto-triggers on page load. ── */
+  aiHideStaticSections();
+  aiInjectSection();
+  aiRefreshLabels();
+  /* Cache hit → instant render. Cache miss → auto-trigger the fetch. */
+  if (!aiRestoreFromCache()) fetchResultFromAI();
+
   buildShareCard(lang);
   /* Golden celebration for score > 100 */
   if(finalScore>100) triggerGoldenCelebration();
@@ -2056,23 +3381,118 @@ function buildShareCard(lang){
     }).join('');
   }
 
-  /* ── Gender-based theme: pink for female (QK2 answer index 1) ── */
+  /* ── Theme detection ── */
   var card=document.getElementById('shareCard');
-  if(card){
-    var isFemale=answerMap&&answerMap['QK2']&&answerMap['QK2'].questionIdx===1;
-    card.classList.toggle('sc-theme-female',!!isFemale);
+  if(!card) return;
+
+  var isGold = finalScore >= 100;
+  var isFemale = false;
+  if(answerMap){
+    var gq = answerMap['QK2'] || answerMap['A0'] || answerMap['q_gender'];
+    if(gq && gq.questionIdx === 1) isFemale = true;
   }
+
+  card.classList.remove('sc-gold','sc-pink');
+  if(isGold) card.classList.add('sc-gold');
+  else if(isFemale) card.classList.add('sc-pink');
+
+  /* ── Remove old SVG if re-rendering ── */
+  var old=card.querySelector('.sc-geo-bg');
+  if(old) old.remove();
+
+  /* ── Theme-aware colors ── */
+  var circleHi, circleLo, dotC, sparkC, shimC, accentStroke;
+  if(isGold){
+    circleHi='rgba(255,230,120,0.18)'; circleLo='rgba(255,200,50,0.06)';
+    dotC='rgba(255,215,0,0.22)'; sparkC='rgba(255,240,160,0.45)';
+    shimC='rgba(255,248,200,0.07)'; accentStroke='rgba(255,215,0,0.25)';
+  } else if(isFemale){
+    circleHi='rgba(255,255,255,0.14)'; circleLo='rgba(255,200,230,0.06)';
+    dotC='rgba(255,255,255,0.15)'; sparkC='rgba(255,255,255,0.3)';
+    shimC='rgba(255,255,255,0.05)'; accentStroke='rgba(255,255,255,0.18)';
+  } else {
+    circleHi='rgba(255,255,255,0.12)'; circleLo='rgba(200,230,255,0.05)';
+    dotC='rgba(255,255,255,0.13)'; sparkC='rgba(255,255,255,0.28)';
+    shimC='rgba(255,255,255,0.04)'; accentStroke='rgba(255,255,255,0.15)';
+  }
+
+  var VB='0 0 400 240';
+  var svg='<svg class="sc-geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="'+VB+'" preserveAspectRatio="xMidYMid slice">';
+
+  /* ─── 1. Large soft circular arcs (reference style) ─── */
+  svg+='<defs>';
+  /* Big upper-right circle glow — the signature element from the reference */
+  svg+='<radialGradient id="scBigArc" cx="85%" cy="-5%" r="55%">';
+  svg+='<stop offset="0%" stop-color="'+circleHi+'"/>';
+  svg+='<stop offset="60%" stop-color="'+circleLo+'"/>';
+  svg+='<stop offset="100%" stop-color="transparent"/>';
+  svg+='</radialGradient>';
+  /* Secondary lower-left glow */
+  svg+='<radialGradient id="scSmArc" cx="10%" cy="110%" r="45%">';
+  svg+='<stop offset="0%" stop-color="'+circleLo+'"/>';
+  svg+='<stop offset="100%" stop-color="transparent"/>';
+  svg+='</radialGradient>';
+  svg+='</defs>';
+  svg+='<rect width="400" height="240" fill="url(#scBigArc)"/>';
+  svg+='<rect width="400" height="240" fill="url(#scSmArc)"/>';
+
+  /* Crisp circle outline arcs — large, partial, like reference */
+  svg+='<circle cx="340" cy="20" r="110" fill="none" stroke="'+circleHi+'" stroke-width="1.5"/>';
+  svg+='<circle cx="350" cy="10" r="75" fill="none" stroke="'+circleHi+'" stroke-width="1"/>';
+  /* Small accent circle bottom-left */
+  svg+='<circle cx="30" cy="220" r="55" fill="none" stroke="'+circleLo+'" stroke-width="1.2"/>';
+
+  /* ─── 2. Subtle dot grid (elegant, not busy) ─── */
+  var _s=42;
+  function R(){_s=(_s*1664525+1013904223)&0xffffffff;return((_s>>>0)/0xffffffff);}
+  for(var i=0;i<16;i++){
+    var dx=20+R()*360, dy=15+R()*210, dr=1.2+R()*2.2;
+    svg+='<circle cx="'+dx.toFixed(1)+'" cy="'+dy.toFixed(1)+'" r="'+dr.toFixed(1)+'" fill="'+dotC+'"/>';
+  }
+
+  /* ─── 3. A few 4-pointed sparkles ─── */
+  var spk=[[365,55,7],[25,30,5],[180,8,4],[15,180,5],[375,200,6],[200,230,4]];
+  spk.forEach(function(s){
+    var x=s[0],y=s[1],r=s[2],ir=r*0.25;
+    var d='M'+x+','+(y-r)+' L'+(x+ir)+','+(y-ir)+' L'+(x+r)+','+y+' L'+(x+ir)+','+(y+ir)+' L'+x+','+(y+r)+' L'+(x-ir)+','+(y+ir)+' L'+(x-r)+','+y+' L'+(x-ir)+','+(y-ir)+'Z';
+    svg+='<path d="'+d+'" fill="'+sparkC+'"/>';
+  });
+
+  /* ─── 4. Thin accent lines (diagonal, subtle) ─── */
+  svg+='<line x1="290" y1="0" x2="400" y2="110" stroke="'+accentStroke+'" stroke-width="0.8"/>';
+  svg+='<line x1="310" y1="0" x2="400" y2="90" stroke="'+accentStroke+'" stroke-width="0.5"/>';
+
+  /* ─── 5. Gold-only: diagonal shimmer band + crown halo ─── */
+  if(isGold){
+    svg+='<defs><linearGradient id="scGoldShim" x1="0" y1="0" x2="400" y2="240" gradientUnits="userSpaceOnUse">';
+    svg+='<stop offset="0%" stop-color="transparent"/><stop offset="32%" stop-color="transparent"/>';
+    svg+='<stop offset="44%" stop-color="rgba(255,240,160,0.06)"/>';
+    svg+='<stop offset="50%" stop-color="rgba(255,248,200,0.12)"/>';
+    svg+='<stop offset="56%" stop-color="rgba(255,240,160,0.06)"/>';
+    svg+='<stop offset="68%" stop-color="transparent"/><stop offset="100%" stop-color="transparent"/>';
+    svg+='</linearGradient></defs>';
+    svg+='<rect width="400" height="240" fill="url(#scGoldShim)"/>';
+    /* Noble laurel-like arcs flanking upper area */
+    svg+='<path d="M160,5 Q200,-15 240,5" fill="none" stroke="rgba(255,215,0,0.2)" stroke-width="1.5"/>';
+    svg+='<path d="M140,12 Q200,-22 260,12" fill="none" stroke="rgba(255,215,0,0.12)" stroke-width="1"/>';
+    /* Tiny crown accent */
+    svg+='<text x="200" y="20" text-anchor="middle" font-size="14" fill="rgba(255,215,0,0.3)">♛</text>';
+  }
+
+  svg+='</svg>';
+
+  var wrap=document.createElement('div');
+  wrap.innerHTML=svg;
+  card.insertBefore(wrap.firstChild, card.firstChild);
 }
 
 function getShareText(lang){
   var v=getVerdict(finalScore);
   var label=window.t('result.'+v);
-  if(lang==='en-US') return 'I scored '+finalScore+'/150 ('+label+') on the LifeScore test! Find out yours →';
-  if(lang==='en-PH') return 'I scored '+finalScore+'/150 ('+label+') on the LifeScore PH test! Ano ang score mo? →';
-  if(lang==='es-US') return '¡Obtuve '+finalScore+'/150 ('+label+') en la prueba LifeScore! Descubre el tuyo →';
+  var url=window.location.origin || 'https://lifescore.space';
   return lang==='zh-TW'
-    ? '我在人生評分測試中獲得了 '+finalScore+'/150 分（'+label+'）！快來測測你的分數 →'
-    : '我在人生评分测试中获得了 '+finalScore+'/150 分（'+label+'）！快来测测你的分数 →';
+    ? '我在人生評分測試中獲得了 '+finalScore+'/150 分（'+label+'）！快來測測你的分數 → '+url
+    : '我在人生评分测试中获得了 '+finalScore+'/150 分（'+label+'）！快来测测你的分数 → '+url;
 }
 
 function setupShareModal(){
@@ -2092,7 +3512,7 @@ function setupShareModal(){
 
   var lang = window.I18N_CURRENT||'zh-CN';
   var text = getShareText(lang);
-  var url  = encodeURIComponent('https://lifescore.space');
+  var url  = encodeURIComponent(window.location.origin || 'https://lifescore.space');
   var encodedText = encodeURIComponent(text);
 
   /* 微博 */
@@ -2123,10 +3543,10 @@ function setupShareModal(){
   if(copyBtn){ copyBtn.addEventListener('click', function(){
     var t=getShareText(window.I18N_CURRENT||'zh-CN');
     if(navigator.clipboard){ navigator.clipboard.writeText(t).then(function(){
-      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; var _copied=(window.I18N_CURRENT==='zh-TW'?'已複製！':((window.I18N_CURRENT==='en-US'||window.I18N_CURRENT==='en-PH')?'Copied!':(window.I18N_CURRENT==='es-US'?'¡Copiado!':'已复制！'))); sp.textContent=_copied; setTimeout(function(){sp.textContent=o;},2000); }
+      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; sp.textContent=(window.I18N_CURRENT==='zh-TW'?'已複製！':'已复制！'); setTimeout(function(){sp.textContent=o;},2000); }
     }); } else {
       var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; var _copied=window.I18N_CURRENT==='zh-TW'?'已複製！':(window.I18N_CURRENT==='en-US'?'Copied!':(window.I18N_CURRENT==='es-US'?'¡Copiado!':'已复制！')); sp.textContent=_copied; setTimeout(function(){sp.textContent=o;},2000); }
+      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; sp.textContent=(window.I18N_CURRENT==='zh-TW'?'已複製！':'已复制！'); setTimeout(function(){sp.textContent=o;},2000); }
     }
   }); }
 
@@ -2224,10 +3644,12 @@ function patchI18n(){
 function init(){
   var data=loadResult();
   if(!data){
-    window.location.replace('quiz-quick.html');
+    window.location.replace('index.html');
     return;
   }
-  finalScore=data.finalScore; dimPct=data.dimPct; dimPctRaw=data.dimPctRaw||{}; answerMap=data.answerMap||{};
+  finalScore=data.finalScore;
+  finalScorePrecise=(typeof data.finalScorePrecise==='number')?data.finalScorePrecise:data.finalScore;
+  dimPct=data.dimPct; dimPctRaw=data.dimPctRaw||{}; answerMap=data.answerMap||{};
   activeQueue=data.activeQueue||[]; resultLang=data.lang||'zh-CN';
   baseScore=data.baseScore||finalScore; bonusScore=data.bonusScore||0;
   quizMode=data.quizMode||'deep';
