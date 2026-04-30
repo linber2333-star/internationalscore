@@ -3,167 +3,286 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LifeScore Test</title>
-  <link rel="icon" type="image/png" href="images/favicon.ico">
+  <title>LIFESCORE/TERM // 人生评分</title>
+  <link rel="icon" type="image/png" href="images/favicon.ico"/>
+
+  <!--
+    LIFESCORE/TERM — NEO-BRUTALIST B&W BUILD
+    ────────────────────────────────────────
+    · Two colors: #FFF / #000  (+ #F0F0F0 for subtle separation only)
+    · Two fonts:  Archivo Black (display) · Space Mono (everything else)
+    · Zero rounded corners. Zero blur. Zero gradients.
+    · Hard offset shadows only (e.g. 6px 6px 0 #000)
+    · Hover = harsh color inversion + press-down translate
+  -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet"/>
+
   <link rel="stylesheet" href="style.css"/>
 </head>
-<body>
-  <div class="particles" id="particles"></div>
 
-  <header class="header" id="header">
-    <div class="header-inner">
-      <div class="lang-switcher" id="langSwitcher">
-        <div class="lang-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
-        <span class="lang-label" id="langLabel">简体中文</span>
-        <svg class="lang-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        <div class="lang-dropdown" id="langDropdown">
-          <div class="lang-option" data-lang="en-US">English (US)</div>
-          <div class="lang-option" data-lang="es-US">Español (EE.UU.)</div>
-          <div class="lang-option" data-lang="zh-CN">简体中文</div>
-          <div class="lang-option" data-lang="zh-TW">繁體中文</div>
-          <div class="lang-option" data-lang="en-PH">English (PH)</div>
-        </div>
-      </div>
-      <div class="logo">
-        <img class="logo-mark" src="images/apple-touch-icon.png" alt="LS"/>
-        <span class="logo-text" data-i18n="brandName">人生评分</span>
-      </div>
-      <nav class="nav" id="nav">
-        <a href="index.html" class="nav-link active" data-i18n="nav.home">首页</a>
-        <a href="analysis.html" class="nav-link" data-i18n="nav.analysis">评分分析</a>
-        <a href="#" class="nav-link" data-i18n="nav.database">数据库</a>
-        <a href="more-tests.html" class="nav-link" data-i18n="nav.more">更多测试</a>
-        <a href="#" class="nav-link" data-i18n="nav.about">关于我们</a>
+<body>
+  <!-- legacy hook (script.js may inject children) — visually neutralized -->
+  <div class="particles" id="particles" aria-hidden="true"></div>
+
+  <!-- ═══════════════ HUD BAR ═══════════════ -->
+  <header class="hud" id="header">
+    <div class="hud-row">
+      <a href="index.html" class="brand">
+        <img class="brand-mark" src="images/favicon.ico" alt="LS"/>
+        <span class="brand-text" data-i18n="brandName">人生评分</span>
+        <span class="brand-system">.SYS</span>
+      </a>
+
+      <nav class="nav" id="nav" aria-label="Main">
+        <a href="index.html"      class="nav-link active" data-i18n="nav.home">首页</a>
+        <a href="analysis.html"   class="nav-link"        data-i18n="nav.analysis">评分分析</a>
+        <a href="database.html"   class="nav-link"        data-i18n="nav.database">数据库</a>
+        <a href="more-tests.html" class="nav-link"        data-i18n="nav.more">更多测试</a>
+        <a href="about.html"      class="nav-link"        data-i18n="nav.about">关于我们</a>
       </nav>
-      <button class="menu-toggle" id="menuToggle" aria-expanded="false"><span></span><span></span><span></span></button>
+
+      <div class="hud-right">
+        <div class="lang-switcher" id="langSwitcher">
+          <span class="lang-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </span>
+          <span class="lang-label" id="langLabel">简体中文</span>
+          <span class="lang-arrow">▼</span>
+          <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-option active" data-lang="zh-CN">简体中文</div>
+            <div class="lang-option"        data-lang="zh-TW">繁體中文</div>
+          </div>
+        </div>
+        <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <main class="hero" id="hero">
-    <div class="ring ring-1"></div>
-    <div class="ring ring-2"></div>
-    <div class="ring ring-3"></div>
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <main>
+    <div class="container">
 
-    <div class="score-display">
-      <svg class="score-arc" viewBox="0 0 200 200">
-        <defs>
-          <linearGradient id="arcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#7dd3fc"/>
-            <stop offset="100%" stop-color="#0284c7"/>
-          </linearGradient>
-        </defs>
-        <circle class="arc-track" cx="100" cy="100" r="85"/>
-        <circle class="arc-fill" cx="100" cy="100" r="85" id="arcFill"/>
-        <text class="arc-number" x="100" y="102" text-anchor="middle" id="arcNumber">0</text>
-        <text class="arc-label" x="100" y="126" text-anchor="middle" data-i18n="scoreUnit">分</text>
-        <text class="arc-sublabel" x="100" y="142" text-anchor="middle">/ 150</text>
-      </svg>
-      <div class="score-tags">
-        <span class="tag" data-i18n="tag.health" style="--delay:0.1s">健康</span>
-        <span class="tag" data-i18n="tag.wealth" style="--delay:0.2s">财富</span>
-        <span class="tag" data-i18n="tag.relation" style="--delay:0.3s">关系</span>
-        <span class="tag" data-i18n="tag.achieve" style="--delay:0.4s">成就</span>
-        <span class="tag" data-i18n="tag.happy" style="--delay:0.5s">幸福</span>
+      <!-- ── BOOT STATUS LINE ── -->
+      <div class="boot">
+        <span class="boot-line">LIFESCORE/TERM&nbsp;::&nbsp;v2.0&nbsp;::&nbsp;<span id="liveDate"></span>&nbsp;::&nbsp;READY&nbsp;</span>
+        <span class="boot-spinner"></span>
       </div>
-    </div>
 
-    <div class="hero-content">
-      <div class="winner-banner" id="winnerBanner" data-i18n="winner.banner">🏆 Congratulations — you are a true LifeScore champion!</div>
-      <div class="hero-badge" data-i18n="badge">你的专属人生评分</div>
+      <!-- ── HERO ── -->
+      <section class="hero" id="hero">
 
-      <!-- Previous score badge (rendered by JS) -->
-      <div class="score-badge-wrap">
-        <div class="score-badge" id="scoreBadge">
-          <span class="score-badge-none" data-i18n="hero.score.none">尚未测试</span>
+        <!-- LEFT: type wall + CTA -->
+        <div class="hero-text">
+          <div class="winner-banner" id="winnerBanner">★ WINNER :: LIFE.DOMINATED ★</div>
+
+          <span class="hero-badge" data-i18n="badge">你的专属人生评分</span>
+
+          <div class="score-badge-wrap">
+            <div class="score-badge" id="scoreBadge">
+              <span class="score-badge-none" data-i18n="hero.score.none">尚未测试</span>
+            </div>
+          </div>
+
+          <h1 class="hero-title">
+            <span class="line"        data-i18n="hero.line1">立刻开始测试</span>
+            <span class="line accent" data-i18n="hero.line2">你的人生评分</span><span class="cursor">_</span>
+          </h1>
+
+          <p class="hero-sub" data-i18n="hero.sub">通过科学的维度分析，了解你在健康、财富、社会生活方向与个人价值方面的综合表现，获取专属提升建议。</p>
+
+          <div class="hero-actions">
+            <button class="btn btn-primary btn-accent-red" id="startBtn" onclick="window.location.href='quiz-quick.html'">
+              <span data-i18n="btn.start">开始测试</span>
+            </button>
+            <button class="btn btn-secondary btn-indepth" onclick="showDeepTestNotice()">
+              <span data-i18n="btn.indepth">深度测试</span>
+            </button>
+          </div>
+
+          <div class="view-result-wrap" id="viewResultWrap">
+            <button class="btn-view-result" id="viewResultBtn" disabled onclick="window.location.href='result.html'">
+              <span data-i18n="hero.viewResult">查看测试结果</span>
+            </button>
+          </div>
+
+          <p class="indepth-note" data-i18n="btn.indepth.note">想要更准确的结果？深度测试约需 15–20 分钟。</p>
+
+          <div class="hero-stats">
+            <div class="stat">
+              <span class="stat-num">FREE</span>
+              <span class="stat-desc" data-i18n="stat.free">完全免费</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+              <span class="stat-num">∞</span>
+              <span class="stat-desc" data-i18n="stat.unlimited">无限次使用</span>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat">
+              <span class="stat-num">8 MIN</span>
+              <span class="stat-desc" data-i18n="stat.time">完成时间</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <h1 class="hero-title">
-        <span class="line" data-i18n="hero.line1">立刻开始测试</span>
-        <span class="line accent" data-i18n="hero.line2">你的人生评分</span>
-      </h1>
-      <p class="hero-sub" data-i18n="hero.sub">通过科学的维度分析，了解你在健康、财富、社会生活方向与个人价值方面的综合表现，获取专属提升建议。</p>
-      <div class="hero-actions">
-        <button class="btn-start" id="startBtn" onclick="window.location.href='quiz-quick.html'">
-          <span data-i18n="btn.start">开始测试</span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </button>
-        <button class="btn-secondary btn-indepth" onclick="showDeepTestNotice()">
-          <span data-i18n="btn.indepth">深度测试</span>
-        </button>
-      </div>
-      <!-- 查看结果按钮：测试完成前为禁用状态，完成后变为可点击 -->
-      <div class="view-result-wrap">
-        <button class="btn-view-result" id="viewResultBtn" disabled onclick="window.location.href='result.html'">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-          <span data-i18n="btn.viewResult">查看我的结果</span>
-        </button>
-      </div>
-      <p class="indepth-note" data-i18n="btn.indepth.note">想要更准确的结果？深度测试约需 15–20 分钟。</p>
-      <div class="hero-stats">
-        <div class="stat"><span class="stat-num">Free</span><span class="stat-desc" data-i18n="stat.free">完全免费</span></div>
-        <div class="stat-divider"></div>
-        <div class="stat"><span class="stat-num">∞</span><span class="stat-desc" data-i18n="stat.unlimited">无限次使用</span></div>
-        <div class="stat-divider"></div>
-        <div class="stat"><span class="stat-num">8 min</span><span class="stat-desc" data-i18n="stat.time">完成时间</span></div>
-      </div>
+        <!-- RIGHT: ARCADE SCOREBOARD -->
+        <aside class="arcade" aria-label="Score readout">
+
+          <div class="arcade-head">
+            <span>[ HI-SCORE ]</span>
+            <span class="arcade-head-id">ID: 00-LS-2026</span>
+          </div>
+
+          <!-- the BLACK CRT SCREEN inset -->
+          <div class="arcade-crt">
+            <div class="arcade-digits">
+              <span class="arcade-num" id="arcNumber">000</span>
+              <span class="arcade-slash">/</span>
+              <span class="arcade-max">150</span>
+            </div>
+            <span class="arcade-unit" data-i18n="scoreUnit">PTS</span>
+          </div>
+
+          <!-- chunky horizontal progress bar -->
+          <div class="arcade-bar-wrap">
+            <div class="arcade-bar-label">
+              <span>PROGRESS</span>
+              <span id="arcadePct">000%</span>
+            </div>
+            <div class="arcade-bar">
+              <div class="arcade-bar-fill" id="arcadeBarFill"></div>
+            </div>
+          </div>
+
+          <!-- 5 dimensions stat readout -->
+          <div class="arcade-dims">
+            <div class="arcade-dims-title">DIMENSIONS [ 5 ]</div>
+            <ul class="score-tags">
+              <li class="tag" data-i18n="tag.health"   data-name="HEALTH"   data-pct="--%"><span class="tag-bar"></span></li>
+              <li class="tag" data-i18n="tag.wealth"   data-name="WEALTH"   data-pct="--%"><span class="tag-bar"></span></li>
+              <li class="tag" data-i18n="tag.relation" data-name="RELATION" data-pct="--%"><span class="tag-bar"></span></li>
+              <li class="tag" data-i18n="tag.achieve"  data-name="ACHIEVE"  data-pct="--%"><span class="tag-bar"></span></li>
+              <li class="tag" data-i18n="tag.happy"    data-name="HAPPY"    data-pct="--%"><span class="tag-bar"></span></li>
+            </ul>
+          </div>
+
+          <!-- legacy hooks: SVG arcFill must exist for script.js — hidden -->
+          <div class="score-display">
+            <svg viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="85" fill="none" stroke="#000" stroke-width="6"
+                      style="stroke-dasharray:534; stroke-dashoffset:534;" id="arcFill"></circle>
+            </svg>
+            <div class="ring ring-1"></div><div class="ring ring-2"></div><div class="ring ring-3"></div>
+          </div>
+
+          <!-- bottom status line -->
+          <div class="arcade-status">
+            <span>STATUS: NOT_STARTED<span class="arcade-status-cursor"></span></span>
+            <span>[ CTRL ]</span>
+          </div>
+        </aside>
+
+      </section>
     </div>
+
+    <!-- ── PRIVACY STRIP — full bleed ── -->
+    <div class="privacy-strip">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span data-i18n="hero.privacy">我们承诺不泄露任何用户隐私，并全力做好隐私保护工作。</span>
+    </div>
+
+    <!-- ── MODULES ── -->
+    <section class="modules-section container">
+      <header class="modules-head">
+        <span class="kicker">CORE.MODULES&nbsp;[&nbsp;04&nbsp;]</span>
+        <h2>SYSTEM<br>CAPABILITIES</h2>
+      </header>
+
+      <div class="features">
+        <article class="feature-card" style="--i:0">
+          <span class="feature-id">// 01</span>
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.5">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+          </div>
+          <div class="feature-title" data-i18n="feat1.title">多维度分析</div>
+          <div class="feature-desc"  data-i18n="feat1.desc">覆盖基础信息、社会生活方向与个人认同</div>
+        </article>
+
+        <article class="feature-card" style="--i:1">
+          <span class="feature-id">// 02</span>
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.5">
+              <polyline points="9 11 12 14 22 4"/>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <div class="feature-title" data-i18n="feat2.title">智能跳题</div>
+          <div class="feature-desc"  data-i18n="feat2.desc">根据你的情况自动调整问题</div>
+        </article>
+
+        <article class="feature-card" style="--i:2">
+          <span class="feature-id">// 03</span>
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+          </div>
+          <div class="feature-title" data-i18n="feat3.title">隐私保护</div>
+          <div class="feature-desc"  data-i18n="feat3.desc">数据加密，匿名处理</div>
+        </article>
+
+        <article class="feature-card" style="--i:3">
+          <span class="feature-id">// 04</span>
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2.5">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6"  y1="20" x2="6"  y2="14"/>
+            </svg>
+          </div>
+          <div class="feature-title" data-i18n="feat4.title">个性化报告</div>
+          <div class="feature-desc"  data-i18n="feat4.desc">专属改善建议与路径</div>
+        </article>
+      </div>
+    </section>
   </main>
 
-  <!-- Privacy trust strip — sits inside the white features box -->
-  <div class="privacy-strip">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-    <span data-i18n="hero.privacy">我们承诺不泄露任何用户隐私，并全力做好隐私保护工作。</span>
-  </div>
-  <section class="features">
-    <div class="feature-card" style="--i:0">
-      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
-      <div><div class="feature-title" data-i18n="feat1.title">多维度分析</div><div class="feature-desc" data-i18n="feat1.desc">覆盖基础信息、社会生活方向与个人认同</div></div>
-    </div>
-    <div class="feature-card" style="--i:1">
-      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
-      <div><div class="feature-title" data-i18n="feat2.title">智能跳题</div><div class="feature-desc" data-i18n="feat2.desc">根据你的情况自动调整问题</div></div>
-    </div>
-    <div class="feature-card" style="--i:2">
-      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-      <div><div class="feature-title" data-i18n="feat3.title">隐私保护</div><div class="feature-desc" data-i18n="feat3.desc">数据加密，匿名处理</div></div>
-    </div>
-    <div class="feature-card" style="--i:3">
-      <div class="feature-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
-      <div><div class="feature-title" data-i18n="feat4.title">个性化报告</div><div class="feature-desc" data-i18n="feat4.desc">专属改善建议与路径</div></div>
-    </div>
-  </section>
-
+  <!-- ═══════════════ FOOTER ═══════════════ -->
   <footer class="footer">
     <div class="footer-inner">
       <div class="footer-brand">
-        <img class="footer-logo-mark" src="images/apple-touch-icon.png" alt="LS"/>
+        <img class="footer-logo-mark" src="images/favicon.ico" alt="LS"/>
         <div>
-          <div class="footer-name" data-i18n="footer.brand">人生评分测试</div>
+          <div class="footer-name"    data-i18n="footer.brand">人生评分测试</div>
           <div class="footer-tagline" data-i18n="footer.tagline">了解自己，超越自己</div>
         </div>
       </div>
       <div class="footer-links">
         <div class="footer-col">
           <div class="footer-col-title" data-i18n="footer.col1">产品</div>
-          <a href="quiz-quick.html" data-i18n="footer.l1a">人生评分</a>
-          <a href="analysis.html" data-i18n="footer.l1b">评分分析</a>
-          <a href="more-tests.html" data-i18n="footer.l1c">更多测试</a>
+          <a href="quiz-quick.html"  data-i18n="footer.l1a">人生评分</a>
+          <a href="analysis.html"    data-i18n="footer.l1b">评分分析</a>
+          <a href="more-tests.html"  data-i18n="footer.l1c">更多测试</a>
         </div>
         <div class="footer-col">
           <div class="footer-col-title" data-i18n="footer.col2">资源</div>
-          <a href="#" data-i18n="footer.l2a">数据库</a>
-          <a href="#" data-i18n="footer.l2b">帮助中心</a>
-          <a href="#" data-i18n="footer.l2c">博客</a>
+          <a href="database.html" data-i18n="footer.l2a">数据库</a>
+          <a href="#"             data-i18n="footer.l2b">帮助中心</a>
+          <a href="#"             data-i18n="footer.l2c">博客</a>
         </div>
         <div class="footer-col">
           <div class="footer-col-title" data-i18n="footer.col3">公司</div>
-          <a href="#" data-i18n="footer.l3a">关于我们</a>
-          <a href="#" data-i18n="footer.l3b">联系我们</a>
-          <a href="#" data-i18n="footer.l3c">隐私政策</a>
+          <a href="about.html" data-i18n="footer.l3a">关于我们</a>
+          <a href="about.html" data-i18n="footer.l3b">联系我们</a>
+          <a href="#"          data-i18n="footer.l3c">隐私政策</a>
         </div>
       </div>
     </div>
@@ -177,24 +296,64 @@
     </div>
   </footer>
 
-  <!-- Deep Test Blocked Notice -->
+  <!-- ═══════════════ DEEP-TEST MODAL ═══════════════ -->
   <div class="deep-notice-overlay" id="deepNoticeOverlay" onclick="closeDeepNotice()">
     <div class="deep-notice-modal" onclick="event.stopPropagation()">
-      <div class="deep-notice-icon">✨</div>
-      <div class="deep-notice-title" data-i18n="deepnotice.title">Worth the Wait</div>
-      <div class="deep-notice-text" id="deepNoticeText" data-i18n="deepnotice.text">The In-Depth Test is undergoing a major upgrade — we're refining every question and recalibrating the scoring model. The Quick Test will give you an accurate, insightful score in the meantime. 💛</div>
+      <div class="deep-notice-icon">⚠</div>
+      <div class="deep-notice-title" data-i18n="deep.notice.title">深度测试 · 开发中</div>
+      <div class="deep-notice-text"  data-i18n="deep.notice.text">我们的深度测试题库仍在开发中，大部分题目尚未导入和更新。但它已经与快速版测试略有不同。感谢你的理解。</div>
       <div class="deep-notice-btns">
-        <button class="btn-start" onclick="window.location.href='quiz-quick.html'" style="font-size:14px;padding:12px 28px" data-i18n="deepnotice.cta">Try the Quick Test first →</button>
-        <button class="btn-secondary" onclick="closeDeepNotice()" style="font-size:13px;padding:10px 22px" data-i18n="deepnotice.wait">Got it, I'll wait</button>
+        <button class="btn btn-primary"   onclick="window.location.href='quiz.html'" data-i18n="deep.notice.ok">好的，开始测试</button>
+        <button class="btn btn-secondary" onclick="closeDeepNotice()"                data-i18n="deep.notice.cancel">暂不测试</button>
       </div>
     </div>
   </div>
+
+  <!-- ═══════════════ MODAL HANDLERS ═══════════════ -->
   <script>
-  function showDeepTestNotice(){document.getElementById('deepNoticeOverlay').classList.add('open');}
-  function closeDeepNotice(){document.getElementById('deepNoticeOverlay').classList.remove('open');}
+    function showDeepTestNotice(){ document.getElementById('deepNoticeOverlay').classList.add('open'); }
+    function closeDeepNotice()    { document.getElementById('deepNoticeOverlay').classList.remove('open'); }
+  </script>
+
+  <!--
+    ═══════════════ ARCADE BAR MIRROR ═══════════════
+    script.js animates #arcNumber but doesn't know about our chunky bar.
+    This 6-line observer watches the digit display and updates the
+    visual progress bar + percentage label whenever the digits change.
+    Pure read-only mirror — never writes to anything script.js owns.
+  -->
+  <script>
+    (function () {
+      var num   = document.getElementById('arcNumber');
+      var fill  = document.getElementById('arcadeBarFill');
+      var label = document.getElementById('arcadePct');
+      if (!num || !fill || !label) return;
+      var sync = function () {
+        var v = Math.max(0, Math.min(150, parseInt(num.textContent, 10) || 0));
+        var pct = (v / 150) * 100;
+        fill.style.width = pct + '%';
+        label.textContent = String(Math.round(pct)).padStart(3, '0') + '%';
+      };
+      sync();
+      new MutationObserver(sync).observe(num, { childList: true, characterData: true, subtree: true });
+    })();
   </script>
 
   <script src="i18n.js"></script>
   <script src="script.js"></script>
+<script>
+  (function(){
+    function pad(n){ return n < 10 ? '0' + n : n; }
+    function tick(){
+      var d = new Date();
+      var s = pad(d.getMonth()+1) + '.' + pad(d.getDate()) + '.' + d.getFullYear() + ' '
+            + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      var el = document.getElementById('liveDate');
+      if(el) el.textContent = s;
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+  </script>
 </body>
 </html>

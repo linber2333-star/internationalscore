@@ -3,65 +3,138 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LifeScore — Your Results</title>
-  <link rel="icon" type="image/png" href="images/favicon.ico">
+  <title>LIFESCORE/TERM // 结果报告</title>
+  <link rel="icon" type="image/png" href="images/favicon.ico"/>
+
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet"/>
+
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body class="result-body">
-  <div class="particles" id="particles"></div>
+  <div class="particles" id="particles" aria-hidden="true"></div>
 
-  <header class="header scrolled" id="header">
-    <div class="header-inner">
-      <div class="lang-switcher" id="langSwitcher">
-        <div class="lang-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
-        <span class="lang-label" id="langLabel">简体中文</span>
-        <svg class="lang-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        <div class="lang-dropdown" id="langDropdown">
-          <div class="lang-option" data-lang="en-US">English (US)</div>
-          <div class="lang-option" data-lang="es-US">Español (EE.UU.)</div>
-          <div class="lang-option" data-lang="zh-CN">简体中文</div>
-          <div class="lang-option" data-lang="zh-TW">繁體中文</div>
-          <div class="lang-option" data-lang="en-PH">English (PH)</div>
-        </div>
-      </div>
-      <div class="logo"><img class="logo-mark" src="images/apple-touch-icon.png" alt="LS"/><span class="logo-text" data-i18n="brandName">人生评分</span></div>
-      <nav class="nav" id="nav">
-        <a href="index.html" class="nav-link" data-i18n="nav.home">首页</a>
-        <a href="analysis.html" class="nav-link" data-i18n="nav.analysis">评分分析</a>
-        <a href="#" class="nav-link" data-i18n="nav.database">数据库</a>
-        <a href="more-tests.html" class="nav-link" data-i18n="nav.more">更多测试</a>
-        <a href="#" class="nav-link" data-i18n="nav.about">关于我们</a>
+  <header class="hud" id="header">
+    <div class="hud-row">
+      <a href="index.html" class="brand">
+        <img class="brand-mark" src="images/favicon.ico" alt="LS"/>
+        <span class="brand-text" data-i18n="brandName">人生评分</span>
+        <span class="brand-system">.SYS</span>
+      </a>
+
+      <nav class="nav" id="nav" aria-label="Main">
+        <a href="index.html"      class="nav-link"        data-i18n="nav.home">首页</a>
+        <a href="analysis.html"   class="nav-link"        data-i18n="nav.analysis">评分分析</a>
+        <a href="database.html"   class="nav-link"        data-i18n="nav.database">数据库</a>
+        <a href="more-tests.html" class="nav-link"        data-i18n="nav.more">更多测试</a>
+        <a href="about.html"      class="nav-link"        data-i18n="nav.about">关于我们</a>
       </nav>
-      <button class="menu-toggle" id="menuToggle" aria-expanded="false"><span></span><span></span><span></span></button>
+
+      <div class="hud-right">
+        <div class="lang-switcher" id="langSwitcher">
+          <span class="lang-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </span>
+          <span class="lang-label" id="langLabel">简体中文</span>
+          <span class="lang-arrow">▼</span>
+          <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-option active" data-lang="zh-CN">简体中文</div>
+            <div class="lang-option"        data-lang="zh-TW">繁體中文</div>
+          </div>
+        </div>
+        <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </div>
   </header>
 
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-card">
+      <div class="loading-ring-wrap">
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+          <circle cx="40" cy="40" r="34" stroke="rgba(0,0,0,0.06)" stroke-width="5"/>
+          <circle cx="40" cy="40" r="34" stroke="#000" stroke-width="5" stroke-linecap="round" stroke-dasharray="80 134" class="loading-spinner"/>
+        </svg>
+        <div class="loading-pct" id="loadingPct">0%</div>
+      </div>
+      <div class="loading-title" id="loadingTitle">正在生成你的评分报告</div>
+      <div class="loading-bar-wrap">
+        <div class="loading-bar-track">
+          <div class="loading-bar-fill" id="loadingBarFill"></div>
+        </div>
+      </div>
+      <div class="loading-hint" id="loadingHint">分析评分维度中…</div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    var lang=(localStorage.getItem('i18n_lang')||navigator.language||'').indexOf('TW')>=0?'tw':'cn';
+    var titles={cn:'正在生成你的评分报告',tw:'正在生成你的評分報告'};
+    var hints=[
+      {cn:'分析评分维度中…',tw:'分析評分維度中…'},
+      {cn:'计算健康指标…',tw:'計算健康指標…'},
+      {cn:'评估财富数据…',tw:'評估財富數據…'},
+      {cn:'综合社交关系…',tw:'綜合社交關係…'},
+      {cn:'生成个性化建议…',tw:'生成個性化建議…'},
+    ];
+    var el=document.getElementById('loadingTitle');
+    if(el) el.textContent=titles[lang];
+    var hintEl=document.getElementById('loadingHint');
+    var bar=document.getElementById('loadingBarFill');
+    var pctEl=document.getElementById('loadingPct');
+    var step=0,total=hints.length,interval=380;
+    function tick(){
+      if(step>=total){
+        bar.style.width='100%';
+        if(pctEl) pctEl.textContent='100%';
+        setTimeout(function(){
+          var ov=document.getElementById('loadingOverlay');
+          ov.classList.add('fade-out');
+          var rw=document.querySelector('.result-wrap');
+          if(rw) rw.classList.add('visible');
+        },350);
+        return;
+      }
+      var pct=Math.round((step+1)/total*95);
+      bar.style.width=pct+'%';
+      if(pctEl) pctEl.textContent=pct+'%';
+      if(hintEl) hintEl.textContent=hints[step][lang];
+      step++;
+      setTimeout(tick,interval);
+    }
+    setTimeout(tick,150);
+  })();
+  </script>
+
   <div class="result-wrap">
 
-    <!-- HERO SCORE -->
     <div class="result-hero">
       <div class="result-subtitle" data-i18n="result.subtitle">评分报告</div>
       <h1 class="result-title-h" data-i18n="result.title">你的人生评分</h1>
+
       <div class="result-score-row">
+
         <div class="result-circle-wrap">
-          <svg class="result-circle" viewBox="0 0 220 220">
-            <defs>
-              <linearGradient id="rcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#7dd3fc"/><stop offset="100%" stop-color="#0284c7"/>
-              </linearGradient>
-              <linearGradient id="rcGradGold" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#FFD700"/><stop offset="100%" stop-color="#FFA500"/>
-              </linearGradient>
-            </defs>
+          <svg class="result-circle" viewBox="0 0 220 220" aria-hidden="true">
             <circle class="rc-bg" cx="110" cy="110" r="90"/>
-            <circle class="rc-fill" cx="110" cy="110" r="90" id="rcFill"/>
+            <circle class="rc-fill" cx="110" cy="110" r="90" id="rcFill" style="stroke-dasharray:565;stroke-dashoffset:565"/>
             <text class="rc-score" x="110" y="112" text-anchor="middle" id="rcScore">—</text>
             <text class="rc-max" x="110" y="140" text-anchor="middle">/ 150</text>
           </svg>
+
+          <div class="result-score-display">
+            <span class="rsd-num" id="rsdNum">—</span>
+            <span class="rsd-slash">/</span>
+            <span class="rsd-max">150</span>
+            <span class="rsd-unit"></span>
+          </div>
         </div>
+
         <div class="result-score-meta">
           <div class="result-rank" id="resultRank"></div>
           <div class="result-verdict-row">
@@ -70,161 +143,98 @@
           </div>
           <div class="result-score-breakdown" id="scoreBreakdown"></div>
         </div>
+
       </div>
     </div>
 
-    <!-- ACTIONS -->
     <div class="result-actions">
       <button class="btn-retake" id="btnRetake" onclick="window.location.href='quiz-quick.html'">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.27"/></svg>
         <span data-i18n="result.retake">重新测试</span>
       </button>
       <a href="analysis.html" class="btn-analysis">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         <span data-i18n="result.viewAnalysis">查看深度分析</span>
       </a>
       <a href="more-tests.html" class="btn-analysis" style="text-decoration:none">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         <span data-i18n="nav.more">更多测试</span>
       </a>
       <button class="btn-share" id="shareBtn">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         <span data-i18n="result.share">分享结果</span>
       </button>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════
-         赞助区块 1 — 位于维度解析卡片正上方
-         ══════════════════════════════════════════════════════
-         
-         【开发者说明 — 支付 LOGO 图片】
-         以下4个支付平台的 LOGO 图片请按以下规格准备：
-         
-         文件路径：   assets/logo-wechat.png
-                      assets/logo-alipay.png
-                      assets/logo-crypto.png（建议用 Binance 官方logo）
-                      assets/logo-qq.png
-         
-         推荐尺寸：   每张图片 120×120px 或 240×240px（高清屏）
-         图片格式：   PNG，透明背景（圆形图标最佳）
-         获取来源：   直接从各平台官网下载官方品牌资源包
-         
-         图片未加载时会自动显示 emoji 占位符，不影响布局。
-    ═══════════════════════════════════════════════════════ -->
     <div class="sponsor-card" id="sponsorCard">
       <div class="sponsor-header">
-        <span class="sponsor-heart">❤️</span>
+        <span class="sponsor-heart"></span>
         <div class="sponsor-text-block">
           <div class="sponsor-title" data-i18n="sponsor.title">喜欢我们的测试？你的支持让我们走得更远！</div>
           <div class="sponsor-sub" data-i18n="sponsor.sub">你的每一份赞助都将直接用于题库扩展、算法优化与服务器维护。感谢你！</div>
         </div>
       </div>
       <div class="sponsor-logo-row">
-
-        <!-- PayPal LOGO 按钮 — 点击弹出收款信息 -->
-        <button class="sponsor-logo-btn" data-payment="paypal" aria-label="PayPal赞助">
+        <button class="sponsor-logo-btn" data-payment="wechat" aria-label="微信支付赞助">
           <div class="slb-logo-wrap">
-            <!--
-              【开发者】PayPal LOGO 图片说明：
-              文件名称：logo-paypal.png
-              存放路径：assets/logo-paypal.png
-              推荐尺寸：120×120px 或 240×240px（高清屏）
-              图片格式：PNG，透明背景，圆形或方形图标均可
-              获取方式：前往 https://www.paypalobjects.com/webstatic/en_US/developer/docs/brand/PayPal_mark_RGB_horizontal.png
-                        或 PayPal 官方品牌资源页下载
-            -->
-            <img class="slb-logo-img" src="assets/logo-paypal.png"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-                 alt="PayPal"/>
-            <div class="slb-logo-fallback" style="background:#003087">🅿</div>
+            <img class="slb-logo-img" src="assets/logo-wechat.png" alt="微信支付"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.paypal">PayPal</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.wechat">微信支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-
-        <!-- USDT 加密钱包 LOGO 按钮 -->
-        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="USDT加密钱包赞助">
+        <button class="sponsor-logo-btn" data-payment="alipay" aria-label="支付宝赞助">
           <div class="slb-logo-wrap">
-            <!--
-              【开发者】USDT 加密钱包 LOGO 图片说明：
-              文件名称：logo-crypto.png
-              存放路径：assets/logo-crypto.png
-              推荐尺寸：120×120px 或 240×240px（高清屏）
-              图片格式：PNG，透明背景
-              获取方式：前往 https://tether.to/en/press-kit/ 下载 USDT 官方 LOGO
-                        或使用 Tether (USDT) 品牌图标
-            -->
-            <img class="slb-logo-img" src="assets/logo-crypto.png"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-                 alt="USDT"/>
-            <div class="slb-logo-fallback" style="background:#26a17b">💎</div>
+            <img class="slb-logo-img" src="assets/logo-alipay.png" alt="支付宝"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.crypto">USDT 加密</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.alipay">支付宝</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-
-        <!-- Wise 转账 LOGO 按钮 -->
-        <button class="sponsor-logo-btn" data-payment="wise" aria-label="Wise转账赞助">
+        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="加密货币赞助">
           <div class="slb-logo-wrap">
-            <!--
-              【开发者】Wise 转账 LOGO 图片说明：
-              文件名称：logo-wise.png
-              存放路径：assets/logo-wise.png
-              推荐尺寸：120×120px 或 240×240px（高清屏）
-              图片格式：PNG，透明背景
-              获取方式：前往 https://wise.com/gb/brand/ 下载 Wise 官方品牌资源
-                        下载"Wise logo – Green"版本效果最佳
-            -->
-            <img class="slb-logo-img" src="assets/logo-wise.png"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-                 alt="Wise"/>
-            <div class="slb-logo-fallback" style="background:#9fe870">🌿</div>
+            <img class="slb-logo-img" src="assets/logo-crypto.png" alt="加密支付"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.wise">Wise</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.crypto">加密支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-
-        <!-- 银行转账 LOGO 按钮 -->
-        <button class="sponsor-logo-btn" data-payment="bank" aria-label="银行转账赞助">
+        <button class="sponsor-logo-btn" data-payment="qq" aria-label="QQ钱包赞助">
           <div class="slb-logo-wrap">
-            <!--
-              【开发者】银行转账 LOGO 图片说明：
-              文件名称：logo-bank.png
-              存放路径：assets/logo-bank.png
-              推荐尺寸：120×120px 或 240×240px（高清屏）
-              图片格式：PNG，透明背景
-              建议使用：通用银行/转账图标，可使用白底蓝色银行图标
-                        推荐从 flaticon.com 搜索 "bank transfer" 下载免费图标
-                        或使用你所在银行的官方 LOGO
-            -->
-            <img class="slb-logo-img" src="assets/logo-bank.png"
-                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-                 alt="Bank Transfer"/>
-            <div class="slb-logo-fallback" style="background:#1a56db">🏦</div>
+            <img class="slb-logo-img" src="assets/logo-qq.png" alt="QQ支付"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.bank">银行转账</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.qq">QQ 钱包</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
+      </div>
+    </div>
 
-      </div><!-- /sponsor-logo-row -->
-    </div><!-- /sponsor-card 1 -->
-
-    <!-- DIMENSION BARS -->
     <div class="result-card" id="dimCard">
-      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#7dd3fc,#0284c7)"></span><span data-i18n="result.analysis">维度解析</span></div>
+      <div class="result-card-title">
+        <span class="rct-bar"></span>
+        <span data-i18n="result.analysis">维度解析</span>
+      </div>
       <div id="dimRows"></div>
     </div>
+
     <div class="result-card" id="proRadarCard" style="display:none">
-      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#0ea5e9,#0284c7)"></span><span>能力结构图</span></div>
-      <div style="display:flex;justify-content:center;align-items:center;padding:6px 0 2px;">
+      <div class="result-card-title">
+        <span class="rct-bar"></span>
+        <span>能力结构图</span>
+      </div>
+      <div style="display:flex;justify-content:center;align-items:center;padding:16px 0;">
         <canvas id="proRadarCanvas" width="340" height="300" style="max-width:100%;height:auto;"></canvas>
       </div>
     </div>
 
-    <!-- CONFETTI CANVAS (for score > 100) -->
     <canvas id="confettiCanvas" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:999;display:none"></canvas>
 
-    <!-- PERSONA / TIER -->
+    <div class="section-prelude prelude-persona">
+      <span class="sp-bar"></span>
+      <span class="sp-text">如果你是一种食物，那么你就是</span>
+    </div>
+
     <div class="result-card persona-card" id="personaCard">
       <div class="persona-header">
         <div class="persona-animal" id="personaAnimal"></div>
@@ -235,139 +245,113 @@
       </div>
       <div class="persona-desc" id="personaDesc"></div>
       <div class="persona-traits" id="personaTraits"></div>
+      <div class="persona-dims" id="personaDims"></div>
+      <div class="persona-next-tier" id="personaNextTier"></div>
     </div>
 
-    <!-- PERSONALIZED INSIGHTS -->
+    <div class="section-prelude prelude-rank">
+      <span class="sp-bar"></span>
+      <span class="sp-text">如果你的人生是一场轰轰烈烈的战役，那么你就是一名</span>
+    </div>
+
+    <div class="result-card rank-card" id="rankCard">
+      <div class="persona-tier-section" id="personaTierSection"></div>
+    </div>
+
     <div class="result-card" id="insightsCard">
-      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#ec4899,#be185d)"></span><span data-i18n="analysis.insights">个性化洞察</span></div>
+      <div class="result-card-title">
+        <span class="rct-bar"></span>
+        <span>个性化洞察</span>
+      </div>
       <div id="insightRows"></div>
     </div>
 
-    <!-- ANSWER HIGHLIGHTS -->
     <div class="result-card" id="highlightCard">
-      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#10b981,#059669)"></span><span data-i18n="result.highlights">亮点回顾</span></div>
+      <div class="result-card-title">
+        <span class="rct-bar"></span>
+        <span data-i18n="result.highlights">亮点回顾</span>
+      </div>
       <div id="highlightRows"></div>
     </div>
 
-    <!-- IMPROVEMENT AREAS -->
     <div class="result-card result-card--warn" id="improveCard">
-      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#f59e0b,#d97706)"></span><span data-i18n="result.improve">提升空间</span></div>
+      <div class="result-card-title">
+        <span class="rct-bar"></span>
+        <span data-i18n="result.improve">提升空间</span>
+      </div>
       <div id="improveRows"></div>
     </div>
 
-    <!-- COMPREHENSIVE TIP -->
     <div class="result-tip" id="resultTip">
       <div class="tip-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span data-i18n="result.tip">综合提升建议</span>
       </div>
       <div class="tip-text" id="tipText"></div>
       <div id="under18Banner" class="under18-banner" style="display:none"></div>
     </div>
 
-    <!-- NEXT STEPS -->
     <div class="result-card" id="nextStepsCard">
-      <div class="result-card-title"><span class="rct-bar" style="background:linear-gradient(180deg,#0ea5e9,#0284c7)"></span><span data-i18n="result.nextSteps">行动计划</span></div>
+      <div class="result-card-title">
+        <span class="rct-bar"></span>
+        <span data-i18n="result.nextSteps">行动计划</span>
+      </div>
       <div id="nextStepsRows"></div>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════
-         赞助区块 2 — 位于行动计划卡片下方（深度分析图表下方的副本）
-         此区块为 result.html 中的第二个赞助区块，与区块1完全相同。
-         analysis.html 页面中的区块由 analysis.js 动态插入。
-         ══════════════════════════════════════════════════════ -->
     <div class="sponsor-card sponsor-card--bottom" id="sponsorCard2">
       <div class="sponsor-header">
-        <span class="sponsor-heart">☕</span>
+        <span class="sponsor-heart"></span>
         <div class="sponsor-text-block">
-          <div class="sponsor-title" data-i18n="sponsor.title2">看完报告觉得有收获？请开发者喝杯咖啡 ☕</div>
+          <div class="sponsor-title" data-i18n="sponsor.title2">看完报告觉得有收获？请开发者喝杯咖啡</div>
           <div class="sponsor-sub" data-i18n="sponsor.sub">你的每一份赞助都将直接用于题库扩展、算法优化与服务器维护。感谢你！</div>
         </div>
       </div>
       <div class="sponsor-logo-row">
-        <!-- PayPal — logo文件: assets/logo-paypal.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="paypal" aria-label="PayPal赞助">
+        <button class="sponsor-logo-btn" data-payment="wechat" aria-label="微信支付赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-paypal.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="PayPal"/>
-            <div class="slb-logo-fallback" style="background:#003087">🅿</div>
+            <img class="slb-logo-img" src="assets/logo-wechat.png" alt="微信支付"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.paypal">PayPal</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.wechat">微信支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-        <!-- USDT 加密钱包 — logo文件: assets/logo-crypto.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="USDT加密钱包赞助">
+        <button class="sponsor-logo-btn" data-payment="alipay" aria-label="支付宝赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-crypto.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="USDT"/>
-            <div class="slb-logo-fallback" style="background:#26a17b">💎</div>
+            <img class="slb-logo-img" src="assets/logo-alipay.png" alt="支付宝"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.crypto">USDT 加密</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.alipay">支付宝</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-        <!-- Wise 转账 — logo文件: assets/logo-wise.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="wise" aria-label="Wise转账赞助">
+        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="加密货币赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-wise.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Wise"/>
-            <div class="slb-logo-fallback" style="background:#9fe870">🌿</div>
+            <img class="slb-logo-img" src="assets/logo-crypto.png" alt="加密支付"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.wise">Wise</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.crypto">加密支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-        <!-- 银行转账 — logo文件: assets/logo-bank.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="bank" aria-label="银行转账赞助">
+        <button class="sponsor-logo-btn" data-payment="qq" aria-label="QQ钱包赞助">
           <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-bank.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bank Transfer"/>
-            <div class="slb-logo-fallback" style="background:#1a56db">🏦</div>
+            <img class="slb-logo-img" src="assets/logo-qq.png" alt="QQ支付"
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"/>
+            <div class="slb-logo-fallback"></div>
           </div>
-          <span class="slb-label" data-i18n="sponsor.qr.bank">银行转账</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+          <span class="slb-label" data-i18n="sponsor.qr.qq">QQ 钱包</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
       </div>
-    </div><!-- /sponsor-card 2 -->
+    </div>
 
-  </div><!-- /result-wrap -->
+  </div>
 
-  <!-- ══ 支付二维码弹窗 ══
-       此弹窗由 result.js 中的 setupPaymentModal() 控制。
-       请按以下规格准备4张收款图片：
-
-       ┌─────────────────────────────────────────────────────────┐
-       │  1. PayPal 收款码 / 收款链接截图                         │
-       │     文件名称：qr-paypal.png                             │
-       │     存放路径：assets/qr-paypal.png                      │
-       │     推荐尺寸：480×480px（最小 240×240px）               │
-       │     图片格式：PNG，白底，带白色边框（方便识别）          │
-       │     建议内容：PayPal.me/你的用户名 的二维码截图          │
-       │               或 PayPal 收款链接的二维码图片             │
-       ├─────────────────────────────────────────────────────────┤
-       │  2. USDT 加密钱包地址二维码                              │
-       │     文件名称：qr-crypto.png                             │
-       │     存放路径：assets/qr-crypto.png                      │
-       │     推荐尺寸：480×480px（最小 240×240px）               │
-       │     图片格式：PNG，白底，带白色边框                      │
-       │     建议内容：你的 USDT (TRC20 或 ERC20) 钱包地址二维码 │
-       │               可在 Binance / OKX / 其他钱包 App 内生成  │
-       ├─────────────────────────────────────────────────────────┤
-       │  3. Wise 收款信息截图或二维码                            │
-       │     文件名称：qr-wise.png                               │
-       │     存放路径：assets/qr-wise.png                        │
-       │     推荐尺寸：480×480px（最小 240×240px）               │
-       │     图片格式：PNG，白底                                  │
-       │     建议内容：Wise 账户收款页截图（含账号/email/金额）   │
-       │               或 Wise 收款链接的二维码图片               │
-       ├─────────────────────────────────────────────────────────┤
-       │  4. 银行转账收款信息截图                                 │
-       │     文件名称：qr-bank.png                               │
-       │     存放路径：assets/qr-bank.png                        │
-       │     推荐尺寸：480×480px（最小 240×240px）               │
-       │     图片格式：PNG，白底                                  │
-       │     建议内容：银行账号/收款人姓名/SWIFT码的截图或图片    │
-       │               或使用网银 App 生成的收款二维码            │
-       └─────────────────────────────────────────────────────────┘
-  ══ -->
   <div class="payment-modal-overlay" id="paymentModalOverlay">
     <div class="payment-modal" id="paymentModal">
       <button class="payment-modal-close" id="paymentModalClose" aria-label="关闭">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
       <div class="pm-platform-header" id="pmPlatformHeader">
         <div class="pm-platform-logo-wrap" id="pmLogoWrap">
@@ -379,18 +363,7 @@
           <div class="pm-platform-sub" data-i18n="sponsor.modal.sub">扫码完成赞助，感谢你的支持！</div>
         </div>
       </div>
-
-      <!-- 二维码展示区 -->
       <div class="pm-qr-area">
-        <!--
-          二维码图片由 JS 动态设置 src
-          4个二维码路径分别为：
-            assets/qr-wechat.png
-            assets/qr-alipay.png
-            assets/qr-crypto.png
-            assets/qr-qq.png
-          图片未加载时显示下方占位文字
-        -->
         <img class="pm-qr-img" id="pmQrImg" src="" alt="支付二维码"
              onerror="this.style.display='none';document.getElementById('pmQrPlaceholder').style.display='flex'"/>
         <div class="pm-qr-placeholder" id="pmQrPlaceholder">
@@ -399,166 +372,117 @@
           <div class="pm-qr-placeholder-path" id="pmQrPlaceholderPath"></div>
         </div>
       </div>
-
-      <div class="pm-amount-hint" data-i18n="sponsor.modal.hint">金额随心，一杯奶茶的价格即可给我们很大鼓励 ☕</div>
+      <div class="pm-amount-hint" data-i18n="sponsor.modal.hint">金额随心，一杯奶茶的价格即可给我们很大鼓励</div>
     </div>
   </div>
 
-  <!-- ══ 分享弹窗 ══ -->
   <div class="share-modal-overlay" id="shareModalOverlay">
     <div class="share-modal" id="shareModal">
       <button class="share-modal-close" id="shareModalClose" aria-label="关闭">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
       <div class="share-modal-title" data-i18n="share.title">分享你的结果</div>
       <div class="share-card-wrap">
         <div class="share-card" id="shareCard">
-          <!-- decorative elements -->
-          <div class="sc-ring-1"></div>
-          <div class="sc-ring-2"></div>
-          <div class="sc-ring-3"></div>
-          <div class="sc-shimmer"></div>
-          <!-- Top row: brand + QR -->
-          <div class="sc-top-row">
-            <div class="sc-brand" data-i18n="share.card.brand">Life Score · 人生评分测试</div>
-            <img class="sc-qr"
-                 src="assets/share-qr.png"
-                 alt="扫码访问"
-                 onerror="this.style.display='none'"
-            />
-          </div>
-
+          <div class="sc-brand">Life Score · 人生评分测试</div>
+          <img class="sc-qr" src="assets/share-qr.png" alt="扫码访问" onerror="this.style.display='none'"/>
           <div class="sc-score-wrap">
             <div class="sc-score-num" id="scScoreNum">—</div>
             <div class="sc-score-max">/150</div>
           </div>
           <div class="sc-verdict" id="scVerdict"></div>
           <div class="sc-dims" id="scDims"></div>
-          <!-- ════════════════════════════════════════════════════════
-               SHARE CARD FOOTER
-
-               Domain: lifescore.space
-               ════════════════════════════════════════════════════════ -->
-          <div class="sc-footer"><span data-i18n="share.card.cta">测测你的人生值多少分</span><span class="sc-footer-url">lifescore.space</span></div>
+          <div class="sc-footer">测测你的人生值多少分</div>
         </div>
       </div>
 
-      <!-- ════════════════════════════════════════════════════════════════
-           SHARE PLATFORM BUTTONS — Logo image instructions
-           
-           Each platform button has a .sp-logo <img> slot.
-           Place the logo files in the  assets/  folder.
-           All logos: square PNG, transparent background, 48 × 48 px recommended
-           (they will be displayed at 28 × 28 px, but 48px gives crisp retina display).
-           
-           File naming convention:
-             assets/logo-platform-weibo.png       → 微博
-             assets/logo-platform-wechat.png      → 微信
-             assets/logo-platform-moments.png     → 朋友圈  (WeChat Moments)
-             assets/logo-platform-qzone.png       → QQ空间
-             assets/logo-platform-rednote.png     → 小红书
-             assets/logo-platform-douyin.png      → 抖音
-             assets/logo-platform-kuaishou.png    → 快手
-           
-           If a logo file is missing, the coloured text fallback shows automatically
-           via the onerror handler on each <img>.
-           ════════════════════════════════════════════════════════════════ -->
       <div class="share-platforms">
-
-        <!-- 复制文字 (copy text) — no logo needed -->
         <button class="sp-btn" id="sp-copy" data-platform="copy">
           <span class="sp-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="9" y="9" width="13" height="13"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
           </span>
           <span data-i18n="share.copy">复制文字</span>
         </button>
 
-        <!-- 微博 -->
         <a class="sp-btn" id="sp-weibo" href="#" target="_blank" rel="noopener">
           <span class="sp-icon">
-            <img class="sp-logo" src="assets/logo-platform-weibo.png" alt="微博"
-                 onerror="this.style.display='none';this.nextSibling.style.display='flex'"/>
-            <span class="sp-logo-fallback sp-weibo-icon" style="display:none">微</span>
+            <span class="sp-logo-fallback">微</span>
           </span>
           <span data-i18n="share.weibo">微博</span>
         </a>
 
-        <!-- 微信 -->
         <button class="sp-btn" id="sp-wechat" data-platform="wechat">
           <span class="sp-icon">
-            <img class="sp-logo" src="assets/logo-platform-wechat.png" alt="微信"
-                 onerror="this.style.display='none';this.nextSibling.style.display='flex'"/>
-            <span class="sp-logo-fallback sp-wechat-icon" style="display:none">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            <span class="sp-logo-fallback">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
             </span>
           </span>
           <span data-i18n="share.wechat">微信</span>
         </button>
 
-        <!-- QQ空间 -->
         <a class="sp-btn" id="sp-qzone" href="#" target="_blank" rel="noopener">
           <span class="sp-icon">
-            <img class="sp-logo" src="assets/logo-platform-qzone.png" alt="QQ空间"
-                 onerror="this.style.display='none';this.nextSibling.style.display='flex'"/>
-            <span class="sp-logo-fallback sp-qzone-icon" style="display:none">Q</span>
+            <span class="sp-logo-fallback">Q</span>
           </span>
           <span data-i18n="share.qzone">QQ空间</span>
         </a>
 
-        <!-- 小红书 -->
         <a class="sp-btn" id="sp-rednote" href="#" target="_blank" rel="noopener">
           <span class="sp-icon">
-            <img class="sp-logo" src="assets/logo-platform-rednote.png" alt="小红书"
-                 onerror="this.style.display='none';this.nextSibling.style.display='flex'"/>
-            <span class="sp-logo-fallback sp-rednote-icon" style="display:none">红</span>
+            <span class="sp-logo-fallback">红</span>
           </span>
           <span data-i18n="share.rednote">小红书</span>
         </a>
 
-        <!-- 抖音 -->
         <a class="sp-btn" id="sp-douyin" href="#" target="_blank" rel="noopener">
           <span class="sp-icon">
-            <img class="sp-logo" src="assets/logo-platform-douyin.png" alt="抖音"
-                 onerror="this.style.display='none';this.nextSibling.style.display='flex'"/>
-            <span class="sp-logo-fallback sp-douyin-icon" style="display:none">抖</span>
+            <span class="sp-logo-fallback">抖</span>
           </span>
           <span data-i18n="share.douyin">抖音</span>
         </a>
 
-        <!-- 快手 -->
         <a class="sp-btn" id="sp-kuaishou" href="#" target="_blank" rel="noopener">
           <span class="sp-icon">
-            <img class="sp-logo" src="assets/logo-platform-kuaishou.png" alt="快手"
-                 onerror="this.style.display='none';this.nextSibling.style.display='flex'"/>
-            <span class="sp-logo-fallback sp-ks-icon" style="display:none">快</span>
+            <span class="sp-logo-fallback">快</span>
           </span>
           <span data-i18n="share.kuaishou">快手</span>
         </a>
 
-        <!-- 保存图片 (save image) -->
         <button class="sp-btn sp-btn-save" id="sp-save">
           <span class="sp-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </span>
           <span data-i18n="share.save">保存图片</span>
         </button>
-
       </div>
+
       <div class="share-wechat-hint" id="wechatHint">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         <span data-i18n="share.wechatTip">请截图后分享到微信朋友圈</span>
       </div>
     </div>
   </div>
 
   <div class="saved-toast" id="savedToast">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
     <span data-i18n="result.saved">评分已保存</span>
   </div>
 
   <script src="i18n.js"></script>
   <script src="questions.js"></script>
-  <script src="quick_questions.js"></script>
   <script src="result.js"></script>
+
+  <script>
+  /* Mirror result.js's hidden #rcScore SVG text into the visible chunky #rsdNum */
+  (function(){
+    var src = document.getElementById('rcScore');
+    var dst = document.getElementById('rsdNum');
+    if (!src || !dst) return;
+    var sync = function(){
+      var v = (src.textContent || '').trim();
+      dst.textContent = v && v !== '—' ? v : '—';
+    };
+    sync();
+    new MutationObserver(sync).observe(src, { childList: true, characterData: true, subtree: true });
+  })();
+  </script>
 </body>
 </html>

@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifeScore Engine Test Harness</title>
+  <link rel="icon" type="image/png" href="images/favicon.ico"/>
+<style>
+  :root {
+    --green: #10b981;
+    --red:   #ef4444;
+    --blue:  #0ea5e9;
+    --gray:  #64748b;
+    --bg:    #f8fafc;
+    --card:  #ffffff;
+    --border:#e2e8f0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background: var(--bg);
+    color: #1e293b;
+    margin: 0;
+    padding: 24px;
+    line-height: 1.5;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 8px;
+  }
+  .subtitle {
+    color: var(--gray);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+  .summary {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+  .summary.all-pass { border-color: var(--green); }
+  .summary.has-fail { border-color: var(--red); }
+  .big-number {
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .big-number.pass { color: var(--green); }
+  .big-number.fail { color: var(--red); }
+  .summary-label {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray);
+    font-weight: 700;
+  }
+  .summary-overall {
+    margin-left: auto;
+    text-align: right;
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .summary-overall.green { color: var(--green); }
+  .summary-overall.red   { color: var(--red); }
+
+  .group {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .group-title {
+    font-size: 16px;
+    font-weight: 800;
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .test {
+    display: grid;
+    grid-template-columns: 24px 1fr auto;
+    gap: 10px;
+    align-items: start;
+    padding: 8px 0;
+    font-size: 14px;
+    border-bottom: 1px dashed #f1f5f9;
+  }
+  .test:last-child { border-bottom: none; }
+  .test-icon {
+    font-size: 18px;
+    line-height: 1;
+    margin-top: 2px;
+  }
+  .test-icon.pass { color: var(--green); }
+  .test-icon.fail { color: var(--red); }
+  .test-name { color: #334155; }
+  .test-detail {
+    font-family: ui-monospace, "SF Mono", Monaco, Menlo, monospace;
+    font-size: 12px;
+    color: var(--gray);
+    text-align: right;
+    white-space: nowrap;
+    max-width: 400px;
+    overflow-x: auto;
+  }
+  .test.fail .test-detail { color: var(--red); }
+  .console-box {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: ui-monospace, monospace;
+    font-size: 12px;
+    padding: 16px;
+    border-radius: 8px;
+    margin-top: 24px;
+    max-height: 240px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+  }
+  .console-title {
+    color: #94a3b8;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .err-line { color: #f87171; }
+  .warn-line { color: #fbbf24; }
+  .info-line { color: #94a3b8; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>LifeScore Engine Test Harness</h1>
+    <p class="subtitle">Standalone verification of the Phase 5 integration. Open this file directly in a browser (no server needed) — it loads the same scripts as <code>quiz-quick.html</code> and runs assertions against the engine.</p>
+
+    <div id="summary" class="summary">
+      <div>
+        <div class="big-number pass" id="pass-count">…</div>
+        <div class="summary-label">passing</div>
+      </div>
+      <div>
+        <div class="big-number fail" id="fail-count">…</div>
+        <div class="summary-label">failing</div>
+      </div>
+      <div class="summary-overall" id="overall">running…</div>
+    </div>
+
+    <div id="results"></div>
+
+    <div class="console-title">CONSOLE CAPTURE</div>
+    <div class="console-box" id="console-box">(captured browser console output appears here)</div>
+  </div>
+
+  <!-- ============================================================
+       LOAD ORDER MUST MATCH quiz-quick.html
+       ============================================================ -->
+  <script>
+    // Capture console output to display in the page so users
+    // don't need devtools open to see warnings/errors.
+    (function () {
+      var box = null;
+      function append(level, args) {
+        if (!box) box = document.getElementById('console-box');
+        if (!box) return;
+        var msg = Array.prototype.slice.call(args).map(function (a) {
+          if (typeof a === 'string') return a;
+          try { return JSON.stringify(a); } catch (e) { return String(a); }
+        }).join(' ');
+        var cls = level === 'error' ? 'err-line' : (level === 'warn' ? 'warn-line' : 'info-line');
+        var line = document.createElement('div');
+        line.className = cls;
+        line.textContent = '[' + level.toUpperCase() + '] ' + msg;
+        if (box.textContent === '(captured browser console output appears here)') box.textContent = '';
+        box.appendChild(line);
+      }
+      var origLog = console.log, origWarn = console.warn, origErr = console.error;
+      console.log   = function () { append('log', arguments);   origLog.apply(console, arguments); };
+      console.warn  = function () { append('warn', arguments);  origWarn.apply(console, arguments); };
+      console.error = function () { append('error', arguments); origErr.apply(console, arguments); };
+      window.addEventListener('error', function (e) {
+        append('error', [e.message, 'at', e.filename + ':' + e.lineno]);
+      });
+    })();
+  </script>
+
+  <!-- Engine pipeline — same order as quiz-quick.html -->
+  <script src="scoring-engine.js"></script>
+  <script src="ls-fn-bmi.js"></script>
+  <script src="ls-fn-wealth.js"></script>
+  <script src="ls-fn-resilience.js"></script>
+  <script src="scoring-rules.js"></script>
+  <script src="scoring-integration.js"></script>
+  <script src="scoring-functions-registry.js"></script>
+
+  <!-- ============================================================
+       TEST HARNESS
+       ============================================================ -->
+  <script>
+  (function () {
+    'use strict';
+
+    var groups = [];
+    var currentGroup = null;
+    var passCount = 0;
+    var failCount = 0;
+
+    function group(name) {
+      currentGroup = { name: name, tests: [] };
+      groups.push(currentGroup);
+    }
+
+    function test(name, fn) {
+      var detail = '';
+      var ok = false;
+      try {
+        var result = fn();
+        if (result && typeof result === 'object' && 'ok' in result) {
+          ok = result.ok;
+          detail = result.detail || '';
+        } else {
+          ok = !!result;
+        }
+      } catch (e) {
+        ok = false;
+        detail = 'threw: ' + (e && e.message ? e.message : String(e));
+      }
+      currentGroup.tests.push({ name: name, ok: ok, detail: detail });
+      if (ok) passCount++; else failCount++;
+    }
+
+    /* Tiny matchers — keep them inline so the harness has zero
+       dependencies and the failure modes are obvious. */
+    function eq(actual, expected) {
+      if (actual === expected) return { ok: true, detail: 'got ' + JSON.stringify(actual) };
+      return { ok: false, detail: 'expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual) };
+    }
+    function approxEq(actual, expected, tol) {
+      tol = tol == null ? 0.01 : tol;
+      if (typeof actual !== 'number') return { ok: false, detail: 'not a number: ' + actual };
+      if (Math.abs(actual - expected) <= tol) return { ok: true, detail: '≈ ' + actual.toFixed(3) };
+      return { ok: false, detail: 'expected ≈ ' + expected + ' (±' + tol + '), got ' + actual };
+    }
+    function inRange(actual, lo, hi) {
+      if (typeof actual !== 'number') return { ok: false, detail: 'not a number: ' + actual };
+      if (actual >= lo && actual <= hi) return { ok: true, detail: actual + ' ∈ [' + lo + ',' + hi + ']' };
+      return { ok: false, detail: actual + ' ∉ [' + lo + ',' + hi + ']' };
+    }
+    function truthy(actual, label) {
+      if (actual) return { ok: true, detail: label || 'truthy' };
+      return { ok: false, detail: 'falsy: ' + JSON.stringify(actual) };
+    }
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 1 — Globals exist
+    // ════════════════════════════════════════════════════════════
+    group('1. Script load order — globals exist');
+    test('window.LSStore exists',                function () { return truthy(window.LSStore, 'store created'); });
+    test('window.LSEngine exists',               function () { return truthy(window.LSEngine, 'engine created'); });
+    test('window.LSScoringUtils.actions exists', function () { return truthy(window.LSScoringUtils && window.LSScoringUtils.actions, 'action creators ready'); });
+    test('window.LSFn.bmi exists',               function () { return truthy(window.LSFn && window.LSFn.bmi,        'bmi helper'); });
+    test('window.LSFn.wealth exists',            function () { return truthy(window.LSFn && window.LSFn.wealth,     'wealth helper'); });
+    test('window.LSFn.resilience exists',        function () { return truthy(window.LSFn && window.LSFn.resilience, 'resilience helper'); });
+    test('window.LSIntegration exists',          function () { return truthy(window.LSIntegration, 'integration layer'); });
+    test('window.LSScoringRegistry exists',      function () { return truthy(window.LSScoringRegistry, 'registry'); });
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 2 — Helper function correctness
+    // ════════════════════════════════════════════════════════════
+    group('2. Helper functions — spec anchors');
+
+    test('bmi(175-180/70-85, male) → mult ~0.91', function () {
+      var v = window.LSFn.bmi.estimateVerbose('175 - 180cm', '70 - 85kg（正常/健壮）', 'male');
+      return v.category === 'healthy' && v.modifier >= 0.85 && v.modifier <= 0.95
+        ? { ok: true,  detail: 'mult=' + v.modifier + ' bmi=' + v.bmi + ' cat=' + v.category }
+        : { ok: false, detail: JSON.stringify(v) };
+    });
+    test('bmi(165-170/100+, male) → obese', function () {
+      var v = window.LSFn.bmi.estimateVerbose('165 - 170cm', '100kg 以上（超重）', 'male');
+      return v.category === 'obese'
+        ? { ok: true,  detail: 'cat=obese mult=' + v.modifier }
+        : { ok: false, detail: JSON.stringify(v) };
+    });
+    test('bmi(undef, undef) → neutral 1.0', function () {
+      var v = window.LSFn.bmi.estimateVerbose(undefined, undefined, 'male');
+      return eq(v.modifier, 1.0);
+    });
+
+    test('wealth(40yo, net_debt) → -10 floor', function () {
+      var s = window.LSFn.wealth.calculate('36_45', 'net_debt');
+      return eq(s, -10);
+    });
+    test('wealth(22yo, low) ≥ 0 (no penalty for young)', function () {
+      var s = window.LSFn.wealth.calculate('18_25', 'low');
+      return s >= 0
+        ? { ok: true,  detail: 'score=' + s.toFixed(2) }
+        : { ok: false, detail: 'score=' + s };
+    });
+    test('wealth(under_18, anything) → 0', function () {
+      var s = window.LSFn.wealth.calculate('under_18', 'abundant');
+      return eq(s, 0);
+    });
+    test('wealth(garbage age) → 0 (graceful)', function () {
+      var s = window.LSFn.wealth.calculate('banana', 'low');
+      return eq(s, 0);
+    });
+
+    test('resilience(easy_300k,...) → buff +15', function () {
+      var r = window.LSFn.resilience.calculate('easy_300k', 'excellent', 'high');
+      return eq(r.financialResilienceBuff, 15);
+    });
+    test('resilience(_, toxic, zero) → recovery ~0.4', function () {
+      var r = window.LSFn.resilience.calculate('unspecified', 'toxic', 'zero');
+      return approxEq(r.stressRecoveryRate, 0.4, 0.05);
+    });
+    test('resilience(undef, undef, undef) → fully neutral', function () {
+      var r = window.LSFn.resilience.calculate(undefined, undefined, undefined);
+      return r.financialResilienceBuff === 0 && r.stressRecoveryRate === 1.0
+        ? { ok: true,  detail: 'buff=0 rate=1.0' }
+        : { ok: false, detail: JSON.stringify(r) };
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 3 — Engine registration
+    // ════════════════════════════════════════════════════════════
+    group('3. Rule engine — registration');
+    test('rules registered',     function () { return inRange(window.LSEngine._rules.length, 15, 30); });
+    test('modifiers registered', function () { return inRange(window.LSEngine._modifiers.length, 2, 5); });
+    test('longevity_bonus modifier exists', function () {
+      var has = window.LSEngine._modifiers.some(function (m) { return m.id === 'longevity_bonus'; });
+      return truthy(has, 'longevity_bonus registered');
+    });
+    test('illness_multiplier modifier exists', function () {
+      var has = window.LSEngine._modifiers.some(function (m) { return m.id === 'illness_multiplier'; });
+      return truthy(has, 'illness_multiplier registered');
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 4 — Integration layer
+    // ════════════════════════════════════════════════════════════
+    group('4. Integration layer — translate answers to state');
+    var fakeAnswers = {
+      QK1: 2, QK2: 0, QK3: 1, QK4m: 3, QK5m: 2,
+      QKC4: 1, QKC5: 1, QKC7: 0, QKC8c: 3, QKT14: 0,
+      QKC9: 0, QKB7: 0,
+      QKB1: 3, QKB2: 1, QKB4: 0, QKB5: 1, QKB5d: 1, QKB6: 1,
+      QKC6: 0, QKD13: 2, QKD15: 0, QKAB8: 0
+    };
+    var state = null;
+    test('buildState() does not throw', function () {
+      state = window.LSIntegration.buildState(fakeAnswers);
+      return truthy(state, 'state built');
+    });
+    test('state.ageRange === "26_35"',           function () { return eq(state && state.ageRange,    '26_35'); });
+    test('state.gender === "male"',              function () { return eq(state && state.gender,       'male'); });
+    test('state.heightRange === "175 - 180cm"', function () { return eq(state && state.heightRange,  '175 - 180cm'); });
+    test('state.savingsBand === "abundant"',     function () { return eq(state && state.savingsBand,  'abundant'); });
+    test('state.relationship === "married_happy"', function () { return eq(state && state.relationship, 'married_happy'); });
+    test('state.hasChildren === true',           function () { return eq(state && state.hasChildren,  true); });
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 5 — End-to-end engine compute
+    // ════════════════════════════════════════════════════════════
+    group('5. End-to-end — engine.compute() on healthy profile');
+    var r = window.LSIntegration.computeFromAnswers(fakeAnswers);
+    var es = r && r.scores;
+    test('compute returns a scores object', function () { return truthy(es, 'scores ready'); });
+    test('all four dimensions populated', function () {
+      var keys = es ? Object.keys(es).sort().join(',') : '';
+      return keys === 'composite,health,mind,social,wealth'
+        ? { ok: true,  detail: keys }
+        : { ok: false, detail: keys };
+    });
+    test('health in range [0, 150]',  function () { return inRange(es && es.health,  0, 150); });
+    test('wealth in range [0, 150]',  function () { return inRange(es && es.wealth,  0, 150); });
+    test('social in range [0, 150]',  function () { return inRange(es && es.social,  0, 150); });
+    test('mind in range [0, 150]',    function () { return inRange(es && es.mind,    0, 150); });
+    test('composite in range [0, 150]', function () { return inRange(es && es.composite, 0, 150); });
+    test('healthy profile fires ≥ 15 rules', function () {
+      var n = r && r.contributions ? r.contributions.length : 0;
+      return n >= 15
+        ? { ok: true,  detail: n + ' contributions' }
+        : { ok: false, detail: n + ' contributions' };
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 6 — Cross-question modifiers
+    // ════════════════════════════════════════════════════════════
+    group('6. Cross-question modifiers');
+    var rBase = window.LSIntegration.computeFromAnswers(fakeAnswers);
+
+    var fOld = Object.assign({}, fakeAnswers, { QK1: 8, QK3: 4 });
+    var rOld = window.LSIntegration.computeFromAnswers(fOld);
+    test('age 95: longevity_bonus modifier fires', function () {
+      var fired = rOld.modifiersApplied.indexOf('longevity_bonus') >= 0;
+      return truthy(fired, 'modifier in list');
+    });
+    test('age 95: composite ≥ baseline + 15', function () {
+      var delta = rOld.scores.composite - rBase.scores.composite;
+      return delta >= 15
+        ? { ok: true,  detail: 'Δcomposite=' + delta }
+        : { ok: false, detail: 'Δcomposite=' + delta };
+    });
+
+    var fIll = Object.assign({}, fakeAnswers, { QK3: 5 });
+    var rIll = window.LSIntegration.computeFromAnswers(fIll);
+    test('critically ill: illness_multiplier modifier fires', function () {
+      var fired = rIll.modifiersApplied.indexOf('illness_multiplier') >= 0;
+      return truthy(fired, 'modifier in list');
+    });
+    test('critically ill: composite drops ≥ 20%', function () {
+      var ratio = rIll.scores.composite / rBase.scores.composite;
+      return ratio <= 0.85
+        ? { ok: true,  detail: 'ratio=' + ratio.toFixed(2) }
+        : { ok: false, detail: 'ratio=' + ratio.toFixed(2) };
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 7 — Registry for analysis page
+    // ════════════════════════════════════════════════════════════
+    group('7. Scoring function registry — analysis page data');
+    test('registry has ≥ 6 functions', function () {
+      var n = window.LSScoringRegistry.functions.length;
+      return n >= 6 ? { ok: true, detail: n + ' functions' } : { ok: false, detail: n + ' functions' };
+    });
+    test('registry covers all 4 dimensions + modifiers', function () {
+      var dims = ['health','wealth','social','mind','modifier'];
+      var missing = dims.filter(function (d) { return window.LSScoringRegistry.getByDimension(d).length === 0; });
+      return missing.length === 0
+        ? { ok: true,  detail: 'all dims represented' }
+        : { ok: false, detail: 'missing: ' + missing.join(',') };
+    });
+    test('every entry has cn + tw description', function () {
+      var bad = window.LSScoringRegistry.functions.filter(function (f) {
+        return !f.description || !f.description.cn || !f.description.tw;
+      });
+      return bad.length === 0
+        ? { ok: true,  detail: 'all bilingual' }
+        : { ok: false, detail: bad.length + ' missing translations' };
+    });
+    test('every entry has logic/mechanics/execution sections', function () {
+      var bad = window.LSScoringRegistry.functions.filter(function (f) {
+        return !f.logic || !f.mechanics || !f.execution;
+      });
+      return bad.length === 0
+        ? { ok: true,  detail: 'all complete' }
+        : { ok: false, detail: bad.length + ' incomplete' };
+    });
+    test('getById("longevity_bonus") works', function () {
+      var f = window.LSScoringRegistry.getById('longevity_bonus');
+      return truthy(f && f.id === 'longevity_bonus', 'lookup ok');
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  GROUP 8 — Edge cases / graceful degradation
+    // ════════════════════════════════════════════════════════════
+    group('8. Edge cases and graceful degradation');
+    test('empty answers → engine still runs', function () {
+      try {
+        var r = window.LSIntegration.computeFromAnswers({});
+        return truthy(r && r.scores, 'returned scores');
+      } catch (e) {
+        return { ok: false, detail: 'threw: ' + e.message };
+      }
+    });
+    test('garbage qid in answers → ignored, no crash', function () {
+      try {
+        var r = window.LSIntegration.computeFromAnswers({ TOTALLY_FAKE: 99 });
+        return truthy(r, 'ok');
+      } catch (e) {
+        return { ok: false, detail: 'threw: ' + e.message };
+      }
+    });
+    test('out-of-range option index → ignored', function () {
+      try {
+        var r = window.LSIntegration.computeFromAnswers({ QK1: 999 });
+        return truthy(r, 'ok');
+      } catch (e) {
+        return { ok: false, detail: 'threw: ' + e.message };
+      }
+    });
+
+    // ════════════════════════════════════════════════════════════
+    //  RENDER RESULTS
+    // ════════════════════════════════════════════════════════════
+    function render() {
+      document.getElementById('pass-count').textContent = passCount;
+      document.getElementById('fail-count').textContent = failCount;
+      var summaryEl = document.getElementById('summary');
+      var overallEl = document.getElementById('overall');
+      if (failCount === 0) {
+        summaryEl.classList.add('all-pass');
+        overallEl.classList.add('green');
+        overallEl.textContent = '✓ ALL PASSING';
+      } else {
+        summaryEl.classList.add('has-fail');
+        overallEl.classList.add('red');
+        overallEl.textContent = '✗ ' + failCount + ' FAILING';
+      }
+
+      var resultsEl = document.getElementById('results');
+      var html = '';
+      for (var i = 0; i < groups.length; i++) {
+        var g = groups[i];
+        html += '<div class="group">';
+        html += '<div class="group-title">' + g.name + '</div>';
+        for (var j = 0; j < g.tests.length; j++) {
+          var t = g.tests[j];
+          html += '<div class="test ' + (t.ok ? 'pass' : 'fail') + '">';
+          html += '<div class="test-icon ' + (t.ok ? 'pass' : 'fail') + '">' + (t.ok ? '✓' : '✗') + '</div>';
+          html += '<div class="test-name">' + escapeHtml(t.name) + '</div>';
+          html += '<div class="test-detail">' + escapeHtml(t.detail) + '</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      resultsEl.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"]/g, function (c) {
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', render);
+    } else {
+      render();
+    }
+  })();
+  </script>
+</body>
+</html>

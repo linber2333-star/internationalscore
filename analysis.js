@@ -1,7 +1,14 @@
 /* analysis.js — deep analysis page with radar chart + per-question breakdown */
 (function(){
 'use strict';
-var finalScore, dimPct, answerMap, activeQueue, quizMode;
+var finalScore, finalScorePrecise, dimPct, answerMap, activeQueue, quizMode;
+
+/* Format a float score to 3 decimal places, stripping trailing
+   zeros so "60.000" displays as "60" and "60.500" as "60.5". */
+function formatScorePrecise(v){
+  if (typeof v !== 'number' || !isFinite(v)) return '0';
+  return v.toFixed(3).replace(/\.?0+$/, '');
+}
 var SECTION_COLORS={basic:'#7dd3fc',social:'#0ea5e9',identity:'#10b981'};
 
 /* Helper: correct question bank based on quiz mode */
@@ -14,34 +21,34 @@ function getBank(){
 function loadResult(){
   try{ var r=sessionStorage.getItem('ls_result'); if(r) return JSON.parse(r); }catch(e){}
   /* Fallback: try localStorage for persisted results (survives browser close) */
-  try{ var d=localStorage.getItem('ls_result_latest'); if(d) return JSON.parse(d); }catch(e){}
-  try{ var d=localStorage.getItem('ls_result_deep'); if(d) return JSON.parse(d); }catch(e){}
-  try{ var d=localStorage.getItem('ls_result_quick'); if(d) return JSON.parse(d); }catch(e){}
+  try{ var d1=localStorage.getItem('ls_result_latest'); if(d1) return JSON.parse(d1); }catch(e){}
+  try{ var d2=localStorage.getItem('ls_result_deep'); if(d2) return JSON.parse(d2); }catch(e){}
+  try{ var d3=localStorage.getItem('ls_result_quick'); if(d3) return JSON.parse(d3); }catch(e){}
   return null; // will show no-result state
 }
 
 function getVerdict(s){if(s>110)return'exceptional';if(s>=90)return'excellent';if(s>=70)return'high';if(s>=50)return'mid';if(s>=35)return'mid-low';return'low';}
 function getRank(s){if(s>110)return Math.max(1,Math.round(3-(s-110)*0.05));var t=(s-50)/20,sig=1/(1+Math.exp(-t));return Math.round(sig*92+4);}
 
-/* ── Radar chart (pure canvas, no lib) ── */
+/* ── Radar chart (brutalist B&W — thick black lines, transparent fill) ── */
 function drawRadar(canvas, scores, colors){
+  var dpr=window.devicePixelRatio||1;
+  var rect=canvas.getBoundingClientRect();
+  var cssW=Math.floor(rect.width||canvas.width);
+  var cssH=Math.floor(rect.height||canvas.height);
+  if(canvas.width!==cssW*dpr||canvas.height!==cssH*dpr){
+    canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  }
   var ctx=canvas.getContext('2d');
-  // Use logical size for drawing, canvas element size handles display scaling
-  var W=canvas.width, H=canvas.height, cx=W/2, cy=H/2;
-  // Keep R small enough that labels at R+40 never exceed the canvas bounds
-  var R=Math.min(W,H)*0.30; // 30% of canvas size leaves ample label room
-  var labels, n=3;
+  ctx.clearRect(0,0,cssW*dpr,cssH*dpr);
+  ctx.save(); ctx.scale(dpr,dpr);
+  var W=cssW, H=cssH, cx=W/2, cy=H/2;
+  var R=Math.min(W,H)*0.30;
+  var labels=['基础信息','社会生活方向','个人认同'], n=labels.length;
   var lang=window.I18N_CURRENT||'zh-CN';
-  if(lang==='en-US')   labels=['Baseline','Social & Life','Personal Identity'];
-  else if(lang==='en-PH') labels=['Baseline','Social & Life','Personal Identity'];
-  else if(lang==='es-US') labels=['Base','Social y Vida','Identidad Personal'];
-  else if(lang==='zh-TW') labels=['基礎資訊','社會生活方向','個人認同'];
-  else labels=['基础信息','社会生活方向','个人认同'];
-  n=labels.length;
+  if(lang==='zh-TW') labels=['基礎資訊','社會生活方向','個人認同'];
 
-  ctx.clearRect(0,0,W,H);
-
-  // Grid rings
+  // Grid rings — thin black hairlines
   for(var ring=1;ring<=5;ring++){
     var r=R*ring/5;
     ctx.beginPath();
@@ -51,18 +58,20 @@ function drawRadar(canvas, scores, colors){
       i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
     }
     ctx.closePath();
-    ctx.strokeStyle='rgba(14,165,233,0.13)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.strokeStyle = ring === 5 ? '#000000' : 'rgba(0,0,0,0.18)';
+    ctx.lineWidth = ring === 5 ? 2 : 1;
+    ctx.stroke();
   }
 
-  // Axes
+  // Axes — thin black lines from center to outer ring
   for(var i=0;i<n;i++){
     var angle=Math.PI*2*i/n-Math.PI/2;
     ctx.beginPath(); ctx.moveTo(cx,cy);
     ctx.lineTo(cx+R*Math.cos(angle),cy+R*Math.sin(angle));
-    ctx.strokeStyle='rgba(14,165,233,0.20)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.strokeStyle='rgba(0,0,0,0.30)'; ctx.lineWidth=1; ctx.stroke();
   }
 
-  // Data polygon
+  // Data polygon — TRANSPARENT fill, THICK BLACK stroke
   ctx.beginPath();
   for(var i=0;i<n;i++){
     var angle=Math.PI*2*i/n-Math.PI/2;
@@ -71,52 +80,48 @@ function drawRadar(canvas, scores, colors){
     i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
   }
   ctx.closePath();
-  ctx.fillStyle='rgba(14,165,233,0.14)'; ctx.fill();
-  ctx.strokeStyle='#7dd3fc'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.fillStyle='transparent'; ctx.fill();
+  ctx.strokeStyle='#000000'; ctx.lineWidth=4; ctx.lineJoin='miter'; ctx.stroke();
 
-  // Dots
+  // Data dots — solid black SQUARES (not circles)
   for(var i=0;i<n;i++){
     var angle=Math.PI*2*i/n-Math.PI/2;
     var v=Math.max(0.05,Math.min(100,scores[i]||0))/100;
     var x=cx+R*v*Math.cos(angle), y=cy+R*v*Math.sin(angle);
-    ctx.beginPath(); ctx.arc(x,y,4.5,0,Math.PI*2);
-    ctx.fillStyle='#0284c7'; ctx.fill();
-    ctx.strokeStyle='white'; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle='#000000';
+    ctx.fillRect(x-5, y-5, 10, 10);
+    ctx.strokeStyle='#FFFFFF'; ctx.lineWidth=1.5;
+    ctx.strokeRect(x-5, y-5, 10, 10);
   }
 
-  // Labels — set textAlign per-label based on horizontal position
-  var LABEL_DIST = R + 38; // distance from center to label anchor
-  ctx.font='600 12px "Noto Sans SC", sans-serif';
-  ctx.fillStyle='#334155';
+  // Labels — monospace, all black, uppercase context
+  var LABEL_DIST = R + 26;
+  ctx.font='700 11px "Space Mono", monospace';
+  ctx.fillStyle='#000000';
   ctx.textBaseline='middle';
   for(var i=0;i<n;i++){
     var angle=Math.PI*2*i/n-Math.PI/2;
     var lx=cx+LABEL_DIST*Math.cos(angle);
     var ly=cy+LABEL_DIST*Math.sin(angle);
-    // Align based on horizontal position to keep text within canvas
-    if(lx < cx-4)      ctx.textAlign='right';
-    else if(lx > cx+4) ctx.textAlign='left';
-    else                ctx.textAlign='center';
-    // Score value below label
+    ctx.textAlign='center';
     var scoreVal=Math.round(scores[i]||0);
-    ctx.fillStyle='#334155';
-    ctx.fillText(labels[i], lx, ly-8);
-    ctx.font='700 11px "Noto Sans SC", sans-serif';
-    ctx.fillStyle='#0284c7';
-    ctx.fillText(scoreVal, lx, ly+8);
-    ctx.font='600 12px "Noto Sans SC", sans-serif';
-    ctx.fillStyle='#334155';
+    ctx.font='700 11px "Space Mono", monospace';
+    ctx.fillStyle='#000000';
+    ctx.fillText(labels[i], lx, ly-9);
+    ctx.font='900 14px "Archivo Black", "Noto Sans SC", sans-serif';
+    ctx.fillText(scoreVal, lx, ly+9);
   }
   ctx.textBaseline='alphabetic';
 
-  // Center score
+  // Center score — display font on transparent (the surrounding inverted box handles bg)
   ctx.textAlign='center';
-  ctx.font='900 20px "Noto Sans SC", sans-serif';
-  ctx.fillStyle='#0284c7';
-  ctx.fillText(finalScore,cx,cy+6);
-  ctx.font='400 10px "Noto Sans SC", sans-serif';
-  ctx.fillStyle='#94a3b8';
+  ctx.font='900 22px "Archivo Black", "Noto Sans SC", sans-serif';
+  ctx.fillStyle='#000000';
+  ctx.fillText(formatScorePrecise(finalScorePrecise),cx,cy+4);
+  ctx.font='700 10px "Space Mono", monospace';
+  ctx.fillStyle='#000000';
   ctx.fillText('/ 150',cx,cy+20);
+  ctx.restore();
 }
 
 /* ── Dimension deep dives ── */
@@ -155,57 +160,6 @@ var DIM_DEEP={
       high:'你的個人認同得分優秀，顯示出清晰的價值觀、穩健的心理狀態和明確的人生方向。',
     },
   },
-  'en-US':{
-    basic:{
-      low:"Your Baseline score is on the lower end — this typically reflects challenges in health, education, or living environment. These are starting points, not life sentences. Many high achievers started from disadvantaged conditions.",
-      mid:"Your Baseline is at a solid middle level. You have enough foundation to build on — the key is using what you have as a launchpad for the next stage.",
-      high:"Your Baseline score is excellent, showing strong foundational support in health, education, and living environment. This gives you a powerful platform to build everything else on.",
-    },
-    social:{
-      low:"Your Social & Life score is lower, which may reflect challenges in career, income, or your network. This is actually the most changeable dimension — deliberate effort here creates the biggest returns.",
-      mid:"Your Social & Life score is near average. You have resources and room to grow. The key question: how do you turn your current resources into the launchpad for the next phase?",
-      high:"Your Social & Life score is impressive, showing clear advantages in career, finances, or social influence. If you keep converting these advantages, you'll benefit from compounding effects.",
-    },
-    identity:{
-      low:"Your Personal Identity score is lower — meaning there's real room to grow in clarity of values, sense of direction, and psychological resilience. This dimension ultimately determines how you show up for your life.",
-      mid:"Your Personal Identity is in an exploratory phase. You have some self-awareness but haven't yet built a fully stable inner system. This is normal for most people before their 30s.",
-      high:"Your Personal Identity score is strong, showing clear values, psychological stability, and a defined life direction. This is inner strength in action — and the foundation for sustained action.",
-    },
-  },
-  'en-PH':{
-    basic:{
-      low:"Your Baseline score is on the lower end — this often reflects real structural challenges: access to healthcare, the school you attended, the barangay you grew up in. These are starting conditions, not life sentences. Many of the Philippines' most successful people started from exactly where you are now.",
-      mid:"Your Baseline is at a solid middle level. You have enough foundation to build on. The key now is intentional leverage — using what you already have as the launchpad for what comes next.",
-      high:"Your Baseline score is strong, showing solid foundational support in health, education, and living environment. This gives you a real platform. The question now is what you build on top of it.",
-    },
-    social:{
-      low:"Your Social & Life score is lower — this may reflect challenges in employment, income, or your network. In the Philippine context, this is often the most structurally constrained dimension, but also the most changeable through deliberate effort. One skill, one connection, one consistent habit can shift this significantly.",
-      mid:"Your Social & Life score is near average. You have real resources and real room to grow. The key question: how do you convert what you currently have into the launchpad for your next phase? One focused upgrade — income, network, or skills — can change the trajectory.",
-      high:"Your Social & Life score is impressive. You show clear advantages in career, finances, or social network. In the Philippine context, this level of social capital is genuinely rare. If you keep converting these advantages, you benefit from compounding effects that accelerate over time.",
-    },
-    identity:{
-      low:"Your Personal Identity score is lower — meaning there is real room to grow in clarity of values, sense of direction, and psychological resilience. In Philippine culture, external pressures — family expectations, peer norms, financial survival — can crowd out the space to figure out who you actually are. Carving out that space is the work.",
-      mid:"Your Personal Identity is in an exploratory phase. You have self-awareness but haven't yet built a fully stable inner system. This is normal and expected — especially when daily life in the Philippines demands so much practical energy. The investment in this dimension pays long-term dividends.",
-      high:"Your Personal Identity score is strong — clear values, psychological stability, and a defined sense of direction. In a culture that sometimes makes it hard to put yourself first, this is a genuine achievement. It is the foundation from which sustained, meaningful action flows.",
-    },
-  },
-  'es-US':{
-    basic:{
-      low:"Tu puntaje Base es bajo, lo que generalmente refleja desafíos en salud, educación o entorno de vida. Estos son puntos de partida, no sentencias. Muchas personas exitosas comenzaron desde condiciones desfavorables.",
-      mid:"Tu Base está en un nivel medio sólido. Tienes suficiente fundamento para construir — la clave es usar lo que tienes como trampolín para la siguiente etapa.",
-      high:"Tu puntaje Base es excelente, mostrando un sólido apoyo fundamental en salud, educación y entorno de vida. Esto te da una plataforma poderosa para construir todo lo demás.",
-    },
-    social:{
-      low:"Tu puntaje Social y Vida es bajo, lo que puede reflejar desafíos en carrera, ingresos o red de contactos. Esta es la dimensión más modificable — el esfuerzo deliberado aquí genera los mayores retornos.",
-      mid:"Tu puntaje Social y Vida está cerca del promedio. Tienes recursos y espacio para crecer. La pregunta clave: ¿cómo conviertes tus recursos actuales en el trampolín para la siguiente fase?",
-      high:"Tu puntaje Social y Vida es impresionante, mostrando ventajas claras en carrera, finanzas o influencia social. Si sigues convirtiendo estas ventajas, te beneficiarás de efectos compuestos.",
-    },
-    identity:{
-      low:"Tu puntaje de Identidad Personal es bajo — hay espacio real para crecer en claridad de valores, sentido de dirección y resiliencia psicológica. Esta dimensión determina cómo te presentas ante tu propia vida.",
-      mid:"Tu Identidad Personal está en una fase exploratoria. Tienes algo de autoconciencia pero aún no has construido un sistema interior completamente estable. Esto es normal para la mayoría de personas antes de los 30.",
-      high:"Tu puntaje de Identidad Personal es sólido, mostrando valores claros, estabilidad psicológica y una dirección de vida definida. Esto es fortaleza interior en acción — y la base para una acción sostenida.",
-    },
-  },
 };
 
 function dimTier(s){ if(s<40)return'low'; if(s<70)return'mid'; return'high'; }
@@ -213,21 +167,16 @@ function dimTier(s){ if(s<40)return'low'; if(s<70)return'mid'; return'high'; }
 function buildDimDeep(lang){
   var c=document.getElementById('dimDeepRows'); if(!c) return; c.innerHTML='';
   var conf=[
-    {key:'basic',    label_cn:'基础信息',label_tw:'基礎資訊',label_en:'Baseline',label_ph:'Baseline',label_es:'Base',  icon:'🧬',color:'#7dd3fc'},
-    {key:'social',   label_cn:'社会生活方向',label_tw:'社會生活方向',label_en:'Social & Life',label_ph:'Social & Life',label_es:'Social y Vida',  icon:'🏙️',color:'#0ea5e9'},
-    {key:'identity', label_cn:'个人认同',label_tw:'個人認同',label_en:'Personal Identity',label_ph:'Personal Identity',label_es:'Identidad Personal',  icon:'💡',color:'#10b981'},
+    {key:'basic',    label_cn:'基础信息',label_tw:'基礎資訊',  icon:'🧬',color:'#7dd3fc'},
+    {key:'social',   label_cn:'社会生活方向',label_tw:'社會生活方向',  icon:'🏙️',color:'#0ea5e9'},
+    {key:'identity', label_cn:'个人认同',label_tw:'個人認同',  icon:'💡',color:'#10b981'},
   ];
   conf.forEach(function(d){
     var score=dimPct&&dimPct[d.key]!=null?dimPct[d.key]:0;
     var t=dimTier(score);
-    var deepTexts=(DIM_DEEP[lang]||DIM_DEEP['en-US']||DIM_DEEP['zh-CN'])[d.key];
+    var deepTexts=(DIM_DEEP[lang]||DIM_DEEP['zh-CN'])[d.key];
     var text=deepTexts[t];
-    var label;
-    if(lang==='en-US') label=d.label_en;
-    else if(lang==='en-PH') label=d.label_ph||d.label_en;
-    else if(lang==='es-US') label=d.label_es;
-    else if(lang==='zh-TW') label=d.label_tw;
-    else label=d.label_cn;
+    var label=lang==='zh-TW'?d.label_tw:d.label_cn;
     var pct=score;
 
     var card=document.createElement('div'); card.className='dim-deep-card';
@@ -236,12 +185,11 @@ function buildDimDeep(lang){
         '<span class="ddc-icon">'+d.icon+'</span>'+
         '<div class="ddc-meta">'+
           '<span class="ddc-label">'+label+'</span>'+
-          '<span class="ddc-score" style="color:'+d.color+'">'+score+'<small> / 150</small></span>'+
+          '<span class="ddc-score" style="color:'+d.color+'">'+score+'<small> / 100</small></span>'+
         '</div>'+
         '<div class="ddc-bar-wrap"><div class="ddc-bar-track"><div class="ddc-bar-fill" data-pct="'+pct+'" style="width:0;background:'+d.color+'"></div></div></div>'+
       '</div>'+
       '<div class="ddc-body">'+text+'</div>'+
-      buildQSummary(d.key, lang)+
     '';
     c.appendChild(card);
   });
@@ -250,219 +198,49 @@ function buildDimDeep(lang){
   },400);
 }
 
-function buildQSummary(sectionKey, lang){
-  if(!answerMap||!getBank()) return '';
-  var items=[];
-  getBank().forEach(function(q){
-    if(q.section!==sectionKey||!q.scorable||!answerMap[q.id]) return;
-    var oi=answerMap[q.id].questionIdx;
-    var opt=q.options[oi];
-    /* Guard against undefined option (stale answer from branching) */
-    if(!opt) return;
-    var maxOpt=Math.max.apply(null,q.options.map(function(o){return o.score||0;}));
-    items.push({q:q, oi:oi, opt:opt, score:opt.score||0, max:maxOpt});
-  });
-  if(!items.length) return '';
-  var rows=items.map(function(item){
-    var qText=window.qlang?window.qlang(item.q):(lang==='zh-TW'?item.q.tw:item.q.cn);
-    /* Use stored optionText from answerMap to avoid undefined */
-    var oText;
-    if(lang==='en-US') oText=answerMap[item.q.id].optionText_en||answerMap[item.q.id].optionText_cn||item.opt.en||item.opt.cn||'';
-    else if(lang==='en-PH') oText=answerMap[item.q.id].optionText_ph||answerMap[item.q.id].optionText_en||item.opt.ph||item.opt.en||item.opt.cn||'';
-    else if(lang==='es-US') oText=answerMap[item.q.id].optionText_es||answerMap[item.q.id].optionText_en||item.opt.es||item.opt.en||item.opt.cn||'';
-    else if(lang==='zh-TW') oText=answerMap[item.q.id].optionText_tw||item.opt.tw||item.opt.cn||'';
-    else oText=answerMap[item.q.id].optionText_cn||item.opt.cn||'';
-    /* noImprove questions: show raw score. Others: show percentage bar but hide raw number */
-    var isNoImprove=!!item.q.noImprove;
-    var pct=item.max>0 ? Math.round(item.score/item.max*100) : 0;
-    var color=pct>=75?'#10b981':pct>=50?'#f59e0b':'#ef4444';
-    var _pts=lang==='en-US'||lang==='en-PH'?'pts':(lang==='es-US'?'pts':'分');
-    var scoreDisplay = isNoImprove
-      ? '<div class="qs-pct qs-raw" style="color:#6366f1">'+item.score+_pts+'</div>'
-      : '<div class="qs-bar"><div class="qs-fill" style="width:'+pct+'%;background:'+color+'"></div></div>';
-    return '<div class="qs-row">'+
-      '<div class="qs-q">'+qText+'</div>'+
-      '<div class="qs-a">'+oText+'</div>'+
-      scoreDisplay+
-      '</div>';
-  }).join('');
-  return '<div class="qs-wrap">'+rows+'</div>';
-}
+/* The scoring function explainer previously rendered here has been
+   moved to database.html. The analysis page now shows personalized
+   results only. See window.LSScoringRegistry and database.html. */
 
-/* ── Q breakdown ── */
-var activeFilter='all';
-function buildQBreakdown(lang){
-  var c=document.getElementById('qBreakdownRows'); if(!c||!answerMap||!getBank()) return;
-  c.innerHTML='';
-  /* Fix: 7 letters to cover all question options including 7-option income/net worth questions */
-  var letters=['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O'];
-  var shown=0;
-  getBank().forEach(function(q,qi){
-    if(!answerMap[q.id]) return;
-    if(activeFilter!=='all'&&q.section!==activeFilter) return;
-
-    var aData=answerMap[q.id];
-    var oi=aData.questionIdx;
-    /* Guard: if oi is out of range (e.g. branched question with stale answer) skip */
-    if(oi===undefined||oi===null||!q.options[oi]) return;
-    var opt=q.options[oi];
-
-    var maxScore=Math.max.apply(null,q.options.map(function(o){return o.score||0;}));
-    var qText=window.qlang?window.qlang(q):(lang==='zh-TW'?q.tw:q.cn);
-    var mc=SECTION_COLORS[q.section]||'#7dd3fc';
-
-    /* Score display logic:
-       - noImprove questions (A1 age, A4 birthplace): show raw option score directly, no comparison
-       - All other scorable questions: show score chip but HIDE individual option scores
-       - Non-scorable questions: no score display at all */
-    var isNoImprove = !!q.noImprove;
-    var scorePct = q.scorable&&maxScore>0 ? Math.round((opt.score||0)/maxScore*100) : 50;
-    var scoreColor = scorePct>=75?'#10b981':scorePct>=50?'#f59e0b':'#ef4444';
-    var scoreChipHtml = '';
-    var _rawLabel=lang==='en-US'?'Raw: ':(lang==='es-US'?'Puntaje: ':(lang==='en-US'?'Raw: ':(lang==='es-US'?'Puntaje: ':'原始分：')));
-    var _scoreLabel=lang==='en-US'?'Score ':(lang==='es-US'?'Puntaje ':(lang==='en-US'?'Score ':(lang==='es-US'?'Puntaje ':'得分 ')));
-    if(isNoImprove && q.scorable){
-      scoreChipHtml='<span class="qb-score-chip qb-score-raw" style="color:#6366f1;background:#6366f118">'+_rawLabel+(opt.score||0)+'</span>';
-    } else if(q.scorable){
-      scoreChipHtml='<span class="qb-score-chip" style="color:'+scoreColor+';background:'+scoreColor+'18">'+_scoreLabel+(opt.score||0)+' / '+maxScore+'</span>';
-    }
-
-    var card=document.createElement('div'); card.className='qb-card'; card.dataset.section=q.section;
-
-    /* Build options list:
-       - Selected option: highlighted, show "你的选择" tag
-       - Other options: show text only — NO individual scores (per spec: hide all option scores) */
-    var optsHtml=q.options.map(function(o,i){
-      /* Guard: option text can be undefined for 6/7-option questions if letters array was short */
-      var text=(lang==='en-US'?(o.en||o.cn):(lang==='en-PH'?(o.ph||o.en||o.cn):(lang==='es-US'?(o.es||o.en||o.cn):(lang==='zh-TW'?o.tw:o.cn))))||'';
-      var isSel=i===oi;
-      /* Best-option marker only shown on selected item for context; never shows score number */
-      var isBest=o.score===maxScore&&o.score>0&&!isNoImprove;
-      return '<div class="qb-opt'+(isSel?' qb-opt--sel':'')+(isBest&&isSel?' qb-opt--best':'')+'">'+
-        '<span class="qb-letter">'+(letters[i]||'?')+'</span>'+
-        '<span class="qb-otext">'+text+'</span>'+
-        (isSel?'<span class="qb-you">'+(lang==='en-US'||lang==='en-PH'?'Your pick':(lang==='es-US'?'Tu elección':(lang==='zh-TW'?'你的選擇':'你的选择')))+'</span>':'')+
-        /* Intentionally omit score numbers per requirement */
-        '</div>';
-    }).join('');
-
-    card.innerHTML=
-      '<div class="qb-header">'+
-        '<span class="qb-num" style="background:'+mc+'18;color:'+mc+'">'+(shown+1)+'</span>'+
-        '<span class="qb-section-dot" style="background:'+mc+'"></span>'+
-        '<span class="qb-section-name">'+(lang==='en-US'||lang==='en-PH'?(q.section==='basic'?'Background':q.section==='social'?'Social & Life':'Personal Identity'):(lang==='es-US'?(q.section==='basic'?'Información básica':q.section==='social'?'Social y vida':'Identidad personal'):(lang==='zh-TW'?(q.section==='basic'?'基礎資訊':q.section==='social'?'社會生活方向':'個人認同'):(q.section==='basic'?'基础信息':q.section==='social'?'社会生活方向':'个人认同'))))+'</span>'+
-        scoreChipHtml+
-      '</div>'+
-      '<div class="qb-q">'+qText+'</div>'+
-      '<div class="qb-opts">'+optsHtml+'</div>';
-    c.appendChild(card);
-    shown++;
-  });
-  if(shown===0) c.innerHTML='<div class="empty-note">'+(lang==='en-US'||lang==='en-PH'?'No questions match this filter.':(lang==='es-US'?'Ninguna pregunta coincide con este filtro.':(lang==='zh-TW'?'此篩選條件下無題目。':'此筛选条件下无题目。')))+'</div>';
-}
 
 /* ── Insights ── */
 var INSIGHTS={
-  'en-US':[
-    {
-      test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
-      icon:'⚠️', color:'#f59e0b',
-      title:'Untapped Potential',
-      text:'Your baseline conditions are stronger than most, but your Social & Life score hasn\'t caught up. You have more starting-line advantages than you realize — the key is converting them systematically into outcomes.',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
-      icon:'💭', color:'#0ea5e9',
-      title:'Thinker Who Needs to Act',
-      text:'Strong self-awareness, rich inner world — but your Social & Life score hasn\'t caught up. Block 30 minutes each week as your "execution window" dedicated to the one thing you already know needs to happen.',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
-      icon:'🏃', color:'#10b981',
-      title:'Running Fast Without a Compass',
-      text:'You\'re achieving externally — career, income, status — but your Personal Identity score suggests your inner compass needs recalibration. Carve out time weekly to ask yourself: what do I actually want my life to look like?',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.basic<40&&dimPct.identity>70; },
-      icon:'💪', color:'#8b5cf6',
-      title:'Rising Against the Odds',
-      text:'Your baseline is challenging, but your personal identity — values, resilience, self-direction — is strong. Your greatest asset is not your circumstances; it\'s how you interpret and act on them.',
-    },
-    {
-      test:function(){ return finalScore>100; },
-      icon:'🌟', color:'#f59e0b',
-      title:'Elite Territory',
-      text:'Scoring above 100 means you\'ve excelled across standard dimensions and demonstrated externally verifiable elite accomplishments. At this level, your biggest risk is complacency, not lack of ability.',
-    },
-  ],
-  'es-US':[
-    {
-      test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
-      icon:'⚠️', color:'#f59e0b',
-      title:'Potencial sin aprovechar',
-      text:'Tus condiciones base son más sólidas que las de la mayoría, pero tu puntaje Social y Vida no ha alcanzado ese nivel. Tienes más ventajas de partida de las que reconoces — la clave es convertirlas sistemáticamente en resultados.',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
-      icon:'💭', color:'#0ea5e9',
-      title:'Pensador que necesita actuar',
-      text:'Fuerte autoconciencia, rico mundo interior — pero tu puntaje Social y Vida no ha alcanzado el mismo nivel. Bloquea 30 minutos semanales como tu "ventana de ejecución" para avanzar en lo que ya sabes que debes hacer.',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
-      icon:'🏃', color:'#10b981',
-      title:'Corriendo sin brújula',
-      text:'Logras metas externas — carrera, ingresos, posición — pero tu Identidad Personal sugiere que tu brújula interior necesita recalibración. Dedica tiempo semanal a preguntarte: ¿qué quiero realmente que sea mi vida?',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.basic<40&&dimPct.identity>70; },
-      icon:'💪', color:'#8b5cf6',
-      title:'Superando las dificultades',
-      text:'Tu base es desafiante, pero tu identidad personal es fuerte. Tu mayor activo no son tus circunstancias; es cómo las interpretas y actúas sobre ellas.',
-    },
-    {
-      test:function(){ return finalScore>100; },
-      icon:'🌟', color:'#f59e0b',
-      title:'Territorio élite',
-      text:'Superar los 100 puntos significa que destacaste en todas las dimensiones y demostraste logros élite verificables. En este nivel, tu mayor riesgo es la complacencia, no la falta de habilidad.',
-    },
-  ],
   'zh-CN':[
     {
       test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
       icon:'⚠️', color:'#f59e0b',
       title:'潜力未被充分释放',
-      text:'你的基础条件（健康、教育、环境）优于大多数人，但社会生活方向还未跟上基础的水平。这说明你的外部资源转化效率有待提升。建议认真检视你的职业路径和人际策略——你拥有比你意识到的更多的起点优势，关键在于将它系统化地变为现实。',
+      text:'说实话，你的底子比大多数人都好——健康、教育、成长环境，这些牌都不差。但奇怪的是，你在职业发展和社会影响力上，还没把这些好牌打出去。这不是能力问题，更像是一个转化率的问题：你拥有的资源远超你正在使用的。也许你需要的不是更多的准备，而是一次认真的行动——重新审视你的职业选择和人际圈子，问自己一个尖锐的问题：如果我的起点比大多数人好，为什么我的现状没有体现出来？',
     },
     {
       test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
       icon:'💭', color:'#0ea5e9',
       title:'思考者，但行动不足',
-      text:'你有很强的自我认知和理想主义色彩，但在社会生活方向和实际成就方面还没有完全体现出来。内在世界的丰富很宝贵，但需要找到"将想法变现"的转换机制。建议：每周设定一个30分钟的"执行时段"，专门用于推进你脑海中已经有答案的事。',
+      text:'你是那种想得很深、看得很透的人——价值观清晰，对人生有自己的理解。但问题是，你脑子里的蓝图和现实生活之间，隔着一堵叫做执行的墙。你可能已经在心里规划了无数次完美的人生路径，却迟迟没有迈出第一步。这不是因为你懒，而是因为你对不够完美的行动有一种本能的抗拒。但真相是：一个60分的行动，永远比一个100分的计划更有价值。试着每周拿出半小时，只做一件你早就知道该做的事——不追求完美，只追求完成。',
     },
     {
       test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
       icon:'🏃', color:'#ef4444',
       title:'外部成功，内在空洞',
-      text:'你在社会生活方向维度表现突出，但个人认同得分较低——这是一个经典的"成功陷阱"。职业上升和财富积累往往掩盖了对意义感和价值观的忽视。警惕：没有内在锚点的外部成功往往在中年危机时轰然倒塌。建议每季度花一天做一次"人生复盘"。',
+      text:'从外面看，你过得不错——收入、职位、社会关系都拿得出手。但你自己心里清楚，这些成就并没有带来你想象中的满足感。你甚至可能在某些深夜问过自己：我这么努力到底是为了什么？这不是矫情，这是一个信号——你的外在成就已经跑得太快，内心的意义感没跟上。很多事业有成的人会在四十岁前后突然遭遇一场意义危机，所有的头衔和数字突然变得空洞。不要等到那一天。每个季度给自己一天安静的时间，不带手机，认真想想：如果明天不需要赚钱了，我想过什么样的生活？',
     },
     {
       test:function(){ return finalScore>90; },
       icon:'🌟', color:'#10b981',
       title:'高均衡者',
-      text:'你在三个维度都保持了较高水平，这是极少数人能达到的状态。维持这种均衡比实现它更难。你最大的风险是"高原期"——需要不断主动引入新的挑战来避免停滞。在这个阶段，你应该开始思考如何将自身积累的经验系统化传递给他人。',
+      text:'能在健康、社会发展和内在认同三个方向同时保持高水平，这真的很少见——你不是某一项突出，而是全面地活得很好。但恰恰因为太稳了，你现在面临的最大敌人反而是舒适区。当一切都不错的时候，人很容易失去继续突破的动力，开始进入维持模式。而真正的卓越者和普通优秀者的分水岭，恰恰就在这里。你现在应该做的，不是继续优化自己，而是开始思考一个更大的问题：你能帮助谁？把你走过的路变成一套可以传递的方法论——这既是对他人的贡献，也是你自己持续成长的最好方式。',
     },
     {
       test:function(){ return finalScore<35; },
       icon:'🌱', color:'#7dd3fc',
       title:'起步者，潜力巨大',
-      text:'低分不代表差，而代表巨大的成长空间。你现在的状态是一张白纸，每一步努力都会直接反映在分数上。研究表明，起点低的人往往因为感受到更明显的进步而获得更强的内在动力。关键是：不要和终点比较，要和昨天的自己比较。',
+      text:'分数不高，我知道看到这个数字可能会有点沮丧。但我想告诉你一个很多人不知道的事实：起点低，反而是一种隐藏的优势。因为你每做出一点改变，进步的感受都会特别强烈和真实——而这种看得见的进步，恰恰是驱动人持续行动的最强燃料。那些起点高的人往往因为进步微小而失去动力，但你不会。你现在需要做的只有一件事：停止和别人比较，只和昨天的自己比较。今晚早睡30分钟，明天多走2000步，这周主动联系一个重要的人——每一个微小的行动，都会在你的人生里产生你现在还无法想象的复利效应。',
     },
     {
       test:function(){ var d=dimPct; if(!d) return false; var v=[d.basic,d.social,d.identity]; var max=Math.max.apply(null,v),min=Math.min.apply(null,v); return max-min>40; },
       icon:'⚖️', color:'#f59e0b',
       title:'发展极度不均衡',
-      text:'你的三个维度之间差距超过40分，说明你在某一方面有明显优势，但也有明显短板。这种不均衡长期来看会成为瓶颈。建议优先补强最弱的维度——木桶理论在个人发展中同样有效，最短的那块木板决定了你能盛多少水。',
+      text:'你的三个维度之间拉开了一条很大的裂缝——某些方面你做得相当出色，但另一些方面明显拖了后腿。这种极度不均衡短期内可能感觉不到问题，但长期来看它会变成一个隐形天花板：你最强的那项能力能把你带到的高度，最终会被你最弱的那项能力封死。就像一个体能极好但情绪管理很差的运动员，他的天赋最终会被他的脾气毁掉。现在最值得投入精力的，不是继续强化你本来就强的方向，而是把最弱的那个维度拉到及格线以上。补短板的回报率，在你目前这个阶段，远远高于拉长板。',
     },
     /* ── 净资产相关洞察（对应B4的15个选项，oi 0-14）
        oi 0  = 负债
@@ -487,7 +265,7 @@ var INSIGHTS={
       },
       icon:'💸', color:'#ef4444',
       title:'负债状态：优先止血，再谈积累',
-      text:'你目前处于净负债状态。这并不少见，但它意味着你的财务系统在持续失血，必须在积累之前先解决这个问题。行动清单：① 列出所有负债，按利率高低排序；② 优先偿还高息消费贷和信用卡；③ 维持最低生活保障的同时，不新增非必要负债；④ 一旦负债缩减至可控范围，立即建立1个月的应急储备。负债本身不是问题——没有计划才是。',
+      text:'负债这件事，很多人不好意思承认，但它其实比你想象的常见得多。问题不在于你现在欠着钱——问题在于你有没有一个明确的止血计划。如果没有计划，负债就像一个伤口在持续流血，不管你赚多少都填不满。现在要做的很简单但必须立刻开始：把所有欠的钱列出来，按利率从高到低排队——信用卡和消费贷排在最前面，房贷排在最后。集中火力先干掉利率最高的那笔，同时从今天起不新增任何非必要的借贷。负债不可怕，没有还债路线图才可怕。',
     },
     {
       test:function(){
@@ -497,7 +275,7 @@ var INSIGHTS={
       },
       icon:'🌱', color:'#ef4444',
       title:'净资产几乎为零：从第一步开始',
-      text:'净资产接近于零，但这正是积累的起点。在这个阶段，习惯比金额更重要。关键行动：① 建立"先存后花"反射——每次收入到账立即转走10%，哪怕只有几十元；② 消除所有非必要的循环支出（订阅、外卖惯性等）；③ 把精力放在提升收入上，而非省钱——收入弹性远大于支出压缩空间。第一个1万元是最难的。',
+      text:'账户里几乎没有余额——这个现实可能让你焦虑，但换个角度看，你正站在一个干净的起跑线上。在这个阶段，存多少钱不重要，重要的是你能不能养成先存后花的反射：每次钱进来，第一件事不是花，而是先转走一小部分放到一个你不会轻易碰的地方——哪怕只有50块钱。这个习惯一旦建立，你的财务轨迹就会开始悄悄改变。同时别忘了：在这个阶段你最大的杠杆不是省钱，而是赚钱。收入的上升空间远远大于支出的压缩空间。把精力花在怎么让自己更值钱上面，比纠结要不要少点一杯奶茶有用一百倍。',
     },
     {
       test:function(){
@@ -507,7 +285,7 @@ var INSIGHTS={
       },
       icon:'🌿', color:'#f59e0b',
       title:'小额净资产：建立财务肌肉记忆',
-      text:'你有了第一批净资产，但还非常脆弱——一次意外支出就可能归零。这个阶段的核心任务是建立财务系统的韧性。建议：① 把现有积蓄放入货币基金或活期理财（稳定、可随时取用）；② 建立记账习惯，了解钱去哪里；③ 开始学习最基础的个人财务知识（预算、复利）。现在每多存1元，未来的复利效果都是数倍的。',
+      text:'你已经有了第一笔积蓄，虽然金额不大，但这意味着你已经迨过了从零到有的那道坎——很多人卡在这一步卡了好几年。现在最需要做的事情是保护好这笔钱：把它放到随时能取但不会随手花掉的地方，比如货币基金。然后开始做一件听起来无聊但极其有用的事——记账。不是记每一笔，而是每个月结束时花十分钟看一眼：我的钱到底去哪了？当你开始清楚地看见自己的消费结构，很多不必要的支出会自然消失。记住，你现在存下的每一块钱，在未来二十年的复利作用下，价值是今天的好几倍。',
     },
     {
       test:function(){
@@ -517,7 +295,7 @@ var INSIGHTS={
       },
       icon:'💡', color:'#f59e0b',
       title:'初步积累：从储蓄者到理财者的转变',
-      text:'拥有1万至10万净资产，你已经完成了从"零"到"有"的第一步。这个阶段的关键转变是：从被动储蓄变为主动理财。建议：① 建立3-6个月应急储备（余额宝等货币基金）；② 在应急储备之外开始定投宽基指数基金（每月固定金额）；③ 了解自己的消费结构，设定储蓄率目标（20%以上为佳）。时间复利的窗口正在打开。',
+      text:'手里有了1万到10万的积蓄——恭喜你，你已经完成了理财旅程中最难的一步：从零开始。现在你面临的是一个心态上的转变：从存钱升级到让钱替你工作。第一件事是确保你有一笔3到6个月生活费的应急储备，放在随时能取的地方，这是你的安全垫。在安全垫之外的钱，可以开始每月固定投一点宽基指数基金——不需要懂股票，不需要看行情，只需要设定好自动扣款然后忘掉它。时间复利的窗口正在为你打开，而你越早开始，这扇窗口给你的回报就越大。',
     },
     {
       test:function(){
@@ -527,7 +305,7 @@ var INSIGHTS={
       },
       icon:'📊', color:'#7dd3fc',
       title:'10-50万净资产：进入资产配置意识阶段',
-      text:'10万至50万净资产，你已经越过了绝大多数同龄人"月光"的阶段，开始有了真正的财务缓冲。这个阶段要完成思维升级：① 应急储备已经到位，余量资金可以承担更高风险换取更高回报；② 开始学习股票型基金和ETF的基本逻辑；③ 评估是否需要购买意外险和医疗险来保护已有积累；④ 如果有购房计划，开始研究目标城市的房价与首付能力。',
+      text:'10万到50万——你已经甩开了身边大多数月光族，拥有了一笔真正意义上的财务缓冲。这个阶段你要做的事情不再是多存钱这么简单了，而是要开始认真想一个问题：我这笔钱除了躺在那里，还能怎么更聪明地为我工作？应急储备已经到位的话，多出来的钱可以开始学着做资产配置了——了解一下股票型基金和ETF是怎么回事，不需要变成投资专家，只需要明白基本的逻辑。同时有两件事值得现在就做：考虑给自己买一份意外险和医疗险来保护已有的积累，以及如果你有购房打算，是时候认真研究目标城市的房价和你的首付能力了。',
     },
     {
       test:function(){
@@ -537,7 +315,7 @@ var INSIGHTS={
       },
       icon:'🏠', color:'#7dd3fc',
       title:'50-100万净资产：接近首套房门槛的关键区',
-      text:'50万至100万净资产，这是很多城市首套房首付的区间，也是财务决策开始真正复杂的阶段。核心问题：买房还是继续投资？建议：① 如果购房是刚需，评估月供压力与收入比（建议不超过40%）；② 如果不急着买房，这个量级已经可以进行多元资产配置（50%权益+30%固收+20%现金）；③ 考虑购买定期寿险和重疾险，保护已有资产；④ 开始建立投资记录和收益追踪习惯。',
+      text:'50万到100万——你正站在一个很多人梦寐以求的位置上。在不少城市，这个数字已经够得上首套房的首付了。但也正因如此，你现在面临的决策变得前所未有的复杂：买房还是继续投资？这个问题没有标准答案，但有几个思考框架可以帮你：如果买房是刚需，先算清楚月供占收入的比例——超过40%的话你的生活质量会被严重压缩。如果不急着买房，这个量级的资金已经可以做真正意义上的多元配置了。同时别忘了一件容易被忽略的事：给自己买一份定期寿险和重疾险——你花了好几年才积累到这个数字，不要让一次意外就把它清零。',
     },
     {
       test:function(){
@@ -547,7 +325,7 @@ var INSIGHTS={
       },
       icon:'🏗️', color:'#10b981',
       title:'百万净资产：从储蓄型转向资产配置型',
-      text:'净资产达到100万至500万，你已迈过了一个心理门槛——财富积累的飞轮开始转动。下一阶段的核心不再是"多存钱"，而是"让钱更有效地工作"。建议：① 建立正式的资产配置框架（目标年化回报率是多少？能承受多大波动？）；② 房产占比过高的话，考虑是否需要增加流动资产；③ 购买足额寿险/重疾险，保护资产不被医疗风险一次性清零；④ 学习税务筹划基础知识，合法降低税负。',
+      text:'突破了一百万——这不仅是一个数字，更是一个心理门槛。你已经从攒钱的阶段进入了管钱的阶段，财富积累的飞轮开始有了自己的转速。但这个阶段也是最容易犯错的时候，因为你的资产规模已经大到一个错误决策可能让你倒退好几年。现在你需要认真考虑几件事：你的钱是不是太集中在房产上了？如果房产占比超过70%，你的资产其实是高度不流动的——遇到急需用钱的情况会非常被动。同时这个量级的资产已经值得你开始了解税务筹划的基础知识。还有一件容易被忽视的事：确保你的保险额度跟上了你的资产规模——100万的积蓄如果被一场大病清零，那才是真正的灾难。',
     },
     {
       test:function(){
@@ -557,7 +335,7 @@ var INSIGHTS={
       },
       icon:'📈', color:'#10b981',
       title:'千万门槛：财富管理逻辑的根本转变',
-      text:'净资产接近1000万，你正在进入一个全新的财富管理维度。在这个量级，财富的增长逻辑从"赚钱存钱"转向"系统性保值增值"。关键行动：① 重新审视资产结构——房产/股权/现金/固收的比例是否符合你的风险承受能力和流动性需求？② 开始思考税务规划（个人持有vs公司架构）；③ 考虑是否需要专业的财富管理顾问；④ 为家庭成员的意外风险建立充足的保障层。',
+      text:'接近千万净资产，你的财富已经进入了一个完全不同的游戏——这个量级的钱，靠赚得多花得少已经不够了，你需要的是系统性的保值增值策略。这意味着你得认真审视你的整个资产结构：房产、股权、现金、固收各占多少比例？这个比例是你主动设计的，还是自然堆积形成的？如果是后者，现在是时候坐下来重新规划了。另外你需要开始思考一个问题：个人持有和公司架构之间的税负差异，可能每年给你省下一笔不小的钱。如果你还没有一位专业的财富管理顾问，现在是寻找的好时机——注意，是真正的独立顾问，而不是银行的理财经理。',
     },
     {
       test:function(){
@@ -567,7 +345,7 @@ var INSIGHTS={
       },
       icon:'🏛️', color:'#6366f1',
       title:'千万至亿级：高净值财富的护城河建设',
-      text:'净资产1000万至1亿，你已进入高净值群体——中国约有200万个家庭到达这个区间。在这个层级，财富最大的威胁不是赚不够，而是"失去"：税务风险、法律纠纷、家庭变故、健康意外。建议：① 建立正式的家族财富保护架构（信托/控股公司）；② 持有充足的流动资产（不低于净资产的20%）；③ 聘请专业私人财富顾问，而非依赖银行理财经理；④ 开始认真规划财富的代际传承。',
+      text:'千万到亿级——你已经站在了大多数人一辈子都到不了的位置上。但在这个层级，财富游戏的规则发生了根本性的改变：你最大的敌人不再是赚得不够多，而是失去。一场突如其来的税务稽查、一次法律纠纷、一个家庭变故——任何一件都可能让你的财富一夜之间缩水几成。所以你现在最重要的事不是让钱变得更多，而是给它修一道足够高的护城河：考虑设立正式的家族信托或控股公司来保护资产；确保你的流动资产不低于总净资产的20%——很多富人破产不是因为穷，而是因为有钱但拿不出来；开始认真规划财富的代际传承。',
     },
     {
       test:function(){
@@ -577,7 +355,7 @@ var INSIGHTS={
       },
       icon:'🌍', color:'#0284c7',
       title:'亿级资产：财富的使命与边界',
-      text:'净资产超过1亿，你已进入极少数人才能到达的财富层级。在这里，财富管理的核心命题变了——不再是"如何积累更多"，而是"如何让财富持续产生意义"。这个层级的挑战：① 个人努力的边际贡献下降，系统、团队和品牌的价值上升；② 财富的传承与社会影响成为真正的战略问题；③ 健康、关系和精神资本是任何财富都无法买回的东西——投入精力保护它们；④ 思考你的财富能为社会解决什么问题，这是一个真正值得花精力的问题。',
+      text:'净资产过亿——在这个位置上，关于怎么赚更多钱的建议对你已经毫无意义了。你面对的是一个完全不同的命题：你的财富能为这个世界做什么？这不是道德说教，而是一个真实的战略问题——当个人努力的边际贡献越来越小的时候，你的影响力必须通过系统、团队和品牌来放大，否则你最终会被自己的财富困住而不是被它解放。同时有一件事你比任何人都清楚但可能一直在回避：健康、亲密关系和内心的平静，是任何数字都买不回来的东西。你见过太多身家过亿却活得并不幸福的人。不要让自己成为其中之一。',
     },
     /* 健康与财富组合洞察 */
     {
@@ -589,7 +367,7 @@ var INSIGHTS={
       },
       icon:'⚕️', color:'#ef4444',
       title:'用健康换取的成就，迟早要还回去',
-      text:'你的社会生活方向维度表现不错，但健康和睡眠状况堪忧。这是一个危险的组合——许多职场高成就者在40岁前后因健康问题而被迫中断事业。建议立即评估你的睡眠债务，将"7小时睡眠"设为不可协商的底线。身体是最贵的"生产工具"，投资在它身上的回报率是最高的。',
+      text:'你在事业和社会发展上做得不错，但你的身体正在替你的成就买单——健康指标和睡眠质量都亮了红灯。我见过太多这样的故事：一个人花了十年拼命往上爬，结果在三十八九岁的某一天身体突然发出一声巨响——可能是一次体检报告上的异常数字，可能是一次凌晨的急诊。然后所有积累的东西都被按下了暂停键。你现在可能觉得自己还抗得住，但抗得住和健康之间的距离比你想象的近得多。今晚开始，把睡奇7小时当成和完成KPI一样不可协商的底线。你的身体不是消耗品，它是你所有成就的硬件基础——一旦硬件崩溃，上面运行的所有软件都会跟着停摆。',
     },
     /* 社交与认同组合洞察 */
     {
@@ -598,7 +376,7 @@ var INSIGHTS={
       },
       icon:'🔮', color:'#0ea5e9',
       title:'内外倒置的成长轨迹',
-      text:'你的内在认知（价值观、目标感）和基础条件都不差，但社会生活方向得分明显拖后腿。这通常意味着一个问题：认知走在了行动前面，或者你在用内在满足感回避外部挑战。建议检视你的职业选择——是真正的内心热爱，还是对竞争的规避？',
+      text:'你是一个有想法、有认知深度的人，基础条件也不差——按理说，你应该在社会发展上走得更远。但现实是，你的职业成就和收入水平远远没有匹配上你的内在潜力。这里面藏着一个值得深挖的问题：你是真的选择了一条忠于内心的路，还是在用我追求的不是世俗成功来回避那些让你不舒服的竞争和挑战？这两者表面上看起来一模一样，但底层动机完全不同。诚实地问自己这个问题，答案可能会让你不太舒服——但那个不舒服的地方，恰恰就是你下一个突破口。',
     },
   ],
   'zh-TW':[
@@ -606,37 +384,37 @@ var INSIGHTS={
       test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
       icon:'⚠️', color:'#f59e0b',
       title:'潛力未被充分釋放',
-      text:'你的基礎條件（健康、教育、環境）優於大多數人，但社會生活方向還未跟上基礎的水平。這說明你的外部資源轉化效率有待提升。建議認真檢視你的職業路徑和人際策略——你擁有比你意識到的更多的起點優勢，關鍵在於將它系統化地變為現實。',
+      text:'說實話，你的底子比大多數人都好——健康、教育、成長環境，這些牌都不差。但奇怪的是，你在職業發展和社會影響力上，還沒把這些好牌打出去。這不是能力問題，更像是一個轉化率的問題：你擁有的資源遠超你正在使用的。也許你需要的不是更多的準備，而是一次認真的行動——重新審視你的職業選擇和人際圈子，問自己一個尖銳的問題：如果我的起點比大多數人好，為什麼我的現狀沒有體現出來？',
     },
     {
       test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
       icon:'💭', color:'#0ea5e9',
       title:'思考者，但行動不足',
-      text:'你有很強的自我認知和理想主義色彩，但在社會生活方向和實際成就方面還沒有完全體現出來。建議：每週設定一個30分鐘的「執行時段」，專門用於推進你腦海中已經有答案的事。',
+      text:'你是那種想得很深、看得很透的人——價值觀清晰，對人生有自己的理解。但問題是，你腦子裡的藍圖和現實生活之間，隔著一堵叫做執行的牆。你可能已經在心裡規劃了無數次完美的人生路徑，却遲遲沒有邁出第一步。這不是因為你懶，而是因為你對不夠完美的行動有一種本能的抗拒。但真相是：一個60分的行動，永遠比一個100分的計畫更有價值。試著每週拿出半小時，只做一件你早就知道該做的事——不追求完美，只追求完成。',
     },
     {
       test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
       icon:'🏃', color:'#ef4444',
       title:'外部成功，內在空洞',
-      text:'你在社會生活方向維度表現突出，但個人認同得分較低——這是一個經典的「成功陷阱」。建議每季度花一天做一次「人生復盤」，確保外部成就和內在意義保持對齊。',
+      text:'從外面看，你過得不錯——收入、職位、社會關係都拿得出手。但你自己心裡清楚，這些成就並沒有帶來你想像中的滿足感。你甚至可能在某些深夜問過自己：我這麼努力到底是為了什麼？這不是矯情，這是一個信號——你的外在成就已經跑得太快，內心的意義感沒跟上。不要等到四十歲前後的意義危機才開始面對。每個季度給自己一天安靜的時間，認真想想：如果明天不需要賺錢了，我想過什麼樣的生活？',
     },
     {
       test:function(){ return finalScore>90; },
       icon:'🌟', color:'#10b981',
       title:'高均衡者',
-      text:'你在三個維度都保持了較高水平，這是非常罕見的狀態。你最大的風險是「高原期」——需要不斷主動引入新的挑戰來避免停滯。在這個階段，你應該開始思考如何將自身積累的經驗系統化傳遞給他人。',
+      text:'能在三個維度同時保持高水準，這真的很少見——你不是某一項突出，而是全面地活得很好。但恰恰因為太穩了，你現在面臨的最大敵人反而是舒適區。當一切都不錯的時候，人很容易失去繼續突破的動力。你現在應該做的，不是繼續優化自己，而是開始思考一個更大的問題：你能幫助誰？把你走過的路變成一套可以傳遞的方法論——這既是對他人的貢獻，也是你自己持續成長的最好方式。',
     },
     {
       test:function(){ return finalScore<35; },
       icon:'🌱', color:'#7dd3fc',
       title:'起步者，潛力巨大',
-      text:'低分不代表差，而代表巨大的成長空間。關鍵是：不要和終點比較，要和昨天的自己比較。每一步努力都會直接反映在分數上。',
+      text:'分數不高，我知道看到這個數字可能會有點氮喪。但我想告訴你一個很多人不知道的事實：起點低，反而是一種隱藏的優勢。因為你每做出一點改變，進步的感受都會特別強烈和真實——而這種看得見的進步，恰恰是驅動人持續行動的最強燃料。你現在需要做的只有一件事：停止和別人比較，只和昨天的自己比較。今晚早睡30分鐘，明天多走2000步，這週主動聯繫一個重要的人——每一個微小的行動，都會在你的人生裡產生你現在還無法想像的複利效應。',
     },
     {
       test:function(){ var d=dimPct; if(!d) return false; var v=[d.basic,d.social,d.identity]; var max=Math.max.apply(null,v),min=Math.min.apply(null,v); return max-min>40; },
       icon:'⚖️', color:'#f59e0b',
       title:'發展極度不均衡',
-      text:'你的三個維度之間差距超過40分。最短的那塊木板決定了你能盛多少水。建議優先補強最弱的維度，而非繼續強化已強的維度。',
+      text:'你的三個維度之間拉開了一條很大的裂縫——某些方面你做得相當出色，但另一些方面明顯拖了後腿。這種極度不均衡短期內可能感覺不到問題，但長期來看它會變成一個隱形天花板：你最強的那項能力能把你帶到的高度，最終會被你最弱的那項能力封死。現在最值得投入精力的，不是繼續強化你本來就強的方向，而是把最弱的那個維度拉到及格線以上。補短板的回報率，在你目前這個階段，遠遠高於拉長板。',
     },
     {
       test:function(){
@@ -645,7 +423,7 @@ var INSIGHTS={
       },
       icon:'💸', color:'#ef4444',
       title:'負債狀態：優先止血，再談積累',
-      text:'你目前處於淨負債狀態。必須在積累之前先解決這個問題。行動清單：① 列出所有負債，按利率高低排序；② 優先償還高息消費貸和信用卡；③ 不新增非必要負債；④ 負債縮減至可控範圍後，立即建立1個月應急儲備。負債本身不是問題——沒有計劃才是。',
+      text:'負債這件事，很多人不好意思承認，但它其實比你想像的常見得多。問題不在於你現在欠著錢——問題在於你有沒有一個明確的止血計畫。如果沒有計畫，負債就像一個傷口在持續流血。現在要做的很簡單但必須立刻開始：把所有欠的錢列出來，按利率從高到低排隊——信用卡和消費貸排在最前面，房貸排在最後。集中火力先幹掉利率最高的那筆，同時從今天起不新增任何非必要的借貸。負債不可怕，沒有還債路線圖才可怕。',
     },
     {
       test:function(){
@@ -655,7 +433,7 @@ var INSIGHTS={
       },
       icon:'🌱', color:'#ef4444',
       title:'淨資產幾乎為零：從第一步開始',
-      text:'淨資產接近於零，但這正是積累的起點。在這個階段，習慣比金額更重要。關鍵行動：① 建立「先存後花」反射——每次收入到賬立即轉走10%；② 消除所有非必要的循環支出；③ 把精力放在提升收入上——收入彈性遠大於支出壓縮空間。第一個1萬元是最難的。',
+      text:'帳戶裡幾乎沒有餘額——這個現實可能讓你焦慮，但換個角度看，你正站在一個乾淨的起跑線上。在這個階段，存多少錢不重要，重要的是你能不能養成先存後花的反射：每次錢進來，第一件事不是花，而是先轉走一小部分放到一個你不會輕易碰的地方——哪怕只有50塊錢。這個習慣一旦建立，你的財務軌跡就會開始悄悄改變。同時別忘了：在這個階段你最大的槓桿不是省錢，而是賺錢。收入的上升空間遠遠大於支出的壓縮空間。',
     },
     {
       test:function(){
@@ -665,7 +443,7 @@ var INSIGHTS={
       },
       icon:'🌿', color:'#f59e0b',
       title:'小額淨資產：建立財務肌肉記憶',
-      text:'你有了第一批淨資產，但還非常脆弱——一次意外支出就可能歸零。這個階段的核心任務是建立財務系統的韌性。建議：① 把現有積蓄放入貨幣基金或活期理財（穩定、可隨時取用）；② 建立記帳習慣，了解錢去哪裡；③ 開始學習最基礎的個人財務知識（預算、複利）。現在每多存1元，未來的複利效果都是數倍的。',
+      text:'你已經有了第一筆積蓄，雖然金額不大，但這意味著你已經邁過了從零到有的那道坎——很多人卡在這一步卡了好幾年。現在最需要做的事情是保護好這筆錢：把它放到隨時能取但不會隨手花掉的地方，比如貨幣基金。然後開始做一件聽起來無聊但極其有用的事——記帳。不是記每一筆，而是每個月結束時花十分鐘看一眼：我的錢到底去哪了？當你開始清楚地看見自己的消費結構，很多不必要的支出會自然消失。記住，你現在存下的每一塊錢，在未來二十年的複利作用下，價值是今天的好幾倍。',
     },
     {
       test:function(){
@@ -675,7 +453,7 @@ var INSIGHTS={
       },
       icon:'💡', color:'#f59e0b',
       title:'初步積累：從儲蓄者到理財者的轉變',
-      text:'擁有1萬至10萬淨資產，你已經完成了從「零」到「有」的第一步。這個階段的關鍵轉變是：從被動儲蓄變為主動理財。建議：① 建立3-6個月應急儲備（貨幣基金）；② 在應急儲備之外開始定投寬基指數基金（每月固定金額）；③ 了解自己的消費結構，設定儲蓄率目標（20%以上為佳）。時間複利的窗口正在打開。',
+      text:'手裡有了1萬到10萬的積蓄——恭喜你，你已經完成了理財旅程中最難的一步：從零開始。現在你面臨的是一個心態上的轉變：從存錢升級到讓錢替你工作。第一件事是確保你有一筆3到6個月生活費的應急儲備，放在隨時能取的地方。在安全墊之外的錢，可以開始每月固定投一點寬基指數基金——不需要懂股票，不需要看行情，只需要設定好自動扣款然後忘掉它。時間複利的窗口正在為你打開，而你越早開始，這扁窗口給你的回報就越大。',
     },
     {
       test:function(){
@@ -685,7 +463,7 @@ var INSIGHTS={
       },
       icon:'📊', color:'#7dd3fc',
       title:'10萬至100萬：進入資產配置意識階段',
-      text:'10萬至100萬淨資產，你已越過大多數同齡人「月光」的階段，開始有了真正的財務緩衝。思維升級：① 應急儲備到位後，餘量資金可承擔更高風險；② 開始學習股票型基金和ETF的基本邏輯；③ 評估是否需要購買意外險和醫療險；④ 如有購房計劃，研究首付能力與月供壓力。',
+      text:'10萬到100萬——你已經甩開了身邊大多數月光族，擁有了一筆真正意義上的財務緩衝。這個階段你要做的事情不再是多存錢這麼簡單了，而是要開始認真想一個問題：我這筆錢除了躺在那裡，還能怎麼更聯明地為我工作？應急儲備已經到位的話，多出來的錢可以開始學著做資產配置——了解一下股票型基金和ETF是怎麼回事。同時有兩件事值得現在就做：考慮給自己買一份意外險和醫療險來保護已有的積累，以及如果你有購房打算，是時候認真研究目標城市的房價和你的首付能力了。',
     },
     {
       test:function(){
@@ -695,7 +473,7 @@ var INSIGHTS={
       },
       icon:'🏗️', color:'#10b981',
       title:'百萬至千萬：從儲蓄型轉向資產配置型',
-      text:'淨資產100萬至1000萬，財富積累的飛輪開始轉動。核心不再是「多存錢」，而是「讓錢更有效地工作」：① 建立正式的資產配置框架；② 房產佔比過高的話，考慮增加流動資產；③ 購買足額壽險/重疾險；④ 學習稅務籌劃基礎知識，合法降低稅負。',
+      text:'突破了一百萬——這不僅是一個數字，更是一個心理門檻。你已經從攒錢的階段進入了管錢的階段，財富積累的飛輪開始有了自己的轉速。但這個階段也是最容易犯錯的時候。現在你需要認真考慮：你的錢是不是太集中在房產上了？同時這個量級的資產已經值得你開始了解稅務籌劃的基礎知識。還有一件容易被忽視的事：確保你的保險額度跟上了你的資產規模——百萬積蓄如果被一場大病清零，那才是真正的災難。',
     },
     {
       test:function(){
@@ -705,7 +483,7 @@ var INSIGHTS={
       },
       icon:'🏛️', color:'#6366f1',
       title:'千萬至億級：高淨值財富的護城河建設',
-      text:'淨資產1000萬至1億，財富最大的威脅不是賺不夠，而是「失去」：稅務風險、法律糾紛、健康意外。建議：① 建立正式的家族財富保護架構；② 持有充足的流動資產（不低於20%）；③ 聘請專業私人財富顧問；④ 開始規劃財富的代際傳承。',
+      text:'千萬到億級——你已經站在了大多數人一輩子都到不了的位置上。但在這個層級，財富遊戲的規則發生了根本性的改變：你最大的敵人不再是賺得不夠多，而是失去。一場突如其來的稅務稽查、一次法律糾紛、一個家庭變故——任何一件都可能讓你的財富一夜之間縮水幾成。所以你現在最重要的事不是讓錢變得更多，而是給它修一道足夠高的護城河：考慮設立正式的家族信託或控股公司來保護資產；確保你的流動資產不低於總淨資產的20%；開始認真規劃財富的代際傳承。',
     },
     {
       test:function(){
@@ -714,52 +492,14 @@ var INSIGHTS={
       },
       icon:'🌍', color:'#0284c7',
       title:'億級資產：財富的使命與邊界',
-      text:'淨資產超過1億，財富管理的核心命題變了——不再是「如何積累更多」，而是「如何讓財富持續產生意義」。健康、關係和精神資本是任何財富都無法買回的東西——投入精力保護它們。思考你的財富能為社會解決什麼問題。',
-    },
-  ],
-  'en-PH':[
-    {
-      test:function(){ return dimPct&&dimPct.basic>70&&dimPct.social<50; },
-      icon:'⚠️', color:'#f59e0b',
-      title:'Untapped Potential',
-      text:'Your baseline conditions are stronger than most — your health, education, and environment give you real starting advantages that many Filipinos don\'t have. But your Social & Life score hasn\'t caught up. The structural foundation is there; what\'s missing is the system for converting it into outcomes. Start with one concrete career or income move this quarter.',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.identity>75&&dimPct.social<55; },
-      icon:'💭', color:'#0ea5e9',
-      title:'Thinker Who Needs to Act',
-      text:'Strong self-awareness, clear values — but your Social & Life score hasn\'t matched your inner depth yet. In Philippine culture, overthinking and waiting for the "right time" are common traps. Block 30 minutes every week as your non-negotiable execution window for the one thing you already know needs to happen.',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.social>70&&dimPct.identity<50; },
-      icon:'🏃', color:'#10b981',
-      title:'Running Fast Without a Compass',
-      text:'You\'re achieving externally — income, career, social status — but your Personal Identity score signals your inner compass needs attention. Family pressure and cultural expectations in the Philippines can make it hard to carve out space for your own sense of direction. Set aside one hour per week to ask: what do I actually want my life to look like?',
-    },
-    {
-      test:function(){ return dimPct&&dimPct.basic<40&&dimPct.identity>70; },
-      icon:'💪', color:'#8b5cf6',
-      title:'Rising Against the Odds',
-      text:'Your baseline is challenging — structural disadvantages in health, education, or environment are real. But your personal identity score shows strong values, resilience, and self-direction. In the Philippines, many of the most respected success stories started exactly here. Your greatest asset is not your starting conditions; it\'s how you interpret and act on them.',
-    },
-    {
-      test:function(){ return finalScore>100; },
-      icon:'🌟', color:'#f59e0b',
-      title:'Elite Territory',
-      text:'Scoring above 100 means you\'ve excelled across all standard dimensions and hold externally verifiable elite accomplishments. In the Philippine context, this is genuinely rare. Your biggest risk now is complacency — not lack of ability. Think about how to systematically pass on what you\'ve built.',
-    },
-    {
-      test:function(){ return finalScore<35; },
-      icon:'🌱', color:'#7dd3fc',
-      title:'A Big Starting Line Ahead',
-      text:'A lower score doesn\'t mean you\'re falling behind — it means there\'s significant, concrete room to grow. Don\'t compare yourself to a finish line. Compare yourself to who you were 6 months ago. Every deliberate step you take will show up directly in your next score.',
+      text:'淨資產過億——在這個位置上，關於怎麼賺更多錢的建議對你已經毫無意義了。你面對的是一個完全不同的命題：你的財富能為這個世界做什麼？這不是道德說教，而是一個真實的戰略問題——當個人努力的邊際貢獻越來越小的時候，你的影響力必須通過系統、團隊和品牌來放大。同時有一件事你比任何人都清楚但可能一直在迴避：健康、親密關係和內心的平靜，是任何數字都買不回來的東西。你見過太多身家過億卻活得並不幸福的人。不要讓自己成為其中之一。',
     },
   ],
 };
 
 function buildInsights(lang){
   var c=document.getElementById('insightRows'); if(!c) return; c.innerHTML='';
-  var pool=INSIGHTS[lang]||INSIGHTS['en-US']||INSIGHTS['zh-CN'];
+  var pool=INSIGHTS[lang]||INSIGHTS['zh-CN'];
   var shown=0;
   pool.forEach(function(ins){
     if(!ins.test()) return;
@@ -773,20 +513,18 @@ function buildInsights(lang){
   if(!shown){
     var def=document.createElement('div'); def.className='insight-card';
     def.style.borderLeft='4px solid #94a3b8';
-    var _wbTitle=lang==='en-US'||lang==='en-PH'?'Well Balanced Overall':lang==='es-US'?'Bien equilibrado en general':lang==='zh-TW'?'整體表現均衡':'整体表现均衡';
-    var _wbText=lang==='zh-TW'?'你的三個維度整體均衡，沒有觸發特定模式。保持這種平衡，選一個你最感興趣的維度繼續深耕。':lang==='zh-CN'?'你的三个维度整体均衡，没有触发特定模式。保持这种平衡，选一个你最感兴趣的维度继续深耕。':lang==='es-US'?'Mantén este equilibrio y elige la dimensión que más te emocione para profundizar.':'Your dimensions are well balanced — no specific patterns were triggered. Keep up the balance and pick the area you\'re most excited about to go deeper.';
-    def.innerHTML='<div class="ic-header"><span class="ic-icon">📊</span><span class="ic-title">'+_wbTitle+'</span></div>'+
-      '<div class="ic-text">'+_wbText+'</div>';
+    def.innerHTML='<div class="ic-header"><span class="ic-icon">📊</span><span class="ic-title">'+( lang==='zh-TW'?'整體表現均衡':'整体表现均衡')+'</span></div>'+
+      '<div class="ic-text">'+(lang==='zh-TW'?'你的各維度發展較為均衡，沒有觸發特定的模式洞察。繼續保持這種均衡，並選擇最感興趣的維度深耕。':'你的各维度发展较为均衡，没有触发特定的模式洞察。继续保持这种均衡，并选择最感兴趣的维度深耕。')+'</div>';
     c.appendChild(def);
   }
 }
 
 /* ── Payment modal (same config as result.js) ── */
 var PAYMENT_CONFIG_AN = {
-  paypal:  { name_cn:'PayPal',      name_tw:'PayPal',      name_en:'PayPal',        color:'#003087', fallback:'🅿',  logoSrc:'assets/logo-paypal.png', qrSrc:'assets/qr-paypal.png' },
-  crypto:  { name_cn:'USDT 加密',   name_tw:'USDT 加密',   name_en:'USDT Crypto',   color:'#26a17b', fallback:'💎', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
-  wise:    { name_cn:'Wise 转账',   name_tw:'Wise 轉帳',   name_en:'Wise Transfer', color:'#9fe870', fallback:'🌿', logoSrc:'assets/logo-wise.png',   qrSrc:'assets/qr-wise.png' },
-  bank:    { name_cn:'银行转账',    name_tw:'銀行轉帳',    name_en:'Bank Transfer', color:'#1a56db', fallback:'🏦', logoSrc:'assets/logo-bank.png',   qrSrc:'assets/qr-bank.png' },
+  wechat:  { name_cn:'微信支付', name_tw:'微信支付', color:'#07c160', fallback:'💚', logoSrc:'assets/logo-wechat.png', qrSrc:'assets/qr-wechat.png' },
+  alipay:  { name_cn:'支付宝',   name_tw:'支付寶',   color:'#1677ff', fallback:'💙', logoSrc:'assets/logo-alipay.png', qrSrc:'assets/qr-alipay.png' },
+  crypto:  { name_cn:'加密支付', name_tw:'加密支付', color:'#f0b90b', fallback:'🟡', logoSrc:'assets/logo-crypto.png', qrSrc:'assets/qr-crypto.png' },
+  qq:      { name_cn:'QQ 钱包',  name_tw:'QQ 錢包',  color:'#12b7f5', fallback:'💜', logoSrc:'assets/logo-qq.png',    qrSrc:'assets/qr-qq.png' },
 };
 
 function setupPaymentModal(){
@@ -805,7 +543,7 @@ function setupPaymentModal(){
     var lang = window.I18N_CURRENT||'zh-CN';
     if(pmLogoImg){ pmLogoImg.src=cfg.logoSrc; pmLogoImg.style.display=''; }
     if(pmLogoFb){ pmLogoFb.textContent=cfg.fallback; pmLogoFb.style.background=cfg.color; pmLogoFb.style.display='none'; }
-    if(pmName) pmName.textContent = (lang==='en-US'||lang==='en-PH'||lang==='es-US')?(cfg.name_en||cfg.name_cn):(lang==='zh-TW'?cfg.name_tw:cfg.name_cn);
+    if(pmName) pmName.textContent = lang==='zh-TW'?cfg.name_tw:cfg.name_cn;
     if(pmQrImg){ pmQrImg.src=cfg.qrSrc; pmQrImg.style.display=''; }
     if(pmQrPh) pmQrPh.style.display='none';
     if(pmQrPhPath) pmQrPhPath.textContent=cfg.qrSrc;
@@ -815,21 +553,10 @@ function setupPaymentModal(){
 
   if(closeBtn) closeBtn.addEventListener('click', closePayment);
   overlay.addEventListener('click', function(e){ if(e.target===overlay) closePayment(); });
-  document.querySelectorAll('.sponsor-logo-btn').forEach(function(btn){
+  document.querySelectorAll('#analysisSponsorCard .sponsor-logo-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ openPayment(btn.dataset.payment); });
   });
 }
-function setupFilters(lang){
-  document.querySelectorAll('.qbf-btn').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      document.querySelectorAll('.qbf-btn').forEach(function(b){ b.classList.remove('active'); });
-      btn.classList.add('active');
-      activeFilter=btn.dataset.filter;
-      buildQBreakdown(lang);
-    });
-  });
-}
-
 /* ── Shared UI ── */
 function setupLangSwitcher(){
   var ls=document.getElementById('langSwitcher'); if(!ls) return;
@@ -864,7 +591,6 @@ function renderAll(){
   if(canvas&&dimPct) drawRadar(canvas,[dimPct.basic||0,dimPct.social||0,dimPct.identity||0]);
 
   buildDimDeep(lang);
-  buildQBreakdown(lang);
   buildInsights(lang);
 
   var vEl=document.getElementById('anVerdictText');
@@ -887,7 +613,9 @@ function init(){
     return;
   }
 
-  finalScore=data.finalScore; dimPct=data.dimPct; answerMap=data.answerMap||{};
+  finalScore=data.finalScore;
+  finalScorePrecise=(typeof data.finalScorePrecise==='number')?data.finalScorePrecise:data.finalScore;
+  dimPct=data.dimPct; answerMap=data.answerMap||{};
   activeQueue=data.activeQueue||[];
   quizMode=data.quizMode||'deep';
 
@@ -898,13 +626,12 @@ function init(){
   }
 
   // Fill hero
-  var sn=document.getElementById('anScoreNum'); if(sn) sn.textContent=finalScore;
+  var sn=document.getElementById('anScoreNum'); if(sn) sn.textContent=formatScorePrecise(finalScorePrecise);
   var dateEl=document.getElementById('anDate');
   var stored=null; try{stored=localStorage.getItem('ls_last_date');}catch(e){}
-  if(dateEl) dateEl.textContent=(window.I18N_CURRENT==='en-US'||window.I18N_CURRENT==='en-PH'?'Test date: ':(window.I18N_CURRENT==='es-US'?'Fecha: ':(window.I18N_CURRENT==='zh-TW'?'測試日期：':'测试日期：')))+(stored||new Date().toLocaleDateString());
+  if(dateEl) dateEl.textContent=(window.I18N_CURRENT==='zh-TW'?'測試日期：':'测试日期：')+(stored||new Date().toLocaleDateString());
 
   patchI18n(); setupLangSwitcher(); setupMobileNav(); setupParticles(); setupPaymentModal();
-  setupFilters(window.I18N_CURRENT||'zh-CN');
   window.applyI18n();
   renderAll();
 

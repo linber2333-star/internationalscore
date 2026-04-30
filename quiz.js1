@@ -10,7 +10,7 @@
      The QUIZ_MODE global is set by the hosting HTML (quiz.html sets 'deep',
      quiz-quick.html sets 'quick') BEFORE this script loads, so we can read
      it here synchronously. */
-  var PER_PAGE = (window.QUIZ_MODE === 'quick') ? 6 : 5;
+  var PER_PAGE = (window.QUIZ_MODE === 'quick') ? 3 : 5;
   var answers = {}, activeQueue = [], pages = [], currentPage = 0;
   var isReviewing = false;
 
@@ -314,15 +314,9 @@
     /* Scroll to top */
     window.scrollTo({ top: 0, behavior: 'instant' });
 
-    /* Animate out existing cards. Lock the cardArea height so that the
-       brief moment when the DOM is empty (between innerHTML='' and the
-       first new card appended) does not collapse the layout — that
-       collapse-then-snap was the visible flicker. */
+    /* Animate out existing cards */
     var existing = cardArea.querySelectorAll('.q-card');
     var outClass = direction >= 0 ? 'slide-out-left' : 'slide-out-right';
-    if (existing.length > 0) {
-      cardArea.style.minHeight = cardArea.offsetHeight + 'px';
-    }
     existing.forEach(function(c){ c.classList.add(outClass); });
     var delay = existing.length > 0 ? 260 : 0;
 
@@ -389,6 +383,7 @@
                 ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>'
                 : (letters[i] || '?'))+
             '</div>'+
+            (isMulti ? '' : '<div class="opt-letter-txt">'+(letters[i]||'?')+'</div>')+
             '<div class="opt-text">'+text+descHtml+'</div>'+
             (!isMulti ? '<div class="opt-check'+(isSel?'':' hidden')+'">'+
               (isSel ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>' : '')+
@@ -434,12 +429,6 @@
       updatePageDots();
       updateNav();
       updateBanner();
-
-      /* Release the height lock after slide-in animations have settled,
-         letting the layout flow naturally for the new page's card count. */
-      setTimeout(function(){
-        if (gen === renderGeneration) cardArea.style.minHeight = '';
-      }, 420);
     }, delay);
   }
 
@@ -671,11 +660,8 @@
       d.className = 'qdot' +
         (i === currentPage ? ' qdot--current' : '') +
         (isPageComplete(i) ? ' qdot--done' : '');
-      /* Page number text (rendered as `[ N ]` via CSS pseudo-elements) */
-      d.textContent = (i + 1);
       if (i <= currentPage || isPageComplete(i)) {
         d.style.cursor = 'pointer';
-        d.classList.add('qdot--clickable');
         (function(pi) {
           d.addEventListener('click', function() {
             if (autoAdvanceTimer) { clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; }

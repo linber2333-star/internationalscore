@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LIFESCORE/TERM // 关于我们</title>
+  <link rel="icon" type="image/png" href="images/favicon.ico"/>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <!-- legacy hook (script may inject children) — visually neutralized -->
+  <div class="particles" id="particles" aria-hidden="true"></div>
+
+  <!-- ═══════════════ HUD BAR ═══════════════ -->
+  <header class="hud" id="header">
+    <div class="hud-row">
+      <a href="index.html" class="brand">
+        <img class="brand-mark" src="images/favicon.ico" alt="LS"/>
+        <span class="brand-text" data-i18n="brandName">人生评分</span>
+        <span class="brand-system">.SYS</span>
+      </a>
+
+      <nav class="nav" id="nav" aria-label="Main">
+        <a href="index.html"      class="nav-link"        data-i18n="nav.home">首页</a>
+        <a href="analysis.html"   class="nav-link"        data-i18n="nav.analysis">评分分析</a>
+        <a href="database.html"   class="nav-link"        data-i18n="nav.database">数据库</a>
+        <a href="more-tests.html" class="nav-link"        data-i18n="nav.more">更多测试</a>
+        <a href="about.html"      class="nav-link active" data-i18n="nav.about">关于我们</a>
+      </nav>
+
+      <div class="hud-right">
+        <div class="lang-switcher" id="langSwitcher">
+          <span class="lang-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </span>
+          <span class="lang-label" id="langLabel">简体中文</span>
+          <span class="lang-arrow">▼</span>
+          <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-option active" data-lang="zh-CN">简体中文</div>
+            <div class="lang-option"        data-lang="zh-TW">繁體中文</div>
+          </div>
+        </div>
+        <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══════════════ DOSSIER FILE-HEADER BANNER ═══════════════ -->
+  <div class="dossier-banner">
+    <span>FILE: ABOUT.README.TXT</span>
+    <span class="sep">::</span>
+    <span>CLASSIFIED: PUBLIC</span>
+    <span class="sep">::</span>
+    <span>REV: <span id="liveDate"></span></span>
+    <span class="sep">::</span>
+    <span>AUTHORED-BY: LIFESCORE/TERM</span>
+  </div>
+
+  <!-- ═══════════════ MAIN ═══════════════ -->
+  <main class="dossier-wrap">
+
+    <!-- ── HERO ── -->
+    <section class="dossier-hero">
+      <span class="kicker">MISSION_BRIEFING</span>
+      <h1>关于人生评分</h1>
+      <span class="underline" aria-hidden="true"></span>
+      <p class="dossier-intro">我们相信，每一个人都值得被认真地看见。人生评分不是一场竞赛，而是一面镜子——帮助你看清自己现在在哪里，以及下一步可以去哪里。</p>
+    </section>
+
+    <!-- ── STATS STRIP ── -->
+    <section class="dossier-stats" aria-label="关键指标">
+      <div class="dossier-stat">
+        <div class="dossier-stat-num">50+</div>
+        <div class="dossier-stat-label">核心测评题目</div>
+      </div>
+      <div class="dossier-stat">
+        <div class="dossier-stat-num">3</div>
+        <div class="dossier-stat-label">评估维度</div>
+      </div>
+      <div class="dossier-stat">
+        <div class="dossier-stat-num">9</div>
+        <div class="dossier-stat-label">人生段位</div>
+      </div>
+      <div class="dossier-stat">
+        <div class="dossier-stat-num">∞</div>
+        <div class="dossier-stat-label">免费使用</div>
+      </div>
+    </section>
+
+    <div class="dossier-divider" aria-hidden="true"></div>
+
+    <!-- ══ CHAPTER 01 :: OUR STORY ══ -->
+    <section>
+      <header class="chapter-head">
+        <span class="chapter-num">// CHAPTER 01</span>
+        <h2>我们的故事</h2>
+      </header>
+
+      <div class="dossier-prose">
+        <p>人生评分诞生于一个简单的想法：<strong>如果人生的各个维度都能被量化，我们是不是能更清楚地知道自己"活得怎么样"？</strong></p>
+        <p>这个项目最初只是几个朋友之间的一次闲聊——我们发现，很多人对自己的生活状态有一种模糊的感觉（"还行吧""一般般"），但很少有人真正认真地梳理过自己在健康、财务、人际关系、内在成长这些维度上的真实表现。</p>
+        <p>于是我们决定做一件事：<strong>设计一套科学、全面、且有温度的评估体系</strong>，帮助每一个人看清自己的人生全貌——不是为了打分排名，而是为了找到那些"值得被改变"的方向。</p>
+        <p>从第一版的20道测试题，到如今覆盖基础信息、社会生活、个人认同的50+道核心问题；从最初粗糙的Excel评分表，到现在拥有四维雷达图、个性化洞察、行动计划的完整报告系统——人生评分一直在进化。而驱动这一切的，始终是同一个信念：<strong>你的人生值得被认真对待。</strong></p>
+      </div>
+
+      <!-- AI ACKNOWLEDGEMENT — system info callout -->
+      <div class="sys-info">
+        <span class="sys-info-title">关于我们的技术</span>
+        <p>虽然我们的网站设计是使用 AI 工具创建的，但如果没有每一位参与者的投入和创意，这一切都不可能实现。AI 是我们手中的画笔，但构图、配色、和灵感——这些来自于真实的人。我们拥抱技术，但永远把人放在第一位。</p>
+      </div>
+    </section>
+
+    <div class="dossier-divider" aria-hidden="true"></div>
+
+    <!-- ══ CHAPTER 02 :: CORE VALUES ══ -->
+    <section>
+      <header class="chapter-head">
+        <span class="chapter-num">// CHAPTER 02</span>
+        <h2>核心价值观</h2>
+      </header>
+
+      <div class="dossier-values">
+        <article class="value-card">
+          <span class="v-id">// 01</span>
+          <span class="v-mark" aria-hidden="true"></span>
+          <div class="value-title">科学严谨</div>
+          <div class="value-desc">每一道题目都经过反复打磨，评分模型持续校准，确保结果真实可参考。</div>
+        </article>
+        <article class="value-card">
+          <span class="v-id">// 02</span>
+          <span class="v-mark" aria-hidden="true"></span>
+          <div class="value-title">隐私至上</div>
+          <div class="value-desc">所有数据仅存于你的浏览器本地，我们不收集、不上传、不存储任何个人信息。</div>
+        </article>
+        <article class="value-card">
+          <span class="v-id">// 03</span>
+          <span class="v-mark" aria-hidden="true"></span>
+          <div class="value-title">温暖赋能</div>
+          <div class="value-desc">我们不做焦虑贩卖，每一条洞察和建议都旨在给你力量，而非制造压力。</div>
+        </article>
+        <article class="value-card">
+          <span class="v-id">// 04</span>
+          <span class="v-mark" aria-hidden="true"></span>
+          <div class="value-title">永久免费</div>
+          <div class="value-desc">人生评分始终完全免费开放，不设任何付费墙和功能限制。</div>
+        </article>
+      </div>
+    </section>
+
+    <div class="dossier-divider" aria-hidden="true"></div>
+
+    <!-- ══ CHAPTER 03 :: VISION ══ -->
+    <section>
+      <header class="chapter-head">
+        <span class="chapter-num">// CHAPTER 03</span>
+        <h2>未来愿景</h2>
+      </header>
+
+      <div class="dossier-vision">
+        <div class="vision-title">创造更多有趣的测评与评分</div>
+        <div class="vision-sub">这不是终点，而是起点</div>
+        <div class="vision-text">我们的目标不仅仅是一个人生评分工具。我们正在构想一个完整的"自我认知平台"——通过更多有趣、有深度的测评，帮助你从不同角度了解自己。无论是职业倾向、情感智商、财商指数、还是创造力测评，我们希望每一个测试都能让你发现关于自己的新发现。</div>
+        <div class="vision-tags">
+          <span class="vision-tag">职业倾向测评</span>
+          <span class="vision-tag">创造力指数</span>
+          <span class="vision-tag">财商评分</span>
+          <span class="vision-tag">情感智商</span>
+          <span class="vision-tag">思维模式分析</span>
+          <span class="vision-tag">跨文化适应力</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="dossier-divider" aria-hidden="true"></div>
+
+    <!-- ══ CHAPTER 04 :: TEAM ══ -->
+    <section>
+      <header class="chapter-head">
+        <span class="chapter-num">// CHAPTER 04</span>
+        <h2>创始团队</h2>
+      </header>
+
+      <div class="dossier-team">
+        <article class="team-card">
+          <div class="team-id">01</div>
+          <div class="team-name">产品与策划</div>
+          <div class="team-role">题库设计 · 评分模型 · 用户体验</div>
+        </article>
+        <article class="team-card">
+          <div class="team-id">02</div>
+          <div class="team-name">设计与前端</div>
+          <div class="team-role">视觉设计 · 交互开发 · AI 辅助</div>
+        </article>
+        <article class="team-card">
+          <div class="team-id">03</div>
+          <div class="team-name">数据与算法</div>
+          <div class="team-role">评分算法 · 维度分析 · 个性化洞察</div>
+        </article>
+        <article class="team-card">
+          <div class="team-id">04</div>
+          <div class="team-name">内容与运营</div>
+          <div class="team-role">文案撰写 · 多语言本地化 · 社群</div>
+        </article>
+      </div>
+    </section>
+
+    <div class="dossier-divider" aria-hidden="true"></div>
+
+    <!-- ══ CHAPTER 05 :: MILESTONES ══ -->
+    <section>
+      <header class="chapter-head">
+        <span class="chapter-num">// CHAPTER 05</span>
+        <h2>发展历程</h2>
+      </header>
+
+      <div class="dossier-timeline">
+        <div class="tl-entry">
+          <span class="tl-date">2025.Q1</span>
+          <span class="tl-title">项目启动</span>
+          <div class="tl-desc">团队组建，完成第一版题库设计与评分模型搭建。确定"科学量化人生"的产品方向。</div>
+        </div>
+        <div class="tl-entry">
+          <span class="tl-date">2025.Q1</span>
+          <span class="tl-title">快速测试上线</span>
+          <div class="tl-desc">50+ 道核心问题覆盖健康、财富、关系与价值观维度。支持简体中文与繁体中文双语言。</div>
+        </div>
+        <div class="tl-entry">
+          <span class="tl-date">2025.Q2</span>
+          <span class="tl-title">深度分析系统</span>
+          <div class="tl-desc">四维雷达图、个性化洞察引擎、行动计划系统上线。引入9级人生段位分类体系。</div>
+        </div>
+        <div class="tl-entry tl-future">
+          <span class="tl-date">未来</span>
+          <span class="tl-title">更多测评 · 全球化</span>
+          <div class="tl-desc">深度人生评分、职业倾向、财商指数等专项测评上线。支持更多语言与地区本地化。</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="dossier-divider" aria-hidden="true"></div>
+
+    <!-- ══ CHAPTER 06 :: CONTACT ══ -->
+    <section id="contact">
+      <header class="chapter-head">
+        <span class="chapter-num">// CHAPTER 06</span>
+        <h2>联系我们</h2>
+      </header>
+
+      <div class="dossier-contacts">
+        <article class="contact-card">
+          <span class="contact-label">微信公众号</span>
+          <div class="contact-val">搜索关注我们的微信公众号<br/>获取最新测评动态与独家内容</div>
+        </article>
+
+        <article class="contact-card">
+          <span class="contact-label">电子邮件</span>
+          <div class="contact-val">
+            <a href="mailto:lifescore@163.com">lifescore@163.com</a><br/>
+            <a href="mailto:lifescore@qq.com">lifescore@qq.com</a>
+          </div>
+        </article>
+
+        <article class="contact-card">
+          <span class="contact-label">工作室地址</span>
+          <div class="contact-val">四川省成都市武侯区<br/>磨子桥地铁站 A 出口</div>
+        </article>
+
+        <article class="contact-card">
+          <span class="contact-label">官方网站</span>
+          <div class="contact-val"><a href="https://lifescore.space" target="_blank" rel="noopener">lifescore.space</a></div>
+        </article>
+      </div>
+
+      <div class="address-map" aria-label="地址">
+        <span class="pin">磨子桥地铁站 A 出口 · 成都市武侯区</span>
+      </div>
+    </section>
+
+    <!-- ══ CTA ══ -->
+    <section class="dossier-cta">
+      <span class="dossier-cta-prompt">&gt; READY TO BEGIN? [Y/N]</span>
+      <div class="dossier-cta-text">准备好了解自己了吗？只需要 8 分钟。</div>
+      <div class="dossier-cta-btns">
+        <a href="quiz-quick.html" class="btn btn-primary">
+          <span>开始测试</span>
+        </a>
+        <a href="more-tests.html" class="btn btn-secondary">
+          <span>更多测试</span>
+        </a>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════ FOOTER ═══════════════ -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <img class="footer-logo-mark" src="images/favicon.ico" alt="LS"/>
+        <div>
+          <div class="footer-name"    data-i18n="footer.brand">人生评分测试</div>
+          <div class="footer-tagline" data-i18n="footer.tagline">了解自己，超越自己</div>
+        </div>
+      </div>
+      <div class="footer-links">
+        <div class="footer-col">
+          <div class="footer-col-title" data-i18n="footer.col1">产品</div>
+          <a href="quiz-quick.html"  data-i18n="footer.l1a">人生评分</a>
+          <a href="analysis.html"    data-i18n="footer.l1b">评分分析</a>
+          <a href="more-tests.html"  data-i18n="footer.l1c">更多测试</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title" data-i18n="footer.col2">资源</div>
+          <a href="database.html" data-i18n="footer.l2a">数据库</a>
+          <a href="#"             data-i18n="footer.l2b">帮助中心</a>
+          <a href="#"             data-i18n="footer.l2c">博客</a>
+        </div>
+        <div class="footer-col">
+          <div class="footer-col-title" data-i18n="footer.col3">公司</div>
+          <a href="about.html"         data-i18n="footer.l3a">关于我们</a>
+          <a href="about.html#contact" data-i18n="footer.l3b">联系我们</a>
+          <a href="#"                  data-i18n="footer.l3c">隐私政策</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span data-i18n="footer.copy">© 2025 人生评分测试. 保留所有权利。</span>
+      <div class="footer-bottom-links">
+        <a href="#" data-i18n="footer.terms">服务条款</a>
+        <a href="#" data-i18n="footer.privacy">隐私政策</a>
+        <a href="#" data-i18n="footer.cookie">Cookie 政策</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ═══════════════ INLINE PAGE WIRING ═══════════════ -->
+  <script src="i18n.js"></script>
+  <script>
+  (function(){
+    'use strict';
+
+    /* Lang switcher */
+    var ls = document.getElementById('langSwitcher');
+    if (ls) {
+      ls.addEventListener('click', function(e){ e.stopPropagation(); ls.classList.toggle('open'); });
+      document.addEventListener('click', function(){ ls.classList.remove('open'); });
+      document.querySelectorAll('.lang-option').forEach(function(o){
+        o.addEventListener('click', function(e){
+          e.stopPropagation(); window.applyI18n(o.dataset.lang); ls.classList.remove('open');
+        });
+      });
+    }
+
+    /* Mobile nav */
+    var mt = document.getElementById('menuToggle'), nav = document.getElementById('nav');
+    if (mt && nav) {
+      mt.addEventListener('click', function(){
+        var o = nav.classList.toggle('mobile-open');
+        mt.setAttribute('aria-expanded', o);
+      });
+      document.querySelectorAll('.nav-link').forEach(function(l){
+        l.addEventListener('click', function(){
+          nav.classList.remove('mobile-open');
+          mt.setAttribute('aria-expanded', 'false');
+        });
+      });
+    }
+
+    /* Scroll-aware header */
+    var header = document.getElementById('header');
+    if (header) {
+      window.addEventListener('scroll', function(){
+        header.classList.toggle('scrolled', window.scrollY > 10);
+      }, { passive: true });
+    }
+
+    /* Live local time */
+    function padLive(n){ return n < 10 ? '0' + n : n; }
+    function tickLive(){
+      var d = new Date();
+      var s = d.getFullYear() + '.' + padLive(d.getMonth()+1) + '.' + padLive(d.getDate()) + ' '
+            + padLive(d.getHours()) + ':' + padLive(d.getMinutes()) + ':' + padLive(d.getSeconds());
+      var el = document.getElementById('liveDate');
+      if(el) el.textContent = s;
+    }
+    tickLive();
+    setInterval(tickLive, 1000);
+
+    /* Apply i18n */
+    if (typeof window.applyI18n === 'function') window.applyI18n();
+  })();
+  </script>
+</body>
+</html>

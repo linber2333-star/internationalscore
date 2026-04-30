@@ -126,22 +126,34 @@ function tier(s,lang){
   var t=lang==='zh-TW'?['待提升','發展中','尚可','良好','優秀','卓越']:['待提升','发展中','尚可','良好','优秀','卓越'];
   if(s<17)return t[0]; if(s<34)return t[1]; if(s<50)return t[2]; if(s<67)return t[3]; if(s<84)return t[4]; return t[5];
 }
+/* Visual-satiety curve — maps a raw 0-100 score to a "visual width" so the
+   neon ray reaches close to the right edge even at moderate scores. The
+   raw numeric label is still shown unchanged; only the bar's CSS width
+   uses this transformed value.
+     raw 0   → 0%
+     raw 20  → ~52%
+     raw 40  → ~69%
+     raw 60  → ~81%
+     raw 80  → ~91%
+     raw 100 → 100%
+   Power curve x^0.4 — gentle climb at the top, no false fullness at zero. */
+function visualPct(score){
+  var s = Math.max(0, Math.min(100, +score || 0));
+  if(s <= 0) return 0;
+  return Math.min(100, Math.pow(s/100, 0.4) * 100);
+}
 function buildDims(lang){
   var c=document.getElementById('dimRows'); if(!c) return; c.innerHTML='';
   DIM_CONF.forEach(function(d){
     var score=dimPct&&dimPct[d.key]!=null?dimPct[d.key]:0;
+    var vw = visualPct(score);
     var row=document.createElement('div'); row.className='dim-row';
     row.innerHTML='<div class="dim-meta"><span class="dim-name"><span class="dim-icon">'+d.icon+'</span><span data-i18n="'+d.i18n+'">'+window.t(d.i18n)+'</span></span>'+
-      '<span class="dim-score-val" style="color:'+d.color+'">'+score+'<span class="dim-score-unit"> / 100</span></span></div>'+
-      '<div class="dim-track"><div class="dim-fill" data-pct="'+score+'" style="width:0;background:'+d.color+'"></div></div>'+
-      '<div class="dim-tier-row"><span class="dim-tier-badge" style="color:'+d.color+';background:'+d.color+'18">'+tier(score,lang)+'</span>'+buildMini(score)+'</div>';
+      '<span class="dim-score-val" style="color:'+d.color+'">'+score+'</span></div>'+
+      '<div class="dim-track"><div class="dim-fill" data-vw="'+vw+'" style="width:0;--dim-color:'+d.color+';background:linear-gradient(to right, transparent, '+d.color+');"></div></div>';
     c.appendChild(row);
   });
-  setTimeout(function(){ document.querySelectorAll('.dim-fill').forEach(function(f){ f.style.width=f.dataset.pct+'%'; }); },600);
-}
-function buildMini(score){
-  var bars=''; for(var i=0;i<5;i++) bars+='<div class="mini-bar'+(score>=(i+1)*20?' filled':'')+'"></div>';
-  return '<div class="mini-bars">'+bars+'</div>';
+  setTimeout(function(){ document.querySelectorAll('.dim-fill').forEach(function(f){ f.style.width=f.dataset.vw+'%'; }); },600);
 }
 
 /* ── Score breakdown ── */
@@ -907,8 +919,16 @@ function buildRankVerdict(lang){
 
 function drawResultRadar(canvas){
   if(!canvas||!dimPct) return;
+  var dpr=window.devicePixelRatio||1;
+  var rect=canvas.getBoundingClientRect();
+  var cssW=Math.floor(rect.width||canvas.width);
+  var cssH=Math.floor(rect.height||canvas.height);
+  if(canvas.width!==cssW*dpr||canvas.height!==cssH*dpr){
+    canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  }
   var ctx=canvas.getContext('2d');
-  var W=canvas.width, H=canvas.height, cx=W/2, cy=H/2+10, R=Math.min(W,H)*0.26;
+  ctx.save(); ctx.scale(dpr,dpr);
+  var W=cssW, H=cssH, cx=W/2, cy=H/2+10, R=Math.min(W,H)*0.26;
   var lang=window.I18N_CURRENT||'zh-CN';
   var labels=lang==='zh-TW'?['基礎資訊','社會生活方向','個人認同']:['基础信息','社会生活方向','个人认同'];
   var scores=[dimPct.basic||0, dimPct.social||0, dimPct.identity||0];
@@ -963,13 +983,22 @@ function drawResultRadar(canvas){
   ctx.textAlign='center'; ctx.font='900 22px Quicksand,sans-serif'; ctx.fillStyle='#0284c7';
   ctx.fillText(formatScorePrecise(finalScorePrecise),cx,cy+6);
   ctx.font='400 10px sans-serif'; ctx.fillStyle='#94a3b8'; ctx.fillText('/ 150',cx,cy+22);
+  ctx.restore();
 }
 
 function drawProfessionalRadar(canvas){
   if(!canvas) return;
+  var dpr=window.devicePixelRatio||1;
+  var rect=canvas.getBoundingClientRect();
+  var cssW=Math.floor(rect.width||canvas.width);
+  var cssH=Math.floor(rect.height||canvas.height);
+  if(canvas.width!==cssW*dpr||canvas.height!==cssH*dpr){
+    canvas.width=cssW*dpr; canvas.height=cssH*dpr;
+  }
   var pd=computeProfessionalDims();
   var ctx=canvas.getContext('2d');
-  var W=canvas.width, H=canvas.height, cx=W/2, cy=H/2+4, R=Math.min(W,H)*0.33;
+  ctx.save(); ctx.scale(dpr,dpr);
+  var W=cssW, H=cssH, cx=W/2, cy=H/2+4, R=Math.min(W,H)*0.33;
   var lang=window.I18N_CURRENT||'zh-CN';
   var labels=lang==='zh-TW'
     ? ['社交能力','創造力','幸福感']
@@ -1028,6 +1057,7 @@ function drawProfessionalRadar(canvas){
     ctx.fillText(Math.round(scores[t]),lx,ly+9);
   }
   ctx.textBaseline='alphabetic';
+  ctx.restore();
 }
 
 /* ── Score Gauge (semicircle speedometer) ── */
@@ -1481,62 +1511,123 @@ function buildInsights(lang){
 
 var PERSONAS = {
   S: {
-    animal:'🦅', name_cn:'鹰', name_tw:'鷹', tier:'S',
-    title_cn:'S级 · 天际之鹰', title_tw:'S級 · 天際之鷹',
-    traits_cn:['战略视野','极致执行力','资源整合者','精神自由'],
-    traits_tw:['戰略視野','極致執行力','資源整合者','精神自由'],
-    desc_cn:'你是极少数站在人生金字塔顶端的人。鹰是所有鸟类中视野最广的——它可以在3000米高空看清地面上一只兔子的动作。你就像这只鹰：你不仅看得远，而且在关键时刻能以俯冲式的精准执行力锁定目标。你的人生不是"一帆风顺"——事实上，鹰的羽毛每10年必须经历一次痛苦的重生脱换——但你选择了在每一次危机中蜕变而非退缩。你拥有罕见的组合：清晰的价值观、强大的情绪掌控力、和持续创造价值的系统能力。你最大的风险不是失败，而是高处不胜寒的孤独。记住：即使是鹰，也需要在风暴中找到气流来借力。你的下一个挑战不是飞得更高，而是带领更多人看到你所看到的风景。',
-    desc_tw:'你是極少數站在人生金字塔頂端的人。鷹是所有鳥類中視野最廣的——它可以在3000米高空看清地面上一隻兔子的動作。你就像這隻鷹：你不僅看得遠，而且在關鍵時刻能以俯衝式的精準執行力鎖定目標。你的人生不是「一帆風順」——事實上，鷹的羽毛每10年必須經歷一次痛苦的重生脫換——但你選擇了在每一次危機中蛻變而非退縮。你擁有罕見的組合：清晰的價值觀、強大的情緒掌控力、和持續創造價值的系統能力。你最大的風險不是失敗，而是高處不勝寒的孤獨。記住：即使是鷹，也需要在風暴中找到氣流來借力。你的下一個挑戰不是飛得更高，而是帶領更多人看到你所看到的風景。',
+    animal:'🍣', name_cn:'蓝鳍金枪鱼大腹', name_tw:'藍鰭金槍魚大腹', tier:'S',
+    title_cn:'S级 · 奇迹般的蓝鳍金枪鱼大腹',
+    title_tw:'S級 · 奇蹟般的藍鰭金槍魚大腹',
+    quote_cn:'我这么顶级，跟蓝旗金枪鱼一样顶！',
+    quote_tw:'我這麼頂級，跟藍旗金槍魚一樣頂！',
+    traits_cn:['顶级稀缺','深海极品','一口千金','可遇不可求'],
+    traits_tw:['頂級稀缺','深海極品','一口千金','可遇不可求'],
+    desc_cn:'<span class="p-quote">你这么顶级，跟海里的蓝旗金枪鱼一样顶。</span>',
+    desc_tw:'<span class="p-quote">你這麼頂級，跟海裡的藍旗金槍魚一樣頂。</span>',
   },
   A: {
-    animal:'🐺', name_cn:'狼', name_tw:'狼', tier:'A',
-    title_cn:'A级 · 原野之狼', title_tw:'A級 · 原野之狼',
-    traits_cn:['目标驱动','社群领袖','适应力强','行动果断'],
-    traits_tw:['目標驅動','社群領袖','適應力強','行動果斷'],
-    desc_cn:'你是一匹狼——不是孤狼，而是狼群中的头狼。狼是自然界中最懂得"平衡个人能力与团队协作"的动物：它们独自狩猎时足够强悍，而在群体中又能做出最优的战术配合。你目前的人生状态展现了类似的模式：你有明确的目标、不错的执行力、和相对健康的社交支撑系统。你的财务状况稳健，健康习惯尚可，内心也有清晰的价值锚点。但狼的故事也有另一面——它们永远在奔跑。你可能时常感到"还不够"的焦虑，即使已经超越了大多数人。你现在需要做的不是继续加速，而是学会在奔跑中抬头看路，确认你追逐的方向仍然是你真正想去的地方。你的终极进化方向是：从"追猎者"变成"领地的守护者"——不仅为自己而战，也为你在乎的人创造安全感。',
-    desc_tw:'你是一匹狼——不是孤狼，而是狼群中的頭狼。狼是自然界中最懂得「平衡個人能力與團隊協作」的動物：牠們獨自狩獵時足夠強悍，而在群體中又能做出最優的戰術配合。你目前的人生狀態展現了類似的模式：你有明確的目標、不錯的執行力、和相對健康的社交支撐系統。你的財務狀況穩健，健康習慣尚可，內心也有清晰的價值錨點。但狼的故事也有另一面——牠們永遠在奔跑。你可能時常感到「還不夠」的焦慮，即使已經超越了大多數人。你現在需要做的不是繼續加速，而是學會在奔跑中抬頭看路，確認你追逐的方向仍然是你真正想去的地方。',
+    animal:'🥩', name_cn:'顶级和牛牛排', name_tw:'頂級和牛牛排', tier:'A',
+    title_cn:'A级 · 香香的顶级和牛牛排',
+    title_tw:'A級 · 香香的頂級和牛牛排',
+    quote_cn:'万里挑一的油花是被时间养出来的，不是被催出来的——别急着证明熟度。',
+    quote_tw:'萬里挑一的油花是被時間養出來的，不是被催出來的——別急著證明熟度。',
+    traits_cn:['极致油花','入口即化','万里挑一','人见人爱'],
+    traits_tw:['極致油花','入口即化','萬里挑一','人見人愛'],
+    desc_cn:'<span class="p-quote">如果你是一种食物，那你就是它。这么鲜美的肉，万里挑一，万中挑一。</span>',
+    desc_tw:'<span class="p-quote">如果你是一種食物，那你就是它。這麼鮮美的肉，萬里挑一，萬中挑一。</span>',
   },
   B: {
-    animal:'🐎', name_cn:'马', name_tw:'馬', tier:'B',
-    title_cn:'B级 · 草原之马', title_tw:'B級 · 草原之馬',
-    traits_cn:['稳步前进','耐力持久','忠诚可靠','潜力未尽'],
-    traits_tw:['穩步前進','耐力持久','忠誠可靠','潛力未盡'],
-    desc_cn:'你是一匹草原上的马——稳健、有耐力、值得信赖。马不是最快的动物，但它是唯一能在长途跋涉中保持节奏而不崩溃的物种。你的人生正是这样：你可能不是每个维度的佼佼者，但你在大多数方面都维持着"足够好"的状态。这是绝大多数人的位置，但也是最容易陷入"还行吧"惯性的位置。马的历史告诉我们一件事：同样的一匹马，套上不同的鞍具、遇到不同的骑手，命运天差地别。你现在的"B级"不是你的天花板，而是你的发射台。你目前最缺的不是能力，而是一个清晰的、值得全力以赴的目标。当马知道自己要去哪里的时候，它可以跑到不可思议的速度。给自己设定一个90天的挑战：在你最弱的维度中，选1个最想改变的点，全力突破。你会惊讶于自己的潜力。',
-    desc_tw:'你是一匹草原上的馬——穩健、有耐力、值得信賴。馬不是最快的動物，但牠是唯一能在長途跋涉中保持節奏而不崩潰的物種。你的人生正是這樣：你可能不是每個維度的佼佼者，但你在大多數方面都維持著「足夠好」的狀態。這是絕大多數人的位置，但也是最容易陷入「還行吧」慣性的位置。你目前最缺的不是能力，而是一個清晰的、值得全力以赴的目標。當馬知道自己要去哪裡的時候，牠可以跑到不可思議的速度。給自己設定一個90天的挑戰：在你最弱的維度中，選1個最想改變的點，全力突破。',
+    animal:'🍰', name_cn:'贵水果大蛋糕', name_tw:'貴水果大蛋糕', tier:'B',
+    title_cn:'B级 · 精品绝伦黑加仑树莓樱桃乱七八糟的贵水果大蛋糕',
+    title_tw:'B級 · 精品絕倫黑加侖樹莓櫻桃亂七八糟的貴水果大蛋糕',
+    quote_cn:'我的人生很甜美，很精致，还有点小贵。',
+    quote_tw:'我的人生很甜美，很精緻，還有點小貴。',
+    traits_cn:['真奶油','贵水果','丰饶质地'],
+    traits_tw:['真奶油','貴水果','豐饒質地'],
+    desc_cn:'<span class="p-quote">挺棒的，且不论那么多贵的离谱的水果，甚至还是动物奶油呢。</span>',
+    desc_tw:'<span class="p-quote">挺棒的，且不論那麼多貴的離譜的水果，甚至還是動物奶油呢。</span>',
   },
   C: {
-    animal:'🦊', name_cn:'狐', name_tw:'狐', tier:'C',
-    title_cn:'C级 · 丛林之狐', title_tw:'C級 · 叢林之狐',
-    traits_cn:['机敏灵活','逆境求生','独立性强','需要方向'],
-    traits_tw:['機敏靈活','逆境求生','獨立性強','需要方向'],
-    desc_cn:'你是一只狐狸——聪明、灵活、独立，但正在一片并不完全友好的丛林中寻找自己的位置。狐狸是自然界最会"以小博大"的动物：它们体型不大，但靠着敏锐的观察力和灵活的策略，在狼群和熊的领地缝隙中活得有声有色。你的人生状态和这只狐狸很像：你可能在某些维度（尤其是财务或社会生活方向）处于起步阶段，但你并不缺乏潜力——你缺乏的是一个系统性的突破路径。你身上最大的资产不是现有的分数，而是你的适应能力和独立精神。很多"高分者"一旦失去现有优势就会崩溃，而你正因为一直在不完美的条件下生存，反而锻造了罕见的韧性。你现在的任务是：停止在多个方向上分散精力，选定一个战场，用你的灵活性集中突破。狐狸不需要变成狼——它需要找到最适合自己的猎场。',
-    desc_tw:'你是一隻狐狸——聰明、靈活、獨立，但正在一片並不完全友好的叢林中尋找自己的位置。狐狸是自然界最會「以小博大」的動物：牠們體型不大，但靠著敏銳的觀察力和靈活的策略，在狼群和熊的領地縫隙中活得有聲有色。你可能在某些維度處於起步階段，但你並不缺乏潛力。你身上最大的資產不是現有的分數，而是你的適應能力和獨立精神。你現在的任務是：停止在多個方向上分散精力，選定一個戰場，用你的靈活性集中突破。狐狸不需要變成狼——牠需要找到最適合自己的獵場。',
+    animal:'🥯', name_cn:'街头小吃', name_tw:'街頭小吃', tier:'C',
+    title_cn:'C级 · 油条豆腐脑煎饼肠粉你自己选一样吧',
+    title_tw:'C級 · 油條豆腐腦煎餅腸粉你自己選一樣吧',
+    quote_cn:'挺好的，味道赞价格赞，我在性价比这块儿谁都比不过。',
+    quote_tw:'挺好的，味道讚價格贊，我在性價比這塊兒誰都比不過。。',
+    traits_cn:['性价比之王','能量充足','皮实耐造'],
+    traits_tw:['性價比之王','能量充足','皮實耐造'],
+    desc_cn:'<span class="p-quote">挺好的，味道赞价格赞，性价比这块儿谁都比不过。</span>',
+    desc_tw:'<span class="p-quote">挺好的，味道讚價格讚，性價比這塊兒誰都比不過。</span>',
   },
   D: {
-    animal:'🐢', name_cn:'龟', name_tw:'龜', tier:'D',
-    title_cn:'D级 · 深潜之龟', title_tw:'D級 · 深潛之龜',
-    traits_cn:['厚积薄发','防御坚固','内敛沉稳','蓄势待起'],
-    traits_tw:['厚積薄發','防禦堅固','內斂沉穩','蓄勢待起'],
-    desc_cn:'你是一只龟——而龟，是地球上最古老的幸存者之一。在恐龙灭绝的灾难中，龟活了下来。在冰河期的极端环境中，龟活了下来。在每一次看似不可能生存的条件下，龟都凭借一个策略活了下来：缩进壳里，保存能量，等待时机。你现在的状态正是如此。你的分数不高，这意味着你可能在健康、财务、关系或心理状态方面正面临真实的困难。但这里有一个绝大多数人不知道的事实：所有最戏剧性的人生逆转故事，都从比你现在更低的起点开始。龟的壳不是弱点——它是进化了2亿年的完美防护。你此刻需要的不是和别人比较，而是找到你的"壳"——那个让你在困难时刻也能感到安全的最小稳定结构。它可以是一个固定的作息、一份哪怕微薄但稳定的收入、或者一个你信任的人。先稳住，再出发。记住龟赛跑的故事：不是因为龟跑得快，而是因为龟从不停下来。',
-    desc_tw:'你是一隻龜——而龜，是地球上最古老的倖存者之一。在恐龍滅絕的災難中，龜活了下來。你現在的狀態正是如此。你的分數不高，這意味著你可能在健康、財務、關係或心理狀態方面正面臨真實的困難。但所有最戲劇性的人生逆轉故事，都從比你現在更低的起點開始。你此刻需要的是找到你的「殼」——那個讓你在困難時刻也能感到安全的最小穩定結構。它可以是一個固定的作息、一份哪怕微薄但穩定的收入、或者一個你信任的人。先穩住，再出發。記住龜賽跑的故事：不是因為龜跑得快，而是因為龜從不停下來。',
+    animal:'🍱', name_cn:'家常剩菜', name_tw:'家常剩菜', tier:'D',
+    title_cn:'D级 · 冰箱里的家常剩菜',
+    title_tw:'D級 · 冰箱裡的家常剩菜',
+    quote_cn:'冰箱里有啥就吃啥，生活不易，珍惜食物吧，活着本身就是答案。',
+    quote_tw:'冰箱裡有啥就吃啥，生活不易，珍惜食物吧，活著本身就是答案。',
+    traits_cn:['实用至上','生存模式','有得吃','能续命'],
+    traits_tw:['實用至上','生存模式','有得吃','能續命'],
+    desc_cn:'<span class="p-quote">冰箱里有啥就吃啥，生活不易，珍惜食物吧。</span>',
+    desc_tw:'<span class="p-quote">冰箱裡有啥就吃啥，生活不易，珍惜食物吧。</span>',
+  },
+  E: {
+    animal:'🚽', name_cn:'马桶', name_tw:'馬桶', tier:'E',
+    /* Tier E uses gender-dynamic title — resolved in getPersona().
+       title_cn_m / title_tw_m → male  ("兄弟")
+       title_cn_f / title_tw_f → female ("姐妹") */
+    title_cn_m:'E级 · 兄弟',
+    title_cn_f:'E级 · 姐妹',
+    title_tw_m:'E級 · 兄弟',
+    title_tw_f:'E級 · 姐妹',
+    /* Neutral fallbacks for any consumer that bypasses getPersona(). */
+    title_cn:'E级 · 朋友',
+    title_tw:'E級 · 朋友',
+    quote_cn:'什么都别说了，加油吧。',
+    quote_tw:'什麽都別説了，加油吧。',
+    traits_cn:['抗压神器'],
+    traits_tw:['抗壓神器'],
+    desc_cn:'<span class="p-quote">努力活着，最重要。</span>',
+    desc_tw:'<span class="p-quote">努力活著，最重要。</span>',
   },
 };
 
+/* ── Tier E gender resolver ────────────────────────────────────────────
+   Tier E (马桶 / Toilet) is the only tier whose title is gender-dynamic:
+   "兄弟" (brother) for male, "姐妹" (sister) for female. This helper
+   reads gender from answerMap and returns a shallow-copied PERSONAS.E
+   with title_cn / title_tw resolved. All other personas are returned
+   as-is from the dict.                                                  */
+function resolveTierE(){
+  var isFemale = false;
+  if(typeof answerMap !== 'undefined' && answerMap){
+    var gq = answerMap['QK2'] || answerMap['A0'] || answerMap['q_gender'];
+    if(gq && gq.questionIdx === 1) isFemale = true;
+  }
+  var base = PERSONAS.E;
+  var resolved = {};
+  for(var k in base){ if(Object.prototype.hasOwnProperty.call(base, k)) resolved[k] = base[k]; }
+  resolved.title_cn = isFemale ? base.title_cn_f : base.title_cn_m;
+  resolved.title_tw = isFemale ? base.title_tw_f : base.title_tw_m;
+  return resolved;
+}
+
 function getPersona(){
   if(finalScore>=120) return PERSONAS.S;
-  if(finalScore>=85) return PERSONAS.A;
-  if(finalScore>=55) return PERSONAS.B;
-  if(finalScore>=35) return PERSONAS.C;
-  return PERSONAS.D;
+  if(finalScore>=85)  return PERSONAS.A;
+  if(finalScore>=55)  return PERSONAS.B;
+  if(finalScore>=35)  return PERSONAS.C;
+  if(finalScore>=20)  return PERSONAS.D;
+  return resolveTierE();
 }
 
 function buildPersona(lang){
   var p=getPersona();
   var isTW=lang==='zh-TW';
+
+  /* Step 1: dynamic tier class on the card itself */
+  var card=document.getElementById('personaCard');
+  if(card) card.className='result-card persona-card persona-tier-'+String(p.tier).toLowerCase();
+
   var el=document.getElementById('personaAnimal'); if(el) el.textContent=p.animal;
   var tierEl=document.getElementById('personaTier'); if(tierEl) tierEl.textContent='TIER '+p.tier;
   var nameEl=document.getElementById('personaName'); if(nameEl) nameEl.textContent=isTW?p.title_tw:p.title_cn;
-  var desc=document.getElementById('personaDesc'); if(desc) desc.textContent=isTW?p.desc_tw:p.desc_cn;
+  /* Use innerHTML so <br> + <span class="p-quote"> in desc strings render */
+  var desc=document.getElementById('personaDesc'); if(desc) desc.innerHTML=isTW?p.desc_tw:p.desc_cn;
   var traits=document.getElementById('personaTraits');
   if(traits){
     var arr=isTW?p.traits_tw:p.traits_cn;
@@ -1560,9 +1651,10 @@ function buildPersona(lang){
 
     var barsHtml=dimConf.map(function(d){
       var v=dimPct[d.key]||0;
+      var vw=visualPct(v);
       return '<div class="pdim-row">'+
         '<div class="pdim-label">'+(isTW?d.label_tw:d.label_cn)+'</div>'+
-        '<div class="pdim-track"><div class="pdim-fill" data-pct="'+v+'" style="width:0;background:'+d.color+'"></div></div>'+
+        '<div class="pdim-track"><div class="pdim-fill" data-vw="'+vw+'" style="width:0;--dim-color:'+d.color+';background:linear-gradient(to right, transparent, '+d.color+');"></div></div>'+
         '<div class="pdim-val">'+v+'</div>'+
       '</div>';
     }).join('');
@@ -1576,11 +1668,37 @@ function buildPersona(lang){
 
     dimsEl.innerHTML=barsHtml+statsHtml;
     setTimeout(function(){
-      dimsEl.querySelectorAll('.pdim-fill').forEach(function(f){f.style.width=f.dataset.pct+'%';});
+      dimsEl.querySelectorAll('.pdim-fill').forEach(function(f){f.style.width=f.dataset.vw+'%';});
     },400);
   }
 
-  /* ── Tier classification sub-section ── */
+  /* ── Section preludes (CN/TW) ───────────────────────────────────────── */
+  var pPersonaText = document.querySelector('.prelude-persona .sp-text');
+  if(pPersonaText){
+    pPersonaText.textContent = isTW
+      ? '如果你是一種食物，那麼你就是'
+      : '如果你是一种食物，那么你就是';
+  }
+  var pRankText = document.querySelector('.prelude-rank .sp-text');
+  if(pRankText){
+    pRankText.textContent = isTW
+      ? '如果你的人生是一場轟轟烈烈的戰役，那麼你就是一名'
+      : '如果你的人生是一场轰轰烈烈的战役，那么你就是一名';
+  }
+
+  /* ── Tier classification — now lives in standalone #rankCard ──
+        We tag #rankCard with a phase class so its decoupled CSS theme
+        (junior / field / general) can render unobstructed by the food
+        persona card's gradient. The inner #personaTierSection still
+        holds the actual military progress bar markup. */
+  var rankCard = document.getElementById('rankCard');
+  if(rankCard){
+    var phase;
+    if(finalScore >= 101)      phase = 'general';   /* 少将 / 中将 / 一级上将 */
+    else if(finalScore >= 51)  phase = 'field';     /* 少校 → 大校 */
+    else                       phase = 'junior';    /* 列兵 → 上尉 */
+    rankCard.className = 'result-card rank-card rank-phase-'+phase;
+  }
   var tierSec=document.getElementById('personaTierSection');
   if(tierSec){
     renderMilitaryProgressBar(tierSec, finalScore, isTW);
@@ -1782,9 +1900,12 @@ function prepareAIPayload(state, scores){
   var persona  = getPersona();
   var tierData = getUserTier(total);
 
-  /* ── Tags: persona traits only (tiers are now military ranks,
-        carrying no trait words of their own). ───────────────────────── */
+  /* ── Tags: persona title (Food Persona — drives AI tone) + traits ───
+        Title is placed FIRST so the LLM picks it up as the dominant
+        identity signal. See system-prompt section "Culinary Status". */
   var tags = [];
+  var personaTitle = isTW ? persona.title_tw : persona.title_cn;
+  if(personaTitle) tags.push(personaTitle);
   var personaTraits = isTW ? persona.traits_tw : persona.traits_cn;
   personaTraits.forEach(function(t){ if(tags.indexOf(t)<0) tags.push(t); });
 
@@ -2029,21 +2150,6 @@ function injectMilitaryProgressStyles(){
     '#milProg .mp-score-val{font-size:15px;font-weight:700;color:#1f2937;}',
     '#milProg .mp-score-max{font-size:13px;color:#94a3b8;font-weight:500;}',
 
-    /* ── Thematic header above the track (Dribbble-style subtitle) ── */
-    '#milProg .mp-theme-head{display:flex;align-items:center;gap:10px;padding:10px 14px;margin:4px 0 6px;border-radius:12px;background:linear-gradient(90deg,rgba(148,163,184,0.08) 0%,rgba(148,163,184,0.02) 100%);border-left:3px solid color-mix(in srgb,var(--theme-accent,#6366f1) 55%,transparent);font-size:13px;font-weight:500;letter-spacing:0.02em;color:#64748b;line-height:1.55;}',
-    '#milProg .mp-theme-head-emoji{flex:none;font-size:15px;filter:grayscale(0.15);}',
-    '#milProg .mp-theme-head-text{flex:1;min-width:0;}',
-
-    /* ── Barnum-style phase analysis below the track ── */
-    '#milProg .mp-phase{margin-top:6px;padding:18px 20px;border-radius:16px;background:linear-gradient(180deg,rgba(248,250,252,0.7) 0%,rgba(241,245,249,0.5) 100%);border:1px solid rgba(226,232,240,0.8);}',
-    '#milProg .mp-phase-label{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--theme-accent,#6366f1);margin-bottom:10px;opacity:0.85;}',
-    '#milProg .mp-phase-label::before{content:"";display:inline-block;width:18px;height:1.5px;background:currentColor;opacity:0.55;}',
-    '#milProg .mp-phase-title{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:8px;letter-spacing:0.01em;}',
-    '#milProg .mp-phase-body{font-size:13.5px;line-height:1.75;color:#475569;letter-spacing:0.01em;}',
-    '#milProg .mp-phase-body strong{color:#334155;font-weight:600;}',
-    '#milProg .mp-phase-body .mp-pro{color:#0f766e;font-weight:600;}',
-    '#milProg .mp-phase-body .mp-con{color:#b45309;font-weight:600;}',
-
     /* ── Horizontal track ── */
     '#milProg .mp-track-wrap{position:relative;padding:42px 0 56px;margin:0 14px;}',
     /* Base rail */
@@ -2101,104 +2207,73 @@ function injectMilitaryProgressStyles(){
       '#milProg .mp-label-score{font-size:9.5px;}',
       '#milProg .mp-node--current .mp-label-name{font-size:12px;}',
       '#milProg .mp-node--current .mp-label-desc{font-size:10px;}',
-      '#milProg .mp-theme-head{font-size:12px;padding:9px 12px;gap:8px;}',
-      '#milProg .mp-phase{padding:15px 16px;}',
-      '#milProg .mp-phase-title{font-size:14px;}',
-      '#milProg .mp-phase-body{font-size:12.5px;line-height:1.7;}',
     '}',
 
-    /* ══════════════════════════════════════════════════════════════════
-       VISUAL PHASE TIERS — dramatic progression by score band
-       ══════════════════════════════════════════════════════════════════ */
+    /* ════════════════════════════════════════════════════════════════
+       Phase block — Barnum-effect copy + cinematic typography
+       ════════════════════════════════════════════════════════════════ */
+    /* Container — fades in after the rest of the bar settles */
+    '#milProg .mp-phase{margin-top:36px;padding-top:22px;border-top:1px solid rgba(255,255,255,0.10);'+
+      'opacity:0;transform:translateY(8px);'+
+      'animation:mpPhaseFadeIn 900ms cubic-bezier(.22,.8,.34,1) 600ms forwards;}',
 
-    /* ── TIER 1 · phase-junior (0–50) · Slate / steel, grounded, raw ── */
-    '#milProg.phase-junior{padding:22px 24px;border-radius:18px;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);border:1px solid #334155;color:#e2e8f0;}',
-    '#milProg.phase-junior .mp-title{color:#f1f5f9 !important;text-shadow:none;font-weight:800;}',
-    '#milProg.phase-junior .mp-chip{background:rgba(148,163,184,0.14) !important;color:#cbd5e1 !important;border:1px solid rgba(148,163,184,0.25);}',
-    '#milProg.phase-junior .mp-score-val{color:#e2e8f0;}',
-    '#milProg.phase-junior .mp-score-max{color:#64748b;}',
-    '#milProg.phase-junior .mp-theme-head{background:rgba(51,65,85,0.4);color:#94a3b8;border-left-color:#64748b;}',
-    '#milProg.phase-junior .mp-rail{background:linear-gradient(90deg,#334155 0%,#1e293b 60%,#0f172a 100%);}',
-    '#milProg.phase-junior .mp-rail::after{background:repeating-linear-gradient(90deg,rgba(71,85,105,0.35) 0 6px,rgba(71,85,105,0.12) 6px 12px);}',
-    '#milProg.phase-junior .mp-label-score{color:#64748b;}',
-    '#milProg.phase-junior .mp-node--pending .mp-label-name{color:#94a3b8;}',
-    '#milProg.phase-junior .mp-node--fog .mp-marker{background:#475569;}',
-    '#milProg.phase-junior .mp-node--achieved .mp-marker{box-shadow:none;}',
-    '#milProg.phase-junior .mp-phase{background:rgba(15,23,42,0.55);border-color:#334155;}',
-    '#milProg.phase-junior .mp-phase-title{color:#f1f5f9;}',
-    '#milProg.phase-junior .mp-phase-body{color:#cbd5e1;}',
-    '#milProg.phase-junior .mp-phase-body strong{color:#f1f5f9;}',
-    '#milProg.phase-junior .mp-phase-body .mp-pro{color:#5eead4;}',
-    '#milProg.phase-junior .mp-phase-body .mp-con{color:#fcd34d;}',
+    '@keyframes mpPhaseFadeIn{to{opacity:1;transform:translateY(0);}}',
 
-    /* ── TIER 2 · phase-field (51–100) · Navy / bronze, tactical, glass ── */
-    '#milProg.phase-field{padding:24px 26px;border-radius:22px;background:linear-gradient(135deg,rgba(23,44,76,0.96) 0%,rgba(14,30,56,0.98) 60%,rgba(20,26,40,0.98) 100%);border:1px solid rgba(184,134,79,0.32);color:#e8efff;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 8px 32px rgba(0,0,0,0.35),0 0 28px rgba(184,134,79,0.12),inset 0 1px 0 rgba(255,255,255,0.06);}',
-    '#milProg.phase-field .mp-title{color:#ffffff !important;text-shadow:0 2px 10px rgba(184,134,79,0.45),0 1px 2px rgba(0,0,0,0.5);font-weight:800;letter-spacing:0.03em;}',
-    '#milProg.phase-field .mp-chip{background:rgba(184,134,79,0.18) !important;color:#e4c48a !important;border:1px solid rgba(184,134,79,0.4);backdrop-filter:blur(8px);}',
-    '#milProg.phase-field .mp-score-val{color:#f1f5f9;}',
-    '#milProg.phase-field .mp-score-max{color:#94a3b8;}',
-    '#milProg.phase-field .mp-theme-head{background:linear-gradient(90deg,rgba(184,134,79,0.14) 0%,rgba(184,134,79,0.02) 100%);color:#b8ccea;border-left-color:#b8864f;}',
-    '#milProg.phase-field .mp-rail{background:linear-gradient(90deg,rgba(71,85,105,0.6) 0%,rgba(30,41,59,0.7) 100%);}',
-    '#milProg.phase-field .mp-rail::after{background:repeating-linear-gradient(90deg,rgba(148,163,184,0.25) 0 6px,rgba(148,163,184,0.08) 6px 12px);}',
-    '#milProg.phase-field .mp-label-score{color:#94a3b8;}',
-    '#milProg.phase-field .mp-node--pending .mp-label-name{color:#b8ccea;}',
-    '#milProg.phase-field .mp-node--fog .mp-marker{background:#475569;}',
-    '#milProg.phase-field .mp-phase{background:rgba(14,30,56,0.55);border-color:rgba(184,134,79,0.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,255,255,0.04);}',
-    '#milProg.phase-field .mp-phase-label{color:#e4c48a !important;}',
-    '#milProg.phase-field .mp-phase-title{color:#f1f5f9;text-shadow:0 1px 2px rgba(0,0,0,0.3);}',
-    '#milProg.phase-field .mp-phase-body{color:#cbd5e1;}',
-    '#milProg.phase-field .mp-phase-body strong{color:#e8efff;}',
-    '#milProg.phase-field .mp-phase-body .mp-pro{color:#5eead4;}',
-    '#milProg.phase-field .mp-phase-body .mp-con{color:#fbbf77;}',
+    /* Tagline — the punchy headline */
+    '#milProg .mp-phase-tagline{font-size:17px;font-weight:800;line-height:1.4;letter-spacing:0.04em;margin-bottom:12px;color:rgba(255,255,255,0.96);}',
 
-    /* ── TIER 3 · phase-general (101–150) · Obsidian / gold, epic, legendary ── */
-    '#milProg.phase-general{position:relative;padding:28px 30px;border-radius:24px;background:radial-gradient(ellipse at 18% 25%,rgba(255,215,0,0.18) 0%,transparent 48%),radial-gradient(ellipse at 82% 78%,rgba(139,35,97,0.24) 0%,transparent 52%),linear-gradient(135deg,#0a0a12 0%,#1a0a1e 45%,#0a0510 100%);border:1px solid rgba(255,215,0,0.28);color:#ffffff;overflow:hidden;box-shadow:0 0 30px rgba(255,215,0,0.4),0 14px 50px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,215,0,0.12);animation:mpEpicBreathe 6.5s ease-in-out infinite;}',
-    '@keyframes mpEpicBreathe{0%,100%{box-shadow:0 0 30px rgba(255,215,0,0.4),0 14px 50px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,215,0,0.12);}50%{box-shadow:0 0 55px rgba(255,215,0,0.6),0 18px 64px rgba(139,35,97,0.35),inset 0 1px 0 rgba(255,215,0,0.18);}}',
+    /* Body — the Barnum paragraph */
+    '#milProg .mp-phase-body{font-size:14.5px;line-height:1.85;color:rgba(255,255,255,0.78);margin-bottom:20px;letter-spacing:0.02em;}',
 
-    /* Sweeping diagonal shimmer — runs occasionally (~90% idle, ~10% sweep) */
-    '#milProg.phase-general::after{content:"";position:absolute;top:-80%;left:-60%;width:220%;height:260%;background:linear-gradient(115deg,transparent 38%,rgba(255,215,0,0.08) 46%,rgba(255,255,255,0.22) 50%,rgba(255,215,0,0.08) 54%,transparent 62%);transform:translateX(-100%);animation:mpEpicShimmer 7s ease-in-out infinite;pointer-events:none;z-index:1;}',
-    '@keyframes mpEpicShimmer{0%,82%,100%{transform:translateX(-100%);opacity:0;}86%{opacity:0.5;}92%{transform:translateX(40%);opacity:0.35;}97%{transform:translateX(100%);opacity:0;}}',
+    /* Tag rows — pros above, cons below */
+    '#milProg .mp-phase-tags{display:flex;flex-direction:column;gap:12px;}',
+    '#milProg .mp-phase-tag-row{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;}',
+    '#milProg .mp-phase-tag-label{flex-shrink:0;font-size:12px;font-weight:800;padding:5px 12px;border-radius:6px;letter-spacing:0.12em;}',
+    '#milProg .mp-phase-tag-label--pro{background:rgba(74,222,128,0.18);color:#86efac;border:1px solid rgba(74,222,128,0.30);}',
+    '#milProg .mp-phase-tag-label--con{background:rgba(251,113,133,0.18);color:#fda4af;border:1px solid rgba(251,113,133,0.30);}',
+    '#milProg .mp-phase-tag-list{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;}',
 
-    /* Keep content above the shimmer layer */
-    '#milProg.phase-general > *{position:relative;z-index:2;}',
+    /* Tag pills — the actual phrases. Color is tier-driven via per-phase
+       overrides further down, but here we set the baseline structure. */
+    '#milProg .mp-tag{display:inline-block;padding:5px 11px;font-size:12.5px;font-weight:600;line-height:1.4;border-radius:999px;letter-spacing:0.02em;'+
+      'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.88);'+
+      'border:1px solid rgba(255,255,255,0.14);'+
+      'transition:transform 200ms ease,box-shadow 200ms ease;}',
 
-    /* Metallic gold animated title */
-    '#milProg.phase-general .mp-title{color:transparent !important;background:linear-gradient(120deg,#fff3b0 0%,#ffd700 28%,#b8860b 52%,#ffd700 74%,#fff8c2 100%);background-size:220% 220%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;text-shadow:0 0 24px rgba(255,215,0,0.5);animation:mpGoldShift 4.5s ease-in-out infinite;font-weight:900;font-size:24px;letter-spacing:0.04em;}',
-    '@keyframes mpGoldShift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}',
+    /* General phase — gold-glow tags */
+    '#milProg.mp-phase-host--general .mp-tag{background:rgba(255,215,0,0.10);border-color:rgba(255,215,0,0.32);color:#fde68a;'+
+      'box-shadow:0 0 12px rgba(255,215,0,0.18);}',
+    '#milProg.mp-phase-host--general .mp-tag--pro{box-shadow:0 0 14px rgba(255,215,0,0.28);}',
+    '#milProg.mp-phase-host--general .mp-tag--con{background:rgba(251,191,36,0.08);border-color:rgba(251,191,36,0.28);color:#fcd34d;}',
+    '#milProg.mp-phase-host--general .mp-phase-tagline{background:linear-gradient(120deg,#fef3c7 0%,#fbbf24 40%,#f59e0b 65%,#fef9c3 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:mpGoldFlow 5s linear infinite;}',
+    '@keyframes mpGoldFlow{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}',
 
-    '#milProg.phase-general .mp-chip{background:rgba(255,215,0,0.15) !important;color:#ffd700 !important;border:1px solid rgba(255,215,0,0.42);backdrop-filter:blur(8px);text-shadow:0 0 6px rgba(255,215,0,0.3);}',
-    '#milProg.phase-general .mp-score-val{color:#ffd700;text-shadow:0 0 14px rgba(255,215,0,0.6);font-size:17px;}',
-    '#milProg.phase-general .mp-score-max{color:#d4af37;}',
+    /* Field phase — bronze-silver tags */
+    '#milProg.mp-phase-host--field .mp-tag{background:rgba(251,191,36,0.08);border-color:rgba(251,191,36,0.28);color:#fed7aa;'+
+      'box-shadow:0 0 10px rgba(251,146,60,0.18);}',
+    '#milProg.mp-phase-host--field .mp-tag--con{background:rgba(220,38,38,0.10);border-color:rgba(220,38,38,0.28);color:#fca5a5;}',
+    '#milProg.mp-phase-host--field .mp-phase-tagline{background:linear-gradient(120deg,#fed7aa 0%,#fbbf24 50%,#fde68a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}',
 
-    '#milProg.phase-general .mp-theme-head{background:linear-gradient(90deg,rgba(255,215,0,0.12) 0%,rgba(139,35,97,0.06) 100%);color:#e8d78a;border-left:3px solid #ffd700;box-shadow:inset 0 1px 0 rgba(255,215,0,0.08);}',
+    /* Junior phase — cool tactical tags */
+    '#milProg.mp-phase-host--junior .mp-tag{background:rgba(96,165,250,0.10);border-color:rgba(96,165,250,0.28);color:#bfdbfe;}',
+    '#milProg.mp-phase-host--junior .mp-tag--con{background:rgba(148,163,184,0.10);border-color:rgba(148,163,184,0.28);color:#cbd5e1;}',
+    '#milProg.mp-phase-host--junior .mp-phase-tagline{color:#dbeafe;}',
 
-    '#milProg.phase-general .mp-rail{background:linear-gradient(90deg,rgba(255,215,0,0.22) 0%,rgba(139,35,97,0.18) 100%);}',
-    '#milProg.phase-general .mp-rail::after{background:repeating-linear-gradient(90deg,rgba(255,215,0,0.2) 0 6px,rgba(255,215,0,0.05) 6px 12px);}',
-    '#milProg.phase-general .mp-label-score{color:#c9a94e;}',
-    '#milProg.phase-general .mp-node--pending .mp-label-name{color:#d4af37;}',
-    '#milProg.phase-general .mp-node--fog .mp-marker{background:rgba(212,175,55,0.35);}',
-
-    '#milProg.phase-general .mp-phase{background:linear-gradient(180deg,rgba(20,10,30,0.55) 0%,rgba(10,5,20,0.72) 100%);border:1px solid rgba(255,215,0,0.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 1px 0 rgba(255,215,0,0.08),0 6px 20px rgba(0,0,0,0.4);}',
-    '#milProg.phase-general .mp-phase-label{color:#ffd700 !important;text-shadow:0 0 8px rgba(255,215,0,0.35);}',
-    '#milProg.phase-general .mp-phase-title{color:#fff3b0;text-shadow:0 1px 8px rgba(255,215,0,0.2);}',
-    '#milProg.phase-general .mp-phase-body{color:#d4c8a0;}',
-    '#milProg.phase-general .mp-phase-body strong{color:#fff3b0;}',
-    '#milProg.phase-general .mp-phase-body .mp-pro{color:#86efac;}',
-    '#milProg.phase-general .mp-phase-body .mp-con{color:#fcd34d;}',
-
-    /* Reduced motion — respect user preference across all epic animations */
-    '@media (prefers-reduced-motion:reduce){',
-      '#milProg.phase-general{animation:none;}',
-      '#milProg.phase-general::after{animation:none;opacity:0;}',
-      '#milProg.phase-general .mp-title{animation:none;background-position:50% 50%;}',
+    /* Hover lift for tag pills (desktop only) */
+    '@media (hover:hover){',
+      '#milProg .mp-tag:hover{transform:translateY(-1px);}',
     '}',
 
-    /* Mobile tweaks for phase tiers */
+    /* Mobile — tighter spacing */
     '@media (max-width:640px){',
-      '#milProg.phase-junior,#milProg.phase-field,#milProg.phase-general{padding:18px 16px;border-radius:16px;}',
-      '#milProg.phase-general .mp-title{font-size:20px;}',
+      '#milProg .mp-phase{margin-top:28px;padding-top:18px;}',
+      '#milProg .mp-phase-tagline{font-size:15.5px;}',
+      '#milProg .mp-phase-body{font-size:13.5px;line-height:1.75;}',
+      '#milProg .mp-tag{font-size:11.5px;padding:4px 9px;}',
+      '#milProg .mp-phase-tag-label{font-size:11px;padding:4px 10px;}',
     '}',
 
+    /* color-mix fallback */
     '@supports not (color:color-mix(in srgb,#000 10%,#fff 90%)){',
       '#milProg .mp-node--achieved .mp-marker{box-shadow:none;}',
       '#milProg .mp-node--current .mp-marker{box-shadow:0 0 0 4px #6366f1,0 8px 22px rgba(99,102,241,0.4);}',
@@ -2211,138 +2286,68 @@ function injectMilitaryProgressStyles(){
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   RANK PHASE DESCRIPTIONS — "Barnum Effect" ambiguous analysis
+   RANK_PHASES — Barnum-effect phase copy
    ────────────────────────────────────────────────────────────────────────
-   Four broad phases mapped to the 11 military ranks. Each paragraph is
-   written to resonate universally while feeling deeply personal — leaning
-   on the Barnum / Forer effect: concrete enough to feel tailored, broad
-   enough that almost any reader in that score band will nod along.
+   Below the progress bar we surface a 2-3 sentence "what this stage of
+   life feels like" passage plus 2 short pros / 2 short cons. The copy
+   is intentionally Barnum-flavoured: relatable, slightly ambiguous,
+   emotionally resonant, easy to nod along to. Each phase has its own
+   psychological centre of gravity:
 
-     Phase 1 · Junior Ranks       ( 0–40 )  列兵 · 少尉 · 中尉
-     Phase 2 · Field Officers     (41–70 )  上尉 · 少校 · 中校
-     Phase 3 · Senior Officers    (71–120)  上校 · 大校 · 少将
-     Phase 4 · Generals           (121–150) 中将 · 一级上将
+     general — apex / loneliness of the summit / search for next battle
+     field   — multi-front load / from doing-things-right to right-things
+     junior  — raw potential / resilience / chaotic resource management
    ════════════════════════════════════════════════════════════════════════ */
 var RANK_PHASES = {
-  junior: {
-    minScore: 0, maxScore: 40,
+  general: {
     cn: {
-      label: '阶段一 · 新兵集结',
-      title: '潜力无限的起点，亦是最混乱的战场',
-      body:
-        '你正处在人生最原始、也最具韧性的阶段。表面上，日子像是被琐碎的战术行动填满——为资源奔波、为身份焦虑、为方向摇摆。但在喧嚣之下，你其实握有很多人已经失去的东西：几乎没有退路的勇气、对规则尚未完全妥协的敏锐、以及一张能被重新书写的地图。' +
-        '<br><br>' +
-        '<span class="mp-pro">优势：</span>身段轻、包袱少、容错率高；一次关键的判断就可能改变后续十年的轨迹。' +
-        '<br>' +
-        '<span class="mp-con">挑战：</span>资源有限、支援不足，日常的消耗战容易让人忘记远方；你需要的不是更多的努力，而是更清晰的坐标。'
+      tagline: '巅峰之上，目之所及皆是空气',
+      body: '到了你这个位置，外部世界已经很难再给你出难题——大多数挑战的形状你都见过、解过、也输过几次。真正的难度从外部转向了内部：在没有人能给你建议的高度，下一场仗到底要不要打、为谁而打。',
+      pros: ['对规则与系统了如指掌', '能从一片混沌里看出地形', '决策时已不被噪音干扰'],
+      cons: ['在高处没有同辈，孤独是底色', '"做对的事"开始比"把事做对"更难'],
     },
     tw: {
-      label: '階段一 · 新兵集結',
-      title: '潛力無限的起點，亦是最混亂的戰場',
-      body:
-        '你正處在人生最原始、也最具韌性的階段。表面上，日子像是被瑣碎的戰術行動填滿——為資源奔波、為身份焦慮、為方向搖擺。但在喧囂之下，你其實握有很多人已經失去的東西：幾乎沒有退路的勇氣、對規則尚未完全妥協的敏銳、以及一張能被重新書寫的地圖。' +
-        '<br><br>' +
-        '<span class="mp-pro">優勢：</span>身段輕、包袱少、容錯率高；一次關鍵的判斷就可能改變後續十年的軌跡。' +
-        '<br>' +
-        '<span class="mp-con">挑戰：</span>資源有限、支援不足，日常的消耗戰容易讓人忘記遠方；你需要的不是更多的努力，而是更清晰的座標。'
-    }
+      tagline: '巔峰之上，目之所及皆是空氣',
+      body: '到了你這個位置，外部世界已經很難再給你出難題——大多數挑戰的形狀你都見過、解過、也輸過幾次。真正的難度從外部轉向了內部：在沒有人能給你建議的高度，下一場仗到底要不要打、為誰而打。',
+      pros: ['對規則與系統了如指掌', '能從一片混沌裡看出地形', '決策時已不被噪音干擾'],
+      cons: ['在高處沒有同輩，孤獨是底色', '「做對的事」開始比「把事做對」更難'],
+    },
   },
   field: {
-    minScore: 41, maxScore: 70,
     cn: {
-      label: '阶段二 · 多线推进',
-      title: '基础已筑，但正陷入人生的"中层指挥"',
-      body:
-        '你已经不再是新兵，也还没到能俯瞰全局的高度。在这个阶段，你多半已经建立了自己的一套章法：有可依靠的技能、有稳定的收入来源、有一小群愿意并肩的人。但与此同时，你也开始同时应付多条战线——事业的推进、家庭的责任、身体的信号、以及内心偶尔袭来的倦意。' +
-        '<br><br>' +
-        '<span class="mp-pro">优势：</span>你具备执行力、积累了真实可用的资源，能把复杂任务拆解为可交付的成果。' +
-        '<br>' +
-        '<span class="mp-con">挑战：</span>多线作战的代价是"哪边都不能输"，你容易被紧迫的事情吞没，失去主动选择战场的权力；警惕长期消耗带来的系统性疲劳。'
+      tagline: '多线作战，承重一整代人',
+      body: '你正在打一场没有间歇的多线战役——事业要往上、家庭要兼顾、身体在悄悄抗议、还要时不时回应身后那些把希望寄托在你身上的人。这是最辛苦也最值得尊敬的阶段：很多事情没人比你更适合扛，因为你恰好处在"还能扛得动"的那个窗口期。',
+      pros: ['执行力与责任心都已被反复锤炼', '在现实世界里有真正的话语权', '能把复杂的事拆成可推进的步骤'],
+      cons: ['长期硬扛，留给自己的余量越来越少', '"把事情做对"已不够，需要开始问"做的是不是对的事"'],
     },
     tw: {
-      label: '階段二 · 多線推進',
-      title: '基礎已築，但正陷入人生的「中層指揮」',
-      body:
-        '你已經不再是新兵，也還沒到能俯瞰全局的高度。在這個階段，你多半已經建立了自己的一套章法：有可依靠的技能、有穩定的收入來源、有一小群願意並肩的人。但與此同時，你也開始同時應付多條戰線——事業的推進、家庭的責任、身體的訊號、以及內心偶爾襲來的倦意。' +
-        '<br><br>' +
-        '<span class="mp-pro">優勢：</span>你具備執行力、積累了真實可用的資源，能把複雜任務拆解為可交付的成果。' +
-        '<br>' +
-        '<span class="mp-con">挑戰：</span>多線作戰的代價是「哪邊都不能輸」，你容易被緊迫的事情吞沒，失去主動選擇戰場的權力；警惕長期消耗帶來的系統性疲勞。'
-    }
+      tagline: '多線作戰，承重一整代人',
+      body: '你正在打一場沒有間歇的多線戰役——事業要往上、家庭要兼顧、身體在悄悄抗議、還要時不時回應身後那些把希望寄託在你身上的人。這是最辛苦也最值得尊敬的階段：很多事情沒人比你更適合扛，因為你恰好處在「還能扛得動」的那個窗口期。',
+      pros: ['執行力與責任心都已被反覆錘鍊', '在現實世界裡有真正的話語權', '能把複雜的事拆成可推進的步驟'],
+      cons: ['長期硬扛，留給自己的餘量越來越少', '「把事情做對」已不夠，需要開始問「做的是不是對的事」'],
+    },
   },
-  senior: {
-    minScore: 71, maxScore: 120,
+  junior: {
     cn: {
-      label: '阶段三 · 战区统筹',
-      title: '你已经能调动资源，真正的对手是"规模的复杂度"',
-      body:
-        '你已经走到了大多数人仰望的位置——不是靠运气偶得，而是靠多年累积下来的判断、人脉与执行。此刻你面对的问题，已经很少是"能不能做到"，而更多是"该不该做"、"值不值得做"、以及"做了之后谁来承担"。你比过去任何时候都更懂得取舍，也更清楚每一次取舍的代价。' +
-        '<br><br>' +
-        '<span class="mp-pro">优势：</span>战略视角清晰、资源充沛、能影响他人的决策与路径，你在自己擅长的领域已经拥有相当程度的话语权。' +
-        '<br>' +
-        '<span class="mp-con">挑战：</span>规模会放大每一个失误；能与你真正对话的人变少，孤独感不再是情绪而是结构性问题；最大的敌人，往往是过去那个成功的自己。'
+      tagline: '原始素材最厚的阶段',
+      body: '你身上最值钱的东西，恰恰是那些还没被磨平的东西——韧性、灵活度、对未来的可塑性、以及在被现实重击之后还愿意再爬起来的那股劲。这个阶段最大的风险不是失败，而是把宝贵的能量胡乱燃烧在不会复利的事情上。',
+      pros: ['抗压与回弹能力远高于自己以为的', '没有沉没成本的包袱，转向成本极低', '对世界还保留着真诚的好奇心'],
+      cons: ['资源有限时容易在多个方向同时分散精力', '把"忙"误认为"在前进"'],
     },
     tw: {
-      label: '階段三 · 戰區統籌',
-      title: '你已經能調動資源，真正的對手是「規模的複雜度」',
-      body:
-        '你已經走到了大多數人仰望的位置——不是靠運氣偶得，而是靠多年累積下來的判斷、人脈與執行。此刻你面對的問題，已經很少是「能不能做到」，而更多是「該不該做」、「值不值得做」、以及「做了之後誰來承擔」。你比過去任何時候都更懂得取捨，也更清楚每一次取捨的代價。' +
-        '<br><br>' +
-        '<span class="mp-pro">優勢：</span>戰略視角清晰、資源充沛、能影響他人的決策與路徑，你在自己擅長的領域已經擁有相當程度的話語權。' +
-        '<br>' +
-        '<span class="mp-con">挑戰：</span>規模會放大每一個失誤；能與你真正對話的人變少，孤獨感不再是情緒而是結構性問題；最大的敵人，往往是過去那個成功的自己。'
-    }
+      tagline: '原始素材最厚的階段',
+      body: '你身上最值錢的東西，恰恰是那些還沒被磨平的東西——韌性、靈活度、對未來的可塑性、以及在被現實重擊之後還願意再爬起來的那股勁。這個階段最大的風險不是失敗，而是把寶貴的能量胡亂燃燒在不會複利的事情上。',
+      pros: ['抗壓與回彈能力遠高於自己以為的', '沒有沉沒成本的包袱，轉向成本極低', '對世界還保留著真誠的好奇心'],
+      cons: ['資源有限時容易在多個方向同時分散精力', '把「忙」誤認為「在前進」'],
+    },
   },
-  general: {
-    minScore: 121, maxScore: 150,
-    cn: {
-      label: '阶段四 · 最高统帅',
-      title: '站在山巅，真正的战役是"寻找下一场值得打的仗"',
-      body:
-        '你已经抵达一个极少数人才能触及的位置。外部的战役——名声、财富、影响力、专业深度——大多已经结束，或已经不再是你真正关心的事。此刻你需要回答的，是一个比所有战术问题都更艰难的问题：当你已经赢得了过去所有在意的东西，什么才值得用余下的时间去守护、去建造、去传递？' +
-        '<br><br>' +
-        '<span class="mp-pro">优势：</span>你拥有近乎绝对的自主权——时间、资源、选择权、以及定义成功的标准本身。' +
-        '<br>' +
-        '<span class="mp-con">挑战：</span>高处风景独美，亦独寒；维持帝国的代价是持续的警觉，而真正的危险往往不是失败，而是失去意义感——你需要的不再是更大的战场，而是更深的意义。'
-    },
-    tw: {
-      label: '階段四 · 最高統帥',
-      title: '站在山巔，真正的戰役是「尋找下一場值得打的仗」',
-      body:
-        '你已經抵達一個極少數人才能觸及的位置。外部的戰役——名聲、財富、影響力、專業深度——大多已經結束，或已經不再是你真正關心的事。此刻你需要回答的，是一個比所有戰術問題都更艱難的問題：當你已經贏得了過去所有在意的東西，什麼才值得用餘下的時間去守護、去建造、去傳遞？' +
-        '<br><br>' +
-        '<span class="mp-pro">優勢：</span>你擁有近乎絕對的自主權——時間、資源、選擇權、以及定義成功的標準本身。' +
-        '<br>' +
-        '<span class="mp-con">挑戰：</span>高處風景獨美，亦獨寒；維持帝國的代價是持續的警覺，而真正的危險往往不是失敗，而是失去意義感——你需要的不再是更大的戰場，而是更深的意義。'
-    }
-  }
 };
 
-function getRankPhaseDescription(score){
-  var s = (typeof score === 'number' && !isNaN(score)) ? score : 0;
-  if (s <= 40)      return RANK_PHASES.junior;
-  if (s <= 70)      return RANK_PHASES.field;
-  if (s <= 120)     return RANK_PHASES.senior;
-  return RANK_PHASES.general;
+function getRankPhase(score){
+  if(score >= 101) return 'general';
+  if(score >= 51)  return 'field';
+  return 'junior';
 }
-window.getRankPhaseDescription = getRankPhaseDescription;
-
-/* ────────────────────────────────────────────────────────────────────────
-   VISUAL PHASE CLASS — drives dramatic 3-tier CSS theming on the rank card.
-   Independent from the text-phase mapping above; this one controls the
-   look/feel (background, glow, typography) based on military rank family.
-
-     phase-junior  (  0– 50 )  列兵 · 少尉 · 中尉 · 上尉   — Slate / steel, flat
-     phase-field   ( 51–100 )  少校 · 中校 · 上校 · 大校   — Navy / bronze, glass
-     phase-general (101–150 )  少将 · 中将 · 一级上将      — Obsidian / gold, epic
-   ──────────────────────────────────────────────────────────────────────── */
-function getVisualPhaseClass(score){
-  var s = (typeof score === 'number' && !isNaN(score)) ? score : 0;
-  if (s <= 50)  return 'phase-junior';
-  if (s <= 100) return 'phase-field';
-  return 'phase-general';
-}
-window.getVisualPhaseClass = getVisualPhaseClass;
 
 function renderMilitaryProgressBar(container, score, isTW){
   if (!container) return;
@@ -2426,19 +2431,39 @@ function renderMilitaryProgressBar(container, score, isTW){
     'color-mix(in srgb,'+currentTier.color+' 55%,#ffffff 45%) 0%,' +
     currentTier.color + ' 100%)';
 
-  /* Thematic header (above track) + Barnum-style phase paragraph (below track) */
-  var phase      = getRankPhaseDescription(score);
-  var phaseCopy  = isTW ? phase.tw : phase.cn;
-  var phaseClass = getVisualPhaseClass(score);
-  var themeText  = isTW
-    ? '如果你的人生是一場戰役，你目前的軍銜座標在此：'
-    : '如果你的人生是一场战役，你目前的军衔坐标在此：';
+  /* ── Phase block (Barnum-effect copy) ────────────────────────────── */
+  var phaseKey = getRankPhase(score);
+  var phaseData = RANK_PHASES[phaseKey][isTW ? 'tw' : 'cn'];
+  var prosLabel = isTW ? '優勢' : '优势';
+  var consLabel = isTW ? '挑戰' : '挑战';
+  var prosHtml = phaseData.pros.map(function(p){
+    return '<span class="mp-tag mp-tag--pro">'+p+'</span>';
+  }).join('');
+  var consHtml = phaseData.cons.map(function(c){
+    return '<span class="mp-tag mp-tag--con">'+c+'</span>';
+  }).join('');
+  var phaseHtml =
+    '<div class="mp-phase mp-phase--'+phaseKey+'">'+
+      '<div class="mp-phase-tagline">'+phaseData.tagline+'</div>'+
+      '<div class="mp-phase-body">'+phaseData.body+'</div>'+
+      '<div class="mp-phase-tags">'+
+        '<div class="mp-phase-tag-row">'+
+          '<span class="mp-phase-tag-label mp-phase-tag-label--pro">'+prosLabel+'</span>'+
+          '<div class="mp-phase-tag-list">'+prosHtml+'</div>'+
+        '</div>'+
+        '<div class="mp-phase-tag-row">'+
+          '<span class="mp-phase-tag-label mp-phase-tag-label--con">'+consLabel+'</span>'+
+          '<div class="mp-phase-tag-list">'+consHtml+'</div>'+
+        '</div>'+
+      '</div>'+
+    '</div>';
 
   container.id = container.id || 'personaTierSection';
   /* Give it the host class so our scoped CSS targets it */
   container.setAttribute('data-mil-prog','1');
+  container.setAttribute('data-phase', phaseKey);
   container.innerHTML =
-    '<div id="milProg" class="'+phaseClass+'" style="--theme-accent:'+currentTier.color+'">'+
+    '<div id="milProg" class="mp-phase-host mp-phase-host--'+phaseKey+'">'+
       '<div class="mp-header">'+
         '<div class="mp-icon" style="background:'+currentTier.bgGradient+'">'+currentTier.icon+'</div>'+
         '<div class="mp-meta">'+
@@ -2450,20 +2475,12 @@ function renderMilitaryProgressBar(container, score, isTW){
         '<span class="mp-score-val">'+score+'</span>'+
         '<span class="mp-score-max">/ 150</span>'+
       '</div>'+
-      '<div class="mp-theme-head">'+
-        '<span class="mp-theme-head-emoji">🎖️</span>'+
-        '<span class="mp-theme-head-text">'+themeText+'</span>'+
-      '</div>'+
       '<div class="mp-track-wrap" style="--fill-color:'+currentTier.color+';--fill-grad:'+fillGrad+';--fog-width:'+fogPct+'%">'+
         '<div class="mp-rail"></div>'+
         '<div class="mp-fill" data-target="'+fillPct+'"></div>'+
         nodesHtml +
       '</div>'+
-      '<div class="mp-phase">'+
-        '<div class="mp-phase-label">'+phaseCopy.label+'</div>'+
-        '<div class="mp-phase-title">'+phaseCopy.title+'</div>'+
-        '<div class="mp-phase-body">'+phaseCopy.body+'</div>'+
-      '</div>'+
+      phaseHtml +
     '</div>';
 
   /* Animate the fill bar width after the DOM settles */
@@ -3369,23 +3386,100 @@ function launchConfetti(){
    SHARE MODAL
    ══════════════════════════════ */
 function buildShareCard(lang){
-  var sn=document.getElementById('scScoreNum'); if(sn) sn.textContent=finalScore;
-  var sv=document.getElementById('scVerdict');
-  if(sv){ var v=getVerdict(finalScore); sv.textContent=window.t('result.'+v); }
+  var isTW = (lang === 'zh-TW');
+  var persona = getPersona();        /* SINGLE source of truth — no more getVerdict here */
+  var tier = persona.tier;           /* 'S' | 'A' | 'B' | 'C' | 'D' | 'E' */
 
-  var sd=document.getElementById('scDims');
-  if(sd&&dimPct){
-    sd.innerHTML=DIM_CONF.map(function(d){
-      var s=dimPct[d.key]||0;
+  /* ── 1. Score number ─────────────────────────────────────── */
+  var sn = document.getElementById('scScoreNum');
+  if(sn) sn.textContent = finalScore;
+
+  /* ── 2. Verdict slot → persona title (e.g. "S级 · 奇迹般的蓝鳍金枪鱼大腹") ── */
+  var sv = document.getElementById('scVerdict');
+  if(sv) sv.textContent = isTW ? persona.title_tw : persona.title_cn;
+
+  /* ── 3. Dimension pills (only scDims innerHTML touched) ───── */
+  var sd = document.getElementById('scDims');
+  if(sd && dimPct){
+    sd.innerHTML = DIM_CONF.map(function(d){
+      var s = dimPct[d.key] || 0;
       return '<div class="sc-dim"><span>'+d.icon+'</span> '+window.t(d.i18n)+' <strong>'+s+'</strong></div>';
     }).join('');
   }
 
-  /* ── Theme detection ── */
-  var card=document.getElementById('shareCard');
+  var card = document.getElementById('shareCard');
   if(!card) return;
 
-  var isGold = finalScore >= 100;
+  /* ── 4. Safe persona block (quote + traits) ───────────────────
+     NEVER wipe card.innerHTML — that would destroy the QR <img>.
+     Remove only the previous persona block (if any), then rebuild it
+     and insert it right after scVerdict. All styles inline for
+     html2canvas reliability.                                      */
+  var oldBlock = card.querySelector('#scPersonaBlock');
+  if(oldBlock) oldBlock.remove();
+
+  var isTierS = (tier === 'S');
+  var isTierE = (tier === 'E');
+  var quoteColor   = isTierS ? 'rgba(255,230,140,0.92)' : 'rgba(255,255,255,0.92)';
+  var quoteBorder  = isTierS ? 'rgba(255,215,0,0.45)'   : 'rgba(255,255,255,0.35)';
+  var traitBg      = isTierS ? 'rgba(255,215,0,0.14)'   : 'rgba(255,255,255,0.14)';
+  var traitBorder  = isTierS ? 'rgba(255,215,0,0.38)'   : 'rgba(255,255,255,0.28)';
+  var traitColor   = isTierS ? 'rgba(255,240,180,0.95)' : 'rgba(255,255,255,0.92)';
+
+  var block = document.createElement('div');
+  block.id = 'scPersonaBlock';
+  block.className = 'sc-persona-block';
+  block.setAttribute('style',
+    'margin:10px 18px 8px;padding:8px 12px;'+
+    'border-left:2px solid '+quoteBorder+';'+
+    'display:flex;flex-direction:column;gap:8px;'+
+    'position:relative;z-index:2;'
+  );
+
+  var q = document.createElement('div');
+  q.className = 'sc-quote';
+  q.setAttribute('style',
+    'font-size:13px;line-height:1.55;font-style:italic;'+
+    'color:'+quoteColor+';'+
+    'letter-spacing:0.2px;'
+  );
+  q.textContent = '"' + (isTW ? persona.quote_tw : persona.quote_cn) + '"';
+  block.appendChild(q);
+
+  var traits = document.createElement('div');
+  traits.className = 'sc-traits';
+  traits.setAttribute('style',
+    'display:flex;flex-wrap:wrap;gap:6px;'
+  );
+  var arr = isTW ? persona.traits_tw : persona.traits_cn;
+  arr.forEach(function(t){
+    var span = document.createElement('span');
+    span.className = 'sc-trait';
+    span.setAttribute('style',
+      'display:inline-block;padding:3px 10px;border-radius:999px;'+
+      'font-size:11px;line-height:1.3;'+
+      'background:'+traitBg+';'+
+      'border:1px solid '+traitBorder+';'+
+      'color:'+traitColor+';'+
+      'white-space:nowrap;'
+    );
+    span.textContent = t;
+    traits.appendChild(span);
+  });
+  block.appendChild(traits);
+
+  /* Insert after scVerdict — preserves QR, brand, score, dims, footer */
+  if(sv && sv.parentNode === card){
+    if(sv.nextSibling) card.insertBefore(block, sv.nextSibling);
+    else card.appendChild(block);
+  } else {
+    card.appendChild(block);
+  }
+
+  /* ── 5. Tier-based theme class ───────────────────────────────
+     Tier S        → black & gold ('sc-gold')
+     Tier A/B/C/D  → blue for men, pink for women (default / 'sc-pink')
+     Tier E        → no extra class (gender already encoded in title)  */
   var isFemale = false;
   if(answerMap){
     var gq = answerMap['QK2'] || answerMap['A0'] || answerMap['q_gender'];
@@ -3393,103 +3487,107 @@ function buildShareCard(lang){
   }
 
   card.classList.remove('sc-gold','sc-pink');
-  if(isGold) card.classList.add('sc-gold');
-  else if(isFemale) card.classList.add('sc-pink');
+  if(isTierS)           card.classList.add('sc-gold');
+  else if(isFemale)     card.classList.add('sc-pink');
+  /* else: no class → original blue palette for men (tier A/B/C/D/E) */
 
-  /* ── Remove old SVG if re-rendering ── */
-  var old=card.querySelector('.sc-geo-bg');
-  if(old) old.remove();
+  /* ── 6. Remove old SVG background if re-rendering ───────────── */
+  var oldSvg = card.querySelector('.sc-geo-bg');
+  if(oldSvg) oldSvg.remove();
 
-  /* ── Theme-aware colors ── */
-  var circleHi, circleLo, dotC, sparkC, shimC, accentStroke;
-  if(isGold){
-    circleHi='rgba(255,230,120,0.18)'; circleLo='rgba(255,200,50,0.06)';
-    dotC='rgba(255,215,0,0.22)'; sparkC='rgba(255,240,160,0.45)';
-    shimC='rgba(255,248,200,0.07)'; accentStroke='rgba(255,215,0,0.25)';
+  /* ── 7. Tier-driven SVG palette ─────────────────────────────── */
+  var circleHi, circleLo, dotC, sparkC, accentStroke;
+  if(isTierS){
+    /* Black & gold epic */
+    circleHi     = 'rgba(255,215,100,0.28)';
+    circleLo     = 'rgba(255,180,40,0.09)';
+    dotC         = 'rgba(255,220,120,0.30)';
+    sparkC       = 'rgba(255,245,180,0.58)';
+    accentStroke = 'rgba(255,215,0,0.38)';
   } else if(isFemale){
-    circleHi='rgba(255,255,255,0.14)'; circleLo='rgba(255,200,230,0.06)';
-    dotC='rgba(255,255,255,0.15)'; sparkC='rgba(255,255,255,0.3)';
-    shimC='rgba(255,255,255,0.05)'; accentStroke='rgba(255,255,255,0.18)';
+    /* Pink (tier A/B/C/D/E, female) */
+    circleHi     = 'rgba(255,255,255,0.14)';
+    circleLo     = 'rgba(255,200,230,0.06)';
+    dotC         = 'rgba(255,255,255,0.15)';
+    sparkC       = 'rgba(255,255,255,0.30)';
+    accentStroke = 'rgba(255,255,255,0.18)';
   } else {
-    circleHi='rgba(255,255,255,0.12)'; circleLo='rgba(200,230,255,0.05)';
-    dotC='rgba(255,255,255,0.13)'; sparkC='rgba(255,255,255,0.28)';
-    shimC='rgba(255,255,255,0.04)'; accentStroke='rgba(255,255,255,0.15)';
+    /* Blue (tier A/B/C/D/E, male) */
+    circleHi     = 'rgba(255,255,255,0.12)';
+    circleLo     = 'rgba(200,230,255,0.05)';
+    dotC         = 'rgba(255,255,255,0.13)';
+    sparkC       = 'rgba(255,255,255,0.28)';
+    accentStroke = 'rgba(255,255,255,0.15)';
   }
 
-  var VB='0 0 400 240';
-  var svg='<svg class="sc-geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="'+VB+'" preserveAspectRatio="xMidYMid slice">';
+  /* ── 8. SVG background (pure <svg> injection — html2canvas safe) ── */
+  var VB = '0 0 400 240';
+  var svg = '<svg class="sc-geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="'+VB+'" preserveAspectRatio="xMidYMid slice">';
 
-  /* ─── 1. Large soft circular arcs (reference style) ─── */
-  svg+='<defs>';
-  /* Big upper-right circle glow — the signature element from the reference */
-  svg+='<radialGradient id="scBigArc" cx="85%" cy="-5%" r="55%">';
-  svg+='<stop offset="0%" stop-color="'+circleHi+'"/>';
-  svg+='<stop offset="60%" stop-color="'+circleLo+'"/>';
-  svg+='<stop offset="100%" stop-color="transparent"/>';
-  svg+='</radialGradient>';
-  /* Secondary lower-left glow */
-  svg+='<radialGradient id="scSmArc" cx="10%" cy="110%" r="45%">';
-  svg+='<stop offset="0%" stop-color="'+circleLo+'"/>';
-  svg+='<stop offset="100%" stop-color="transparent"/>';
-  svg+='</radialGradient>';
-  svg+='</defs>';
-  svg+='<rect width="400" height="240" fill="url(#scBigArc)"/>';
-  svg+='<rect width="400" height="240" fill="url(#scSmArc)"/>';
+  svg += '<defs>';
+  svg += '<radialGradient id="scBigArc" cx="85%" cy="-5%" r="55%">';
+  svg += '<stop offset="0%" stop-color="'+circleHi+'"/>';
+  svg += '<stop offset="60%" stop-color="'+circleLo+'"/>';
+  svg += '<stop offset="100%" stop-color="transparent"/>';
+  svg += '</radialGradient>';
+  svg += '<radialGradient id="scSmArc" cx="10%" cy="110%" r="45%">';
+  svg += '<stop offset="0%" stop-color="'+circleLo+'"/>';
+  svg += '<stop offset="100%" stop-color="transparent"/>';
+  svg += '</radialGradient>';
+  svg += '</defs>';
+  svg += '<rect width="400" height="240" fill="url(#scBigArc)"/>';
+  svg += '<rect width="400" height="240" fill="url(#scSmArc)"/>';
 
-  /* Crisp circle outline arcs — large, partial, like reference */
-  svg+='<circle cx="340" cy="20" r="110" fill="none" stroke="'+circleHi+'" stroke-width="1.5"/>';
-  svg+='<circle cx="350" cy="10" r="75" fill="none" stroke="'+circleHi+'" stroke-width="1"/>';
-  /* Small accent circle bottom-left */
-  svg+='<circle cx="30" cy="220" r="55" fill="none" stroke="'+circleLo+'" stroke-width="1.2"/>';
+  svg += '<circle cx="340" cy="20" r="110" fill="none" stroke="'+circleHi+'" stroke-width="1.5"/>';
+  svg += '<circle cx="350" cy="10" r="75"  fill="none" stroke="'+circleHi+'" stroke-width="1"/>';
+  svg += '<circle cx="30"  cy="220" r="55" fill="none" stroke="'+circleLo+'" stroke-width="1.2"/>';
 
-  /* ─── 2. Subtle dot grid (elegant, not busy) ─── */
-  var _s=42;
-  function R(){_s=(_s*1664525+1013904223)&0xffffffff;return((_s>>>0)/0xffffffff);}
-  for(var i=0;i<16;i++){
-    var dx=20+R()*360, dy=15+R()*210, dr=1.2+R()*2.2;
-    svg+='<circle cx="'+dx.toFixed(1)+'" cy="'+dy.toFixed(1)+'" r="'+dr.toFixed(1)+'" fill="'+dotC+'"/>';
+  var _s = 42;
+  function R(){ _s = (_s*1664525 + 1013904223) & 0xffffffff; return ((_s>>>0)/0xffffffff); }
+  for(var i=0; i<16; i++){
+    var dx = 20 + R()*360, dy = 15 + R()*210, dr = 1.2 + R()*2.2;
+    svg += '<circle cx="'+dx.toFixed(1)+'" cy="'+dy.toFixed(1)+'" r="'+dr.toFixed(1)+'" fill="'+dotC+'"/>';
   }
 
-  /* ─── 3. A few 4-pointed sparkles ─── */
-  var spk=[[365,55,7],[25,30,5],[180,8,4],[15,180,5],[375,200,6],[200,230,4]];
+  var spk = [[365,55,7],[25,30,5],[180,8,4],[15,180,5],[375,200,6],[200,230,4]];
   spk.forEach(function(s){
-    var x=s[0],y=s[1],r=s[2],ir=r*0.25;
-    var d='M'+x+','+(y-r)+' L'+(x+ir)+','+(y-ir)+' L'+(x+r)+','+y+' L'+(x+ir)+','+(y+ir)+' L'+x+','+(y+r)+' L'+(x-ir)+','+(y+ir)+' L'+(x-r)+','+y+' L'+(x-ir)+','+(y-ir)+'Z';
-    svg+='<path d="'+d+'" fill="'+sparkC+'"/>';
+    var x=s[0], y=s[1], r=s[2], ir=r*0.25;
+    var d = 'M'+x+','+(y-r)+' L'+(x+ir)+','+(y-ir)+' L'+(x+r)+','+y+
+            ' L'+(x+ir)+','+(y+ir)+' L'+x+','+(y+r)+' L'+(x-ir)+','+(y+ir)+
+            ' L'+(x-r)+','+y+' L'+(x-ir)+','+(y-ir)+'Z';
+    svg += '<path d="'+d+'" fill="'+sparkC+'"/>';
   });
 
-  /* ─── 4. Thin accent lines (diagonal, subtle) ─── */
-  svg+='<line x1="290" y1="0" x2="400" y2="110" stroke="'+accentStroke+'" stroke-width="0.8"/>';
-  svg+='<line x1="310" y1="0" x2="400" y2="90" stroke="'+accentStroke+'" stroke-width="0.5"/>';
+  svg += '<line x1="290" y1="0" x2="400" y2="110" stroke="'+accentStroke+'" stroke-width="0.8"/>';
+  svg += '<line x1="310" y1="0" x2="400" y2="90"  stroke="'+accentStroke+'" stroke-width="0.5"/>';
 
-  /* ─── 5. Gold-only: diagonal shimmer band + crown halo ─── */
-  if(isGold){
-    svg+='<defs><linearGradient id="scGoldShim" x1="0" y1="0" x2="400" y2="240" gradientUnits="userSpaceOnUse">';
-    svg+='<stop offset="0%" stop-color="transparent"/><stop offset="32%" stop-color="transparent"/>';
-    svg+='<stop offset="44%" stop-color="rgba(255,240,160,0.06)"/>';
-    svg+='<stop offset="50%" stop-color="rgba(255,248,200,0.12)"/>';
-    svg+='<stop offset="56%" stop-color="rgba(255,240,160,0.06)"/>';
-    svg+='<stop offset="68%" stop-color="transparent"/><stop offset="100%" stop-color="transparent"/>';
-    svg+='</linearGradient></defs>';
-    svg+='<rect width="400" height="240" fill="url(#scGoldShim)"/>';
-    /* Noble laurel-like arcs flanking upper area */
-    svg+='<path d="M160,5 Q200,-15 240,5" fill="none" stroke="rgba(255,215,0,0.2)" stroke-width="1.5"/>';
-    svg+='<path d="M140,12 Q200,-22 260,12" fill="none" stroke="rgba(255,215,0,0.12)" stroke-width="1"/>';
-    /* Tiny crown accent */
-    svg+='<text x="200" y="20" text-anchor="middle" font-size="14" fill="rgba(255,215,0,0.3)">♛</text>';
+  if(isTierS){
+    svg += '<defs><linearGradient id="scGoldShim" x1="0" y1="0" x2="400" y2="240" gradientUnits="userSpaceOnUse">';
+    svg += '<stop offset="0%" stop-color="transparent"/>';
+    svg += '<stop offset="32%" stop-color="transparent"/>';
+    svg += '<stop offset="44%" stop-color="rgba(255,240,160,0.09)"/>';
+    svg += '<stop offset="50%" stop-color="rgba(255,248,200,0.18)"/>';
+    svg += '<stop offset="56%" stop-color="rgba(255,240,160,0.09)"/>';
+    svg += '<stop offset="68%" stop-color="transparent"/>';
+    svg += '<stop offset="100%" stop-color="transparent"/>';
+    svg += '</linearGradient></defs>';
+    svg += '<rect width="400" height="240" fill="url(#scGoldShim)"/>';
+    svg += '<path d="M160,5 Q200,-15 240,5" fill="none" stroke="rgba(255,215,0,0.28)" stroke-width="1.5"/>';
+    svg += '<path d="M140,12 Q200,-22 260,12" fill="none" stroke="rgba(255,215,0,0.18)" stroke-width="1"/>';
+    svg += '<text x="200" y="20" text-anchor="middle" font-size="14" fill="rgba(255,215,0,0.4)">♛</text>';
   }
 
-  svg+='</svg>';
+  svg += '</svg>';
 
-  var wrap=document.createElement('div');
-  wrap.innerHTML=svg;
+  var wrap = document.createElement('div');
+  wrap.innerHTML = svg;
   card.insertBefore(wrap.firstChild, card.firstChild);
 }
 
 function getShareText(lang){
-  var v=getVerdict(finalScore);
-  var label=window.t('result.'+v);
-  var url=window.location.origin || 'https://lifescore.space';
+  var persona = getPersona();
+  var label = (lang==='zh-TW') ? persona.title_tw : persona.title_cn;
+  var url = window.location.origin || 'https://lifescore.space';
   return lang==='zh-TW'
     ? '我在人生評分測試中獲得了 '+finalScore+'/150 分（'+label+'）！快來測測你的分數 → '+url
     : '我在人生评分测试中获得了 '+finalScore+'/150 分（'+label+'）！快来测测你的分数 → '+url;
@@ -3515,52 +3613,65 @@ function setupShareModal(){
   var url  = encodeURIComponent(window.location.origin || 'https://lifescore.space');
   var encodedText = encodeURIComponent(text);
 
-  /* 微博 */
+  function showScreenshotHint(){
+    if(!wechatHint) return;
+    wechatHint.style.display='flex';
+    var hint=wechatHint.querySelector('span');
+    if(hint){
+      hint.textContent = (window.I18N_CURRENT==='zh-TW')
+        ? '請長按保存圖片或截圖後分享'
+        : '请长按保存图片或截图后分享';
+    }
+  }
+
   var wb=document.getElementById('sp-weibo');
   if(wb) wb.href='https://service.weibo.com/share/share.php?url='+url+'&title='+encodedText;
 
-  /* QQ空间 */
   var qz=document.getElementById('sp-qzone');
   if(qz) qz.href='https://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?url='+url+'&title='+encodedText;
 
-  /* 小红书/抖音/快手 — no deep-link API; show screenshot hint */
-  ['sp-rednote','sp-douyin','sp-kuaishou'].forEach(function(id){
+  ['sp-wechat','sp-rednote','sp-douyin','sp-kuaishou'].forEach(function(id){
     var el=document.getElementById(id);
-    if(el){ el.href='#'; el.addEventListener('click', function(e){
+    if(!el) return;
+    if(el.tagName==='A') el.setAttribute('href','javascript:void(0)');
+    el.addEventListener('click', function(e){
       e.preventDefault();
-      if(wechatHint){ wechatHint.style.display='flex'; }
-    }); }
+      e.stopPropagation();
+      showScreenshotHint();
+    });
   });
 
-  /* 微信 */
-  var wx=document.getElementById('sp-wechat');
-  if(wx){ wx.addEventListener('click', function(){
-    if(wechatHint) wechatHint.style.display='flex';
-  }); }
-
-  /* 复制文字 */
   var copyBtn=document.getElementById('sp-copy');
-  if(copyBtn){ copyBtn.addEventListener('click', function(){
-    var t=getShareText(window.I18N_CURRENT||'zh-CN');
-    if(navigator.clipboard){ navigator.clipboard.writeText(t).then(function(){
-      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; sp.textContent=(window.I18N_CURRENT==='zh-TW'?'已複製！':'已复制！'); setTimeout(function(){sp.textContent=o;},2000); }
-    }); } else {
-      var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-      var sp=copyBtn.querySelector('span:last-child'); if(sp){ var o=sp.textContent; sp.textContent=(window.I18N_CURRENT==='zh-TW'?'已複製！':'已复制！'); setTimeout(function(){sp.textContent=o;},2000); }
-    }
-  }); }
+  if(copyBtn){
+    copyBtn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
+      var t=getShareText(window.I18N_CURRENT||'zh-CN');
+      function flashCopied(){
+        var sp=copyBtn.querySelector('span:last-child');
+        if(sp){
+          var o=sp.textContent;
+          sp.textContent=(window.I18N_CURRENT==='zh-TW'?'已複製！':'已复制！');
+          setTimeout(function(){ sp.textContent=o; },2000);
+        }
+      }
+      if(navigator.clipboard){
+        navigator.clipboard.writeText(t).then(flashCopied, flashCopied);
+      } else {
+        var ta=document.createElement('textarea');
+        ta.value=t;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch(_){}
+        document.body.removeChild(ta);
+        flashCopied();
+      }
+    });
+  }
 
-  /* ── 保存图片 (Save Image) ──────────────────────────────────────────────
-     Uses html2canvas (loaded from CDN) to rasterise the share card element,
-     then triggers a PNG download.  html2canvas is loaded lazily the first
-     time the user clicks "Save Image" so it doesn't slow down initial load.
-
-     If html2canvas is unavailable (offline / blocked), we fall back to asking
-     the user to long-press / screenshot the card manually.
-  ── */
   var saveBtn=document.getElementById('sp-save');
   if(saveBtn){
-    saveBtn.addEventListener('click', function(){
+    saveBtn.addEventListener('click', function(e){
+      e.preventDefault(); e.stopPropagation();
       var card=document.getElementById('shareCard');
       if(!card) return;
 
@@ -3569,37 +3680,127 @@ function setupShareModal(){
       if(sp) sp.textContent=(window.I18N_CURRENT==='zh-TW'?'生成中…':'生成中…');
       saveBtn.disabled=true;
 
+      function restoreBtn(){
+        if(sp) sp.textContent=origLabel;
+        saveBtn.disabled=false;
+      }
+
+      function showImageOverlay(dataUrl){
+        var prior=document.getElementById('lsSaveImageOverlay');
+        if(prior) prior.remove();
+
+        var isTW = (window.I18N_CURRENT==='zh-TW');
+        var labelText = isTW ? '長按圖片保存到相冊' : '长按图片保存到相册';
+        var closeText = isTW ? '關閉' : '关闭';
+
+        var ov=document.createElement('div');
+        ov.id='lsSaveImageOverlay';
+        ov.setAttribute('style',
+          'position:fixed;inset:0;z-index:10000;'+
+          'background:rgba(0,0,0,0.88);'+
+          'display:flex;flex-direction:column;align-items:center;justify-content:center;'+
+          'padding:24px 16px;box-sizing:border-box;'+
+          'overflow-y:auto;-webkit-overflow-scrolling:touch;'
+        );
+
+        var closeX=document.createElement('button');
+        closeX.type='button';
+        closeX.setAttribute('aria-label', closeText);
+        closeX.setAttribute('style',
+          'position:absolute;top:14px;right:14px;'+
+          'width:40px;height:40px;border-radius:50%;'+
+          'background:rgba(255,255,255,0.14);'+
+          'border:1px solid rgba(255,255,255,0.25);'+
+          'color:#fff;font-size:22px;line-height:1;cursor:pointer;'+
+          'display:flex;align-items:center;justify-content:center;'+
+          '-webkit-tap-highlight-color:transparent;'
+        );
+        closeX.innerHTML='&times;';
+        closeX.addEventListener('click', function(ev){
+          ev.preventDefault(); ev.stopPropagation();
+          ov.remove();
+        });
+        ov.appendChild(closeX);
+
+        var img=document.createElement('img');
+        img.src=dataUrl;
+        img.alt='Life Score';
+        img.setAttribute('style',
+          'max-width:100%;max-height:72vh;'+
+          'width:auto;height:auto;'+
+          'border-radius:12px;'+
+          'box-shadow:0 12px 40px rgba(0,0,0,0.55);'+
+          'user-select:none;'+
+          '-webkit-user-select:none;'+
+          '-webkit-touch-callout:default;'
+        );
+        img.addEventListener('click', function(ev){ ev.stopPropagation(); });
+        ov.appendChild(img);
+
+        var label=document.createElement('div');
+        label.setAttribute('style',
+          'margin-top:18px;padding:10px 18px;'+
+          'font-size:15px;line-height:1.5;font-weight:600;'+
+          'color:#fff;text-align:center;'+
+          'background:rgba(255,255,255,0.10);'+
+          'border:1px solid rgba(255,255,255,0.18);'+
+          'border-radius:999px;'+
+          'max-width:92%;'
+        );
+        label.textContent=labelText;
+        ov.appendChild(label);
+
+        var closeBtn2=document.createElement('button');
+        closeBtn2.type='button';
+        closeBtn2.textContent=closeText;
+        closeBtn2.setAttribute('style',
+          'margin-top:14px;padding:10px 28px;'+
+          'font-size:14px;font-weight:600;'+
+          'color:rgba(255,255,255,0.85);'+
+          'background:transparent;'+
+          'border:1px solid rgba(255,255,255,0.30);'+
+          'border-radius:999px;cursor:pointer;'+
+          '-webkit-tap-highlight-color:transparent;'
+        );
+        closeBtn2.addEventListener('click', function(ev){
+          ev.preventDefault(); ev.stopPropagation();
+          ov.remove();
+        });
+        ov.appendChild(closeBtn2);
+
+        ov.addEventListener('click', function(ev){
+          if(ev.target===ov) ov.remove();
+        });
+
+        document.body.appendChild(ov);
+      }
+
       function doCapture(){
         html2canvas(card, {
-          scale: 3,               /* 3× for retina-sharp export */
+          scale: 3,
           useCORS: true,
-          backgroundColor: null,  /* keep card gradient */
+          backgroundColor: null,
           logging: false,
         }).then(function(canvas){
-          var link=document.createElement('a');
-          link.download='lifescore-result.png';
-          link.href=canvas.toDataURL('image/png');
-          link.click();
-          if(sp) sp.textContent=origLabel;
-          saveBtn.disabled=false;
+          var dataUrl=canvas.toDataURL('image/png');
+          showImageOverlay(dataUrl);
+          restoreBtn();
         }).catch(function(){
           fallbackSave();
         });
       }
 
       function fallbackSave(){
-        if(sp) sp.textContent=origLabel;
-        saveBtn.disabled=false;
+        restoreBtn();
         if(wechatHint){
           wechatHint.style.display='flex';
           var hint=wechatHint.querySelector('span');
           if(hint) hint.textContent=(window.I18N_CURRENT==='zh-TW'
-            ?'无法自动保存，请长按图片或截图保存。'
-            :'无法自动保存，请长按图片或截图保存。');
+            ? '無法自動生成，請長按卡片或截圖保存。'
+            : '无法自动生成，请长按卡片或截图保存。');
         }
       }
 
-      /* Lazy-load html2canvas from CDN if not already loaded */
       if(typeof html2canvas==='function'){
         doCapture();
       } else {

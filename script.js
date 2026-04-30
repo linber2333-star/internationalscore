@@ -11,8 +11,6 @@
     var score, date;
     try { score = localStorage.getItem('ls_last_score'); date = localStorage.getItem('ls_last_date'); } catch(e){}
 
-    var viewBtn = document.getElementById('viewResultBtn');
-
     if (score !== null && score !== undefined) {
       badge.innerHTML =
         '<div class="score-badge-inner">' +
@@ -22,13 +20,9 @@
           '<a href="quiz-quick.html" class="score-badge-retake" data-i18n="hero.score.retake">' + window.t('hero.score.retake') + '</a>' +
         '</div>';
       badge.classList.add('has-score');
-      /* 测试已完成 — 启用"查看结果"按钮 */
-      if (viewBtn) { viewBtn.disabled = false; viewBtn.classList.add('enabled'); }
     } else {
       badge.innerHTML = '<span class="score-badge-none" data-i18n="hero.score.none">' + window.t('hero.score.none') + '</span>';
       badge.classList.remove('has-score');
-      /* 未测试 — 保持禁用 */
-      if (viewBtn) { viewBtn.disabled = true; viewBtn.classList.remove('enabled'); }
     }
   }
 
@@ -93,30 +87,7 @@
     });
   }
 
-  /* ── Lang switcher (homepage — the only page where language can be changed) ── */
-  function hasQuizData() {
-    try {
-      return !!(localStorage.getItem('ls_result_quick') || localStorage.getItem('ls_result_deep') || localStorage.getItem('ls_result_latest'));
-    } catch(e) { return false; }
-  }
-  function clearQuizData() {
-    try {
-      ['ls_result_quick','ls_result_deep','ls_result_latest','ls_last_score','ls_last_date'].forEach(function(k) {
-        localStorage.removeItem(k);
-      });
-    } catch(e) {}
-  }
-  function handleLangChange(newLang, callback) {
-    if (newLang === window.I18N_CURRENT) return;
-    if (hasQuizData()) {
-      var msg = window.t('lang.clearWarning');
-      if (!confirm(msg)) return;
-      clearQuizData();
-    }
-    window.applyI18n(newLang);
-    if (callback) callback();
-  }
-
+  /* ── Lang switcher ── */
   function setupLangSwitcher() {
     var ls = document.getElementById('langSwitcher');
     if (!ls) return;
@@ -125,43 +96,10 @@
     document.querySelectorAll('.lang-option').forEach(function(opt) {
       opt.addEventListener('click', function(e) {
         e.stopPropagation();
-        handleLangChange(opt.dataset.lang, function() {
-          ls.classList.remove('open');
-          renderScoreBadge();
-          animateArc();
-        });
+        window.applyI18n(opt.dataset.lang);
+        ls.classList.remove('open');
+        renderScoreBadge();
       });
-    });
-
-    /* ── Mobile: add lang options inside the mobile nav menu ── */
-    var nav = document.getElementById('nav');
-    if (!nav) return;
-    var divider = document.createElement('div');
-    divider.className = 'mobile-lang-divider';
-    nav.appendChild(divider);
-    window.LS_LOCALES.forEach(function(loc) {
-      var btn = document.createElement('a');
-      btn.href = '#';
-      btn.className = 'nav-link mobile-lang-option';
-      btn.dataset.lang = loc.lang;
-      btn.innerHTML = window.renderFlag(loc.code) + ' ' + loc.country + ' · ' + loc.label;
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        handleLangChange(loc.lang, function() {
-          nav.classList.remove('mobile-open');
-          var mt = document.getElementById('menuToggle');
-          if (mt) mt.setAttribute('aria-expanded', 'false');
-          renderScoreBadge();
-          animateArc();
-          // Update active state on mobile lang options
-          nav.querySelectorAll('.mobile-lang-option').forEach(function(b) {
-            b.classList.toggle('active', b.dataset.lang === window.I18N_CURRENT);
-          });
-        });
-      });
-      if (loc.lang === window.I18N_CURRENT) btn.classList.add('active');
-      nav.appendChild(btn);
     });
   }
 
@@ -219,6 +157,25 @@
     }
   }
 
+  /* ── View Result button (enabled only after completing a test) ── */
+  function setupViewResultBtn() {
+    var btn = document.getElementById('viewResultBtn');
+    if (!btn) return;
+    var hasResult = false;
+    try {
+      hasResult = !!(localStorage.getItem('ls_result_latest')
+        || localStorage.getItem('ls_result_deep')
+        || localStorage.getItem('ls_result_quick'));
+    } catch(e){}
+    if (hasResult) {
+      btn.disabled = false;
+      btn.classList.add('enabled');
+    } else {
+      btn.disabled = true;
+      btn.classList.remove('enabled');
+    }
+  }
+
   /* ── Init ── */
   function init() {
     setupScrollHeader();
@@ -230,6 +187,7 @@
     setupParallax();
     animateArc();
     renderScoreBadge();
+    setupViewResultBtn();
 
     /* Winner mode — golden homepage when last score > 100 */
     var lastScore = 0;
@@ -237,7 +195,7 @@
     if (lastScore > 100) {
       document.body.classList.add('winner-mode');
       var wb = document.getElementById('winnerBanner');
-      if (wb) { wb.textContent = window.t('winner.banner'); wb.style.display = 'block'; }
+      if (wb) wb.style.display = 'block';
     }
   }
 

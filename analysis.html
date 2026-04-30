@@ -3,80 +3,622 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>LifeScore — Deep Analysis</title>
-  <link rel="icon" type="image/png" href="images/favicon.ico">
+  <title>LIFESCORE/TERM // 深度分析</title>
+  <link rel="icon" type="image/png" href="images/favicon.ico"/>
+
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet"/>
+
   <link rel="stylesheet" href="style.css"/>
+  <style>
+    /* ════════════════════════════════════════════════════════════
+       Analysis — Colored Neo-Brutalism
+       Pure flat fills, thick black borders, sharp hard shadows.
+       NO gradients. NO glassmorphism. NO blur. NO soft shadows.
+       ════════════════════════════════════════════════════════════ */
+    :root {
+      --dim-health:   #0ea5e9;
+      --dim-wealth:   #f59e0b;
+      --dim-social:   #10b981;
+      --dim-mind:     #8b5cf6;
+      --dim-modifier: #64748b;
+    }
+
+    .analysis-body {
+      background: #ffffff;
+      color: #000000;
+      font-family: 'Noto Sans SC', 'Space Mono', sans-serif;
+    }
+
+    /* ── HERO score pill: massive colored brutal block ── */
+    .an-hero-left .an-score-pill {
+      background: #000000 !important;
+      color: #ffffff !important;
+      border: 4px solid #000000 !important;
+      border-radius: 0 !important;
+      box-shadow: 8px 8px 0 var(--dim-health) !important;
+      padding: 18px 26px !important;
+    }
+    .an-hero-left .an-score-pill .asp-num {
+      font-family: 'Archivo Black', 'Noto Sans SC', sans-serif !important;
+      color: #ffffff !important;
+    }
+    .an-hero-left .an-score-pill .asp-slash,
+    .an-hero-left .an-score-pill .asp-max,
+    .an-hero-left .an-score-pill .asp-label {
+      color: #ffffff !important;
+    }
+
+    /* ── Rank badge: colored flat block ── */
+    .rank-badge {
+      background: var(--dim-wealth) !important;
+      color: #000000 !important;
+      border: 3px solid #000000 !important;
+      border-radius: 0 !important;
+      box-shadow: 5px 5px 0 #000000 !important;
+      padding: 10px 16px !important;
+      font-family: 'Space Mono', monospace !important;
+      font-weight: 700 !important;
+    }
+    .rank-badge .rank-badge-pct {
+      font-family: 'Archivo Black', 'Noto Sans SC', sans-serif !important;
+      color: #000000 !important;
+      background: #ffffff !important;
+      border: 2px solid #000000 !important;
+      padding: 1px 8px !important;
+      margin: 0 4px !important;
+    }
+
+    /* ── Radar wrap: brutalist frame ── */
+    .an-radar-wrap {
+      background: #ffffff !important;
+      border: 3px solid #000000 !important;
+      border-radius: 0 !important;
+      box-shadow: 8px 8px 0 var(--dim-mind) !important;
+      padding: 16px !important;
+    }
+
+    /* ── Chart cards: hard borders + per-card colored shadows ── */
+    .chart-card {
+      --card-color: #000000;
+      background: #ffffff !important;
+      border: 3px solid #000000 !important;
+      border-radius: 0 !important;
+      box-shadow: 6px 6px 0 var(--card-color) !important;
+      padding: 22px !important;
+      margin-bottom: 24px;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .chart-card:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 8px 8px 0 var(--card-color) !important;
+    }
+    /* assign colored shadows to the main dashboard cards */
+    #chartDimBars   { --card-color: var(--dim-health); }
+    #chartGauge     { --card-color: var(--dim-wealth); }
+    #chartEngineBars{ --card-color: var(--dim-mind); }
+
+    .cc-header {
+      border-bottom: 2px solid #000000 !important;
+      padding-bottom: 10px !important;
+      margin-bottom: 16px !important;
+    }
+    .cc-title {
+      font-family: 'Archivo Black', 'Noto Sans SC', sans-serif !important;
+      font-size: 14px !important;
+      font-weight: 900 !important;
+      color: #000000 !important;
+      letter-spacing: 0.05em !important;
+      text-transform: uppercase !important;
+    }
+    .cc-title::before {
+      content: "> ";
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+    }
+    .cc-subtitle {
+      font-family: 'Space Mono', monospace !important;
+      font-size: 11px !important;
+      color: #000000 !important;
+      letter-spacing: 0.05em !important;
+      margin-top: 4px;
+    }
+    .cc-badge {
+      font-family: 'Space Mono', monospace !important;
+      background: var(--card-color, #000000) !important;
+      color: #000000 !important;
+      border: 2px solid #000000 !important;
+      border-radius: 0 !important;
+      padding: 4px 10px !important;
+      font-weight: 700 !important;
+      box-shadow: 2px 2px 0 #000000 !important;
+    }
+
+    /* ── Horizontal dimension bars (chunky brutalist) ── */
+    .hbar-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .hbar-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 80px;
+      align-items: center;
+      gap: 14px;
+    }
+    .hbar-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .hbar-track {
+      position: relative;
+      height: 28px;
+      background: #ffffff;
+      border: 3px solid #000000;
+      border-radius: 0;
+      overflow: hidden;
+    }
+    .hbar-fill {
+      --bar-color: var(--dim-health);
+      position: relative;
+      height: 100%;
+      background: var(--bar-color);
+      width: 0;
+      transition: width 0.6s ease;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 8px;
+      border-right: 3px solid #000000;
+    }
+    .hbar-val {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 12px;
+      font-weight: 900;
+      color: #000000;
+    }
+    .hbar-val-outside {
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      color: #000000;
+    }
+    .hbar-val-outside small {
+      font-size: 10px;
+      color: #000000;
+      opacity: 0.6;
+    }
+
+    /* ── Gauge wrapper ── */
+    .gauge-wrap {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin: 0 auto;
+    }
+    .gauge-center-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .gauge-center-num {
+      font-family: 'Archivo Black', 'Noto Sans SC', sans-serif;
+      font-size: 36px;
+      font-weight: 900;
+      color: #000000;
+      line-height: 1;
+    }
+    .gauge-center-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ── Chart legend (brutalist tags) ── */
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 2px dashed #000000;
+    }
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      background: #ffffff;
+      border: 2px solid #000000;
+    }
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--legend-color, #000000);
+      border: 2px solid #000000;
+      flex-shrink: 0;
+    }
+
+    /* ── Waterfall (engine contributions) ── */
+    .waterfall-chart {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .wf-row {
+      display: grid;
+      grid-template-columns: 110px 1fr 60px;
+      align-items: center;
+      gap: 12px;
+    }
+    .wf-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.03em;
+      text-align: right;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .wf-bar-area {
+      position: relative;
+      height: 22px;
+      background: #ffffff;
+      border: 2px solid #000000;
+    }
+    .wf-bar-center {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #000000;
+      transform: translateX(-50%);
+      z-index: 2;
+    }
+    .wf-bar {
+      --wf-color: var(--dim-modifier);
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      background: var(--wf-color);
+      border-top: 0;
+      border-bottom: 0;
+    }
+    .wf-bar.positive { border-left: 2px solid #000000; }
+    .wf-bar.negative { border-right: 2px solid #000000; background: #000000; }
+    .wf-val {
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 12px;
+      font-weight: 900;
+      color: #000000;
+      text-align: right;
+    }
+    .wf-val.pos { color: #000000; }
+    .wf-val.neg { color: #000000; }
+
+    /* ── Vertical bar (per-dimension) ── */
+    .vbar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      min-height: 160px;
+      padding: 10px 0;
+      border-bottom: 3px solid #000000;
+    }
+    .vbar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+    .vbar-bar-wrap {
+      width: 100%;
+      height: 130px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .vbar-bar {
+      --vbar-color: #000000;
+      width: 100%;
+      max-width: 36px;
+      background: var(--vbar-color);
+      border: 2px solid #000000;
+      border-bottom: 0;
+      position: relative;
+      height: 0;
+      transition: height 0.7s ease;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 4px;
+    }
+    .vbar-bar-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 9px;
+      font-weight: 700;
+      color: #ffffff;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      letter-spacing: 0.04em;
+    }
+    .vbar-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.02em;
+      text-align: center;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 100%;
+    }
+
+    /* ── Section title separator (brutalist) ── */
+    .an-section-title {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin: 40px 0 22px;
+      font-family: 'Archivo Black', 'Noto Sans SC', sans-serif;
+      font-size: 16px;
+      font-weight: 900;
+      color: #000000;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .an-section-title::before {
+      content: "▮▮";
+      color: #000000;
+      letter-spacing: -2px;
+    }
+    .ast-line {
+      flex: 1;
+      height: 3px;
+      background: #000000;
+    }
+
+    /* ── Sponsor card brutalist override ── */
+    .sponsor-card--analysis {
+      background: #ffffff !important;
+      border: 3px solid #000000 !important;
+      border-radius: 0 !important;
+      box-shadow: 8px 8px 0 var(--dim-wealth) !important;
+      padding: 22px !important;
+      margin-top: 32px;
+    }
+    .sponsor-logo-btn {
+      background: #ffffff !important;
+      border: 2px solid #000000 !important;
+      border-radius: 0 !important;
+      box-shadow: 4px 4px 0 #000000 !important;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .sponsor-logo-btn:hover {
+      transform: translate(-2px, -2px);
+      box-shadow: 6px 6px 0 #000000 !important;
+    }
+
+    /* ── CTA buttons ── */
+    .an-cta {
+      margin-top: 28px;
+      padding: 22px;
+      background: #ffffff;
+      border: 3px solid #000000;
+      box-shadow: 6px 6px 0 var(--dim-social);
+      text-align: center;
+    }
+    .an-cta-text {
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 14px;
+      color: #000000;
+    }
+    .an-cta-btns {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Empty state brutal ── */
+    .no-result-state {
+      max-width: 560px;
+      margin: 80px auto;
+      padding: 32px;
+      background: #ffffff;
+      border: 3px solid #000000;
+      box-shadow: 8px 8px 0 #000000;
+      text-align: center;
+    }
+    .nr-icon {
+      display: inline-block;
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      padding: 6px 12px;
+      background: #000000;
+      color: #ffffff;
+      border: 2px solid #000000;
+      margin-bottom: 14px;
+    }
+
+    /* ── Generic dim deep / insight rows ── */
+    #dimDeepRows > *,
+    #insightRows > * {
+      background: #ffffff;
+      border: 3px solid #000000;
+      border-radius: 0;
+      box-shadow: 6px 6px 0 #000000;
+      margin-bottom: 18px;
+    }
+
+    @media (max-width: 768px) {
+      .dash-grid { grid-template-columns: 1fr !important; gap: 16px !important; }
+      .hbar-row { grid-template-columns: 70px 1fr 60px; gap: 8px; }
+      .wf-row { grid-template-columns: 80px 1fr 50px; gap: 8px; }
+      .chart-card { box-shadow: 4px 4px 0 var(--card-color) !important; padding: 16px !important; }
+      .an-hero-left .an-score-pill { box-shadow: 6px 6px 0 var(--dim-health) !important; }
+      .an-radar-wrap { box-shadow: 6px 6px 0 var(--dim-mind) !important; }
+    }
+  </style>
 </head>
 <body class="analysis-body">
-  <div class="particles" id="particles"></div>
+  <div class="particles" id="particles" aria-hidden="true"></div>
 
-  <header class="header scrolled" id="header">
-    <div class="header-inner">
-      <div class="lang-switcher" id="langSwitcher">
-        <div class="lang-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
-        <span class="lang-label" id="langLabel">简体中文</span>
-        <svg class="lang-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-        <div class="lang-dropdown" id="langDropdown">
-          <div class="lang-option" data-lang="en-US">English (US)</div>
-          <div class="lang-option" data-lang="es-US">Español (EE.UU.)</div>
-          <div class="lang-option" data-lang="zh-CN">简体中文</div>
-          <div class="lang-option" data-lang="zh-TW">繁體中文</div>
-          <div class="lang-option" data-lang="en-PH">English (PH)</div>
-        </div>
-      </div>
-      <div class="logo"><img class="logo-mark" src="images/apple-touch-icon.png" alt="LS"/><span class="logo-text" data-i18n="brandName">人生评分</span></div>
-      <nav class="nav" id="nav">
-        <a href="index.html" class="nav-link" data-i18n="nav.home">首页</a>
-        <a href="analysis.html" class="nav-link active" data-i18n="nav.analysis">评分分析</a>
-        <a href="#" class="nav-link" data-i18n="nav.database">数据库</a>
-        <a href="more-tests.html" class="nav-link" data-i18n="nav.more">更多测试</a>
-        <a href="#" class="nav-link" data-i18n="nav.about">关于我们</a>
+  <header class="hud" id="header">
+    <div class="hud-row">
+      <a href="index.html" class="brand">
+        <img class="brand-mark" src="images/favicon.ico" alt="LS"/>
+        <span class="brand-text" data-i18n="brandName">人生评分</span>
+        <span class="brand-system">.SYS</span>
+      </a>
+
+      <nav class="nav" id="nav" aria-label="Main">
+        <a href="index.html"      class="nav-link"        data-i18n="nav.home">首页</a>
+        <a href="analysis.html"   class="nav-link active" data-i18n="nav.analysis">评分分析</a>
+        <a href="database.html"   class="nav-link"        data-i18n="nav.database">数据库</a>
+        <a href="more-tests.html" class="nav-link"        data-i18n="nav.more">更多测试</a>
+        <a href="about.html"      class="nav-link"        data-i18n="nav.about">关于我们</a>
       </nav>
-      <button class="menu-toggle" id="menuToggle" aria-expanded="false"><span></span><span></span><span></span></button>
+
+      <div class="hud-right">
+        <div class="lang-switcher" id="langSwitcher">
+          <span class="lang-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+          </span>
+          <span class="lang-label" id="langLabel">简体中文</span>
+          <span class="lang-arrow">▼</span>
+          <div class="lang-dropdown" id="langDropdown">
+            <div class="lang-option active" data-lang="zh-CN">简体中文</div>
+            <div class="lang-option"        data-lang="zh-TW">繁體中文</div>
+          </div>
+        </div>
+        <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-label="Menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
     </div>
   </header>
 
-  <!-- No result state -->
+  <div class="diag-banner">
+    <span>FILE: DIAGNOSTIC.REPORT</span>
+    <span class="sep">::</span>
+    <span>MODE: DEEP_ANALYSIS</span>
+    <span class="sep">::</span>
+    <span>STATUS: <span class="blink">◉ LIVE</span></span>
+    <span class="sep">::</span>
+    <span>REV: <span id="liveDate"></span></span>
+  </div>
+
   <div class="no-result-state" id="noResultState" style="display:none">
     <div class="nr-inner">
-      <div class="nr-icon">📊</div>
+      <span class="nr-icon" data-i18n="analysis.noResult.icon">NO_DATA</span>
       <h2 class="nr-title" data-i18n="analysis.noResult.title">尚无测试结果</h2>
       <p class="nr-desc" data-i18n="analysis.noResult.desc">完成人生评分测试后，你的专属深度分析报告将显示在这里。</p>
-      <a href="quiz.html" class="btn-start" style="display:inline-flex;align-items:center;gap:10px;text-decoration:none">
+      <a href="quiz.html" class="btn-start">
         <span data-i18n="btn.start">开始测试</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </a>
     </div>
   </div>
 
-  <!-- Analysis content -->
   <div class="analysis-wrap" id="analysisWrap">
 
-    <!-- Header + score overview -->
-    <div class="an-hero">
+    <section class="an-hero">
       <div class="an-hero-left">
-        <div class="an-tag" data-i18n="analysis.tag">深度分析报告</div>
+        <div class="an-hero-meta">
+          <span data-i18n="analysis.tag">深度分析报告</span>
+          <span class="sep">::</span>
+          <span>SUBJECT: USER</span>
+          <span class="sep">::</span>
+          <span>SCALE: 0–150</span>
+        </div>
+
         <h1 class="an-title" data-i18n="analysis.title">你的人生评分解读</h1>
         <p class="an-date" id="anDate"></p>
+
         <div class="an-score-pill" id="anScorePill">
           <span class="asp-num" id="anScoreNum">—</span>
           <span class="asp-slash">/</span>
           <span class="asp-max">150</span>
           <span class="asp-label" data-i18n="result.total">综合评分</span>
         </div>
+
         <div class="an-verdict-text" id="anVerdictText"></div>
+
+        <div class="rank-badge" id="rankBadge">
+          <span class="rank-badge-icon"></span>
+          <span class="rank-badge-text" id="rankText"></span>
+        </div>
       </div>
+
       <div class="an-hero-right">
         <div class="an-radar-wrap" id="radarWrap">
-          <canvas id="radarCanvas" width="340" height="340"></canvas>
+          <canvas id="radarCanvas" width="380" height="380" style="width:100%;height:100%;"></canvas>
         </div>
+      </div>
+    </section>
+
+    <div class="dash-grid">
+      <div class="chart-card" id="chartDimBars">
+        <div class="cc-header">
+          <span class="cc-title"><span class="cc-title-icon"></span> <span data-i18n-text="chart.dimCompare">维度得分对比</span></span>
+        </div>
+        <div class="hbar-chart" id="dimBarChart"></div>
+      </div>
+
+      <div class="chart-card" id="chartGauge">
+        <div class="cc-header">
+          <span class="cc-title"><span class="cc-title-icon"></span> <span data-i18n-text="chart.composition">得分构成</span></span>
+        </div>
+        <div class="gauge-wrap" id="gaugeWrap">
+          <canvas id="gaugeCanvas" width="220" height="220"></canvas>
+          <div class="gauge-center-text">
+            <span class="gauge-center-num" id="gaugeNum">—</span>
+            <span class="gauge-center-label" data-i18n-text="chart.total">综合分</span>
+          </div>
+        </div>
+        <div class="chart-legend" id="gaugeLegend"></div>
       </div>
     </div>
 
-    <!-- Dimension deep-dives -->
+    <div class="chart-card full-width" id="chartEngineBars" style="margin-bottom:24px">
+      <div class="cc-header">
+        <span class="cc-title"><span class="cc-title-icon"></span> <span data-i18n-text="chart.engineBreakdown">引擎函数贡献值</span></span>
+        <span class="cc-subtitle" data-i18n-text="chart.engineSub">每个评分规则对最终分数的正负影响</span>
+      </div>
+      <div class="waterfall-chart" id="engineWaterfall"></div>
+    </div>
+
+    <div class="dash-grid" id="dimVbarRow"></div>
+
     <div class="an-section-title">
       <span class="ast-line"></span>
       <span data-i18n="analysis.dimDeep">维度深度解读</span>
@@ -84,21 +626,6 @@
     </div>
     <div id="dimDeepRows"></div>
 
-    <!-- Per-question breakdown -->
-    <div class="an-section-title">
-      <span class="ast-line"></span>
-      <span data-i18n="analysis.qBreakdown">题目回顾与解析</span>
-      <span class="ast-line"></span>
-    </div>
-    <div class="an-qb-filters" id="qbFilters">
-      <button class="qbf-btn active" data-filter="all" data-i18n="analysis.filter.all">全部</button>
-      <button class="qbf-btn" data-filter="basic" data-i18n="quiz.section.basic">基础信息</button>
-      <button class="qbf-btn" data-filter="social" data-i18n="quiz.section.social">社会生活</button>
-      <button class="qbf-btn" data-filter="identity" data-i18n="quiz.section.identity">个人认同</button>
-    </div>
-    <div id="qBreakdownRows"></div>
-
-    <!-- Insights -->
     <div class="an-section-title">
       <span class="ast-line"></span>
       <span data-i18n="analysis.insights">个性化洞察</span>
@@ -106,101 +633,59 @@
     </div>
     <div id="insightRows"></div>
 
-    <!-- ══════════════════════════════════════════════════════
-         赞助区块 — 位于深度分析图表（维度解读）下方
-
-         【开发者说明 — 支付 LOGO 与二维码图片规格】
-
-         LOGO 图片（显示在按钮上）：
-           文件名称         存放路径                    推荐尺寸          格式
-           logo-paypal.png  assets/logo-paypal.png      120×120px        PNG 透明背景
-           logo-crypto.png  assets/logo-crypto.png      120×120px        PNG 透明背景
-           logo-wise.png    assets/logo-wise.png        120×120px        PNG 透明背景
-           logo-bank.png    assets/logo-bank.png        120×120px        PNG 透明背景
-
-         QR / 收款信息图片（点击后弹出展示）：
-           文件名称        存放路径                    推荐尺寸          格式
-           qr-paypal.png   assets/qr-paypal.png        480×480px        PNG 白底
-           qr-crypto.png   assets/qr-crypto.png        480×480px        PNG 白底
-           qr-wise.png     assets/qr-wise.png          480×480px        PNG 白底
-           qr-bank.png     assets/qr-bank.png          480×480px        PNG 白底
-
-         图片未加载时会自动显示 emoji 占位符，不影响布局。
-    ══════════════════════════════════════════════════════ -->
     <div class="sponsor-card sponsor-card--analysis" id="analysisSponsorCard">
       <div class="sponsor-header">
-        <span class="sponsor-heart">☕</span>
+        <span class="sponsor-heart"></span>
         <div class="sponsor-text-block">
           <div class="sponsor-title" data-i18n="sponsor.title2">看完报告觉得有收获？请开发者喝杯咖啡</div>
           <div class="sponsor-sub" data-i18n="sponsor.sub">你的每一份赞助都将直接用于题库扩展、算法优化与服务器维护。感谢你！</div>
         </div>
       </div>
       <div class="sponsor-logo-row">
-        <!-- PayPal — logo文件: assets/logo-paypal.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="paypal" aria-label="PayPal赞助">
-          <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-paypal.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="PayPal"/>
-            <div class="slb-logo-fallback" style="background:#003087">🅿</div>
-          </div>
-          <span class="slb-label" data-i18n="sponsor.qr.paypal">PayPal</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+        <button class="sponsor-logo-btn" data-payment="wechat" aria-label="微信支付赞助">
+          <div class="slb-logo-wrap"><img class="slb-logo-img" src="assets/logo-wechat.png" alt="微信支付"/><div class="slb-logo-fallback"></div></div>
+          <span class="slb-label" data-i18n="sponsor.qr.wechat">微信支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-        <!-- USDT 加密钱包 — logo文件: assets/logo-crypto.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="USDT加密钱包赞助">
-          <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-crypto.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="USDT"/>
-            <div class="slb-logo-fallback" style="background:#26a17b">💎</div>
-          </div>
-          <span class="slb-label" data-i18n="sponsor.qr.crypto">USDT 加密</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+        <button class="sponsor-logo-btn" data-payment="alipay" aria-label="支付宝赞助">
+          <div class="slb-logo-wrap"><img class="slb-logo-img" src="assets/logo-alipay.png" alt="支付宝"/><div class="slb-logo-fallback"></div></div>
+          <span class="slb-label" data-i18n="sponsor.qr.alipay">支付宝</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-        <!-- Wise 转账 — logo文件: assets/logo-wise.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="wise" aria-label="Wise转账赞助">
-          <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-wise.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Wise"/>
-            <div class="slb-logo-fallback" style="background:#9fe870">🌿</div>
-          </div>
-          <span class="slb-label" data-i18n="sponsor.qr.wise">Wise</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+        <button class="sponsor-logo-btn" data-payment="crypto" aria-label="加密货币赞助">
+          <div class="slb-logo-wrap"><img class="slb-logo-img" src="assets/logo-crypto.png" alt="加密支付"/><div class="slb-logo-fallback"></div></div>
+          <span class="slb-label" data-i18n="sponsor.qr.crypto">加密支付</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
-        <!-- 银行转账 — logo文件: assets/logo-bank.png (120×120px PNG透明背景) -->
-        <button class="sponsor-logo-btn" data-payment="bank" aria-label="银行转账赞助">
-          <div class="slb-logo-wrap">
-            <img class="slb-logo-img" src="assets/logo-bank.png" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" alt="Bank Transfer"/>
-            <div class="slb-logo-fallback" style="background:#1a56db">🏦</div>
-          </div>
-          <span class="slb-label" data-i18n="sponsor.qr.bank">银行转账</span>
-          <span class="slb-tap-hint" data-i18n="sponsor.tap">点击赞助</span>
+        <button class="sponsor-logo-btn" data-payment="qq" aria-label="QQ钱包赞助">
+          <div class="slb-logo-wrap"><img class="slb-logo-img" src="assets/logo-qq.png" alt="QQ支付"/><div class="slb-logo-fallback"></div></div>
+          <span class="slb-label" data-i18n="sponsor.qr.qq">QQ 钱包</span>
+          <span class="slb-tap-hint">点击赞助</span>
         </button>
       </div>
     </div>
 
-    <!-- Score retake CTA -->
     <div class="an-cta">
       <div class="an-cta-text" data-i18n="analysis.cta.text">定期重测，追踪自己的成长轨迹。</div>
       <div class="an-cta-btns">
-        <a id="anRetakeLink" href="quiz-quick.html" class="btn-start" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:13px 28px;font-size:14px">
+        <a id="anRetakeLink" href="quiz-quick.html" class="btn-start">
           <span data-i18n="result.retake">重新测试</span>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.27"/></svg>
         </a>
-        <a href="more-tests.html" class="btn-secondary btn-indepth" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:13px 24px;font-size:14px">
+        <a href="more-tests.html" class="btn-secondary btn-indepth">
           <span data-i18n="nav.more">更多测试</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
       </div>
     </div>
-
   </div>
 
-  <!-- Payment QR modal (shared component, same as result.html) -->
   <div class="payment-modal-overlay" id="paymentModalOverlay">
     <div class="payment-modal" id="paymentModal">
       <button class="payment-modal-close" id="paymentModalClose" aria-label="关闭">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
       <div class="pm-platform-header" id="pmPlatformHeader">
         <div class="pm-platform-logo-wrap" id="pmLogoWrap">
-          <img id="pmLogoImg" src="" alt="" onerror="this.style.display='none';document.getElementById('pmLogoFallback').style.display='flex'"/>
+          <img id="pmLogoImg" src="" alt=""/>
           <div class="pm-logo-fallback" id="pmLogoFallback"></div>
         </div>
         <div>
@@ -209,21 +694,413 @@
         </div>
       </div>
       <div class="pm-qr-area">
-        <img class="pm-qr-img" id="pmQrImg" src="" alt="支付二维码"
-             onerror="this.style.display='none';document.getElementById('pmQrPlaceholder').style.display='flex'"/>
+        <img class="pm-qr-img" id="pmQrImg" src="" alt="支付二维码"/>
         <div class="pm-qr-placeholder" id="pmQrPlaceholder">
           <div class="pm-qr-placeholder-icon" id="pmQrPlaceholderIcon"></div>
           <div class="pm-qr-placeholder-text" data-i18n="sponsor.modal.placeholder">请将收款二维码图片放入 assets/ 文件夹</div>
           <div class="pm-qr-placeholder-path" id="pmQrPlaceholderPath"></div>
         </div>
       </div>
-      <div class="pm-amount-hint" data-i18n="sponsor.modal.hint">金额随心，一杯奶茶的价格即可给我们很大鼓励 ☕</div>
+      <div class="pm-amount-hint" data-i18n="sponsor.modal.hint">金额随心，一杯奶茶的价格即可给我们很大鼓励</div>
     </div>
   </div>
 
   <script src="i18n.js"></script>
   <script src="questions.js"></script>
   <script src="quick_questions.js"></script>
+  <script src="scoring-engine.js"></script>
+  <script src="ls-fn-addiction.js"></script>
+  <script src="ls-fn-bmi.js"></script>
+  <script src="ls-fn-wealth.js"></script>
+  <script src="ls-fn-resilience.js"></script>
+  <script src="ls-fn-growth.js"></script>
+  <script src="scoring-rules.js"></script>
+  <script src="scoring-integration.js"></script>
   <script src="analysis.js"></script>
+
+  <script>
+  (function(){
+    'use strict';
+
+    /* ════════════════════════════════════════════════════════════
+       Colored Brutalism palette — flat saturated dimension fills.
+       Used for both basic/social/identity (quiz-section dims) and
+       health/wealth/social/mind (engine dims).
+       ════════════════════════════════════════════════════════════ */
+    var DIM_COLORS = {
+      basic:    { main: '#0ea5e9', label_cn: '基础信息', label_tw: '基礎資訊' },
+      social:   { main: '#10b981', label_cn: '社会生活', label_tw: '社會生活' },
+      identity: { main: '#8b5cf6', label_cn: '个人认同', label_tw: '個人認同' },
+    };
+
+    var ENGINE_DIM_COLORS = {
+      health:   { main: '#0ea5e9', label_cn: '健康', label_tw: '健康' },
+      wealth:   { main: '#f59e0b', label_cn: '财富', label_tw: '財富' },
+      social:   { main: '#10b981', label_cn: '社会', label_tw: '社會' },
+      mind:     { main: '#8b5cf6', label_cn: '心智', label_tw: '心智' },
+      modifier: { main: '#64748b', label_cn: '修正器', label_tw: '修正器' },
+    };
+
+    function lang() { return window.I18N_CURRENT || 'zh-CN'; }
+    function isTW() { return lang() === 'zh-TW'; }
+
+    function getResult() {
+      try { var r = sessionStorage.getItem('ls_result'); if (r) return JSON.parse(r); } catch(e){}
+      try { var r = localStorage.getItem('ls_result_latest'); if (r) return JSON.parse(r); } catch(e){}
+      try { var r = localStorage.getItem('ls_result_deep'); if (r) return JSON.parse(r); } catch(e){}
+      try { var r = localStorage.getItem('ls_result_quick'); if (r) return JSON.parse(r); } catch(e){}
+      return null;
+    }
+
+    /* ── 1. Horizontal dimension bars — chunky colored fills ── */
+    function renderDimBars(data) {
+      var container = document.getElementById('dimBarChart');
+      if (!container || !data.dimPct) return;
+
+      var dims = ['basic', 'social', 'identity'];
+      var html = '';
+      dims.forEach(function(key) {
+        var val = data.dimPct[key] || 0;
+        var dc = DIM_COLORS[key];
+        var label = isTW() ? dc.label_tw : dc.label_cn;
+        html += '<div class="hbar-row">' +
+          '<span class="hbar-label">' + label + '</span>' +
+          '<div class="hbar-track">' +
+            '<div class="hbar-fill" data-pct="' + val + '" style="--bar-color:' + dc.main + '">' +
+              '<span class="hbar-val">' + val + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<span class="hbar-val-outside">' + val + '<small> /100</small></span>' +
+        '</div>';
+      });
+      container.innerHTML = html;
+
+      setTimeout(function(){
+        container.querySelectorAll('.hbar-fill').forEach(function(el){
+          el.style.width = Math.max(8, el.dataset.pct) + '%';
+        });
+      }, 200);
+    }
+
+    /* ── 2. Score gauge donut — solid colored segments, hard edges ── */
+    function renderGauge(data) {
+      var canvas = document.getElementById('gaugeCanvas');
+      var numEl = document.getElementById('gaugeNum');
+      var legendEl = document.getElementById('gaugeLegend');
+      if (!canvas || !data.dimPct) return;
+
+      var ctx = canvas.getContext('2d');
+      var W = canvas.width, H = canvas.height;
+      var cx = W / 2, cy = H / 2, R = 85, lw = 26;
+
+      var dims = ['basic', 'social', 'identity'];
+      var values = dims.map(function(k) { return data.dimPct[k] || 0; });
+      var total = values.reduce(function(a, b) { return a + b; }, 0) || 1;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Black outer outline ring (brutalist border)
+      ctx.beginPath();
+      ctx.arc(cx, cy, R + lw / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Black inner outline ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, R - lw / 2, 0, Math.PI * 2);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // White base track
+      ctx.beginPath();
+      ctx.arc(cx, cy, R, 0, Math.PI * 2);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = lw - 2;
+      ctx.stroke();
+
+      // Solid colored segments — flat, no gradients
+      var start = -Math.PI / 2;
+      dims.forEach(function(key, i) {
+        var slice = (values[i] / total) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, start, start + slice);
+        ctx.strokeStyle = DIM_COLORS[key].main;
+        ctx.lineWidth = lw - 2;
+        ctx.lineCap = 'butt';
+        ctx.stroke();
+
+        // Black divider between slices
+        var divX = cx + Math.cos(start + slice) * R;
+        var divY = cy + Math.sin(start + slice) * R;
+        var inX = cx + Math.cos(start + slice) * (R - lw / 2);
+        var inY = cy + Math.sin(start + slice) * (R - lw / 2);
+        var outX = cx + Math.cos(start + slice) * (R + lw / 2);
+        var outY = cy + Math.sin(start + slice) * (R + lw / 2);
+        ctx.beginPath();
+        ctx.moveTo(inX, inY);
+        ctx.lineTo(outX, outY);
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        start += slice;
+      });
+
+      if (numEl) {
+        var precise = data.finalScorePrecise || data.finalScore || 0;
+        numEl.textContent = typeof precise === 'number' ? (precise % 1 === 0 ? precise : precise.toFixed(1)) : precise;
+      }
+
+      if (legendEl) {
+        var lhtml = '';
+        dims.forEach(function(key, i) {
+          var dc = DIM_COLORS[key];
+          var label = isTW() ? dc.label_tw : dc.label_cn;
+          lhtml += '<span class="legend-item"><span class="legend-dot" style="--legend-color:' + dc.main + '"></span>' + label + ' ' + values[i] + '</span>';
+        });
+        legendEl.innerHTML = lhtml;
+      }
+    }
+
+    /* ── 3. Engine waterfall — colored positive bars, black negative ── */
+    function renderEngineWaterfall(data) {
+      var container = document.getElementById('engineWaterfall');
+      if (!container) return;
+
+      var contributions = [];
+      if (data.answerMap && window.LSIntegration && window.LSEngine) {
+        try {
+          var answers = {};
+          Object.keys(data.answerMap).forEach(function(qid) {
+            var am = data.answerMap[qid];
+            if (am && typeof am.questionIdx === 'number') {
+              answers[qid] = am.questionIdx;
+            } else if (am && Array.isArray(am.selectedIndices)) {
+              answers[qid] = am.selectedIndices;
+            }
+          });
+          var result = window.LSIntegration.computeFromAnswers(answers);
+          contributions = result.contributions || [];
+        } catch (e) {
+          console.warn('[charts] Engine recompute failed:', e);
+        }
+      }
+
+      if (!contributions.length) {
+        container.innerHTML = '<div style="text-align:center;padding:20px;font-family:\'Space Mono\',monospace;font-weight:700;font-size:12px;letter-spacing:.1em;border:3px dashed #000000">' +
+          (isTW() ? '> 引擎數據不可用' : '> 引擎数据不可用') + '</div>';
+        return;
+      }
+
+      var HIDDEN_RULES = {'mind.tcm':1, 'mind.criminal_record':1};
+      contributions = contributions.filter(function(c) { return !HIDDEN_RULES[c.ruleId]; });
+      contributions.sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
+
+      var maxAbs = Math.max.apply(null, contributions.map(function(c) { return Math.abs(c.delta); })) || 1;
+
+      var RULE_NAMES = {
+        'health.bmi': { cn: 'BMI 健康', tw: 'BMI 健康' },
+        'health.vision': { cn: '视力', tw: '視力' },
+        'health.color_blindness': { cn: '色觉', tw: '色覺' },
+        'health.overall': { cn: '整体健康', tw: '整體健康' },
+        'health.dining': { cn: '饮食习惯', tw: '飲食習慣' },
+        'wealth.housing': { cn: '住房条件', tw: '住房條件' },
+        'wealth.dynamic_baseline': { cn: '动态财富基线', tw: '動態財富基線' },
+        'wealth.resilience_buff': { cn: '韧性加成', tw: '韌性加成' },
+        'social.relationship': { cn: '感情状态', tw: '感情狀態' },
+        'social.siblings': { cn: '兄弟姐妹', tw: '兄弟姊妹' },
+        'social.childcare': { cn: '育儿投入', tw: '育兒投入' },
+        'social.parenting_style': { cn: '教养方式', tw: '教養方式' },
+        'social.children_x_savings': { cn: '子女×储蓄', tw: '子女×儲蓄' },
+        'mind.addictions': { cn: '成瘾行为', tw: '成癮行為' },
+        'mind.education': { cn: '学历', tw: '學歷' },
+        'mind.foreign_language': { cn: '外语能力', tw: '外語能力' },
+        'mind.travel': { cn: '旅行经验', tw: '旅行經驗' },
+        'mind.profession': { cn: '专业技能', tw: '專業技能' },
+        'mind.info_literacy': { cn: '信息素养', tw: '資訊素養' },
+        'mind.growth': { cn: '成长乘数', tw: '成長乘數' },
+      };
+
+      var html = '';
+      contributions.forEach(function(c) {
+        if (c.delta === 0) return;
+        var isPos = c.delta > 0;
+        var pct = Math.abs(c.delta) / maxAbs * 45;
+        var dimKey = (c.dimension || '').toLowerCase();
+        var dimColor = (ENGINE_DIM_COLORS[dimKey] && ENGINE_DIM_COLORS[dimKey].main) || '#64748b';
+
+        var barStyle, barClass;
+        if (isPos) {
+          barStyle = 'left:50%;width:' + pct + '%;--wf-color:' + dimColor + ';';
+          barClass = 'positive';
+        } else {
+          barStyle = 'right:50%;width:' + pct + '%;';
+          barClass = 'negative';
+        }
+
+        var rn = RULE_NAMES[c.ruleId];
+        var label = rn ? (isTW() ? rn.tw : rn.cn) : c.ruleId;
+
+        html += '<div class="wf-row">' +
+          '<span class="wf-label">' + label + '</span>' +
+          '<div class="wf-bar-area"><div class="wf-bar-center"></div>' +
+            '<div class="wf-bar ' + barClass + '" style="' + barStyle + '"></div>' +
+          '</div>' +
+          '<span class="wf-val ' + (isPos ? 'pos' : 'neg') + '">' + (isPos ? '+' : '') + c.delta + '</span>' +
+        '</div>';
+      });
+
+      // Legend
+      html += '<div class="chart-legend" style="margin-top:14px">';
+      ['health', 'wealth', 'social', 'mind'].forEach(function(d) {
+        var dc = ENGINE_DIM_COLORS[d];
+        html += '<span class="legend-item"><span class="legend-dot" style="--legend-color:' + dc.main + '"></span>' + (isTW() ? dc.label_tw : dc.label_cn) + '</span>';
+      });
+      html += '<span class="legend-item"><span class="legend-dot" style="--legend-color:#000000"></span>' + (isTW() ? '負向影響' : '负向影响') + '</span>';
+      html += '</div>';
+
+      container.innerHTML = html;
+    }
+
+    /* ── 4. Per-dimension vertical bar charts — colored fills ── */
+    function renderDimVbars(data) {
+      var container = document.getElementById('dimVbarRow');
+      if (!container) return;
+
+      var contributions = [];
+      if (data.answerMap && window.LSIntegration && window.LSEngine) {
+        try {
+          var answers = {};
+          Object.keys(data.answerMap).forEach(function(qid) {
+            var am = data.answerMap[qid];
+            if (am && typeof am.questionIdx === 'number') answers[qid] = am.questionIdx;
+            else if (am && Array.isArray(am.selectedIndices)) answers[qid] = am.selectedIndices;
+          });
+          var result = window.LSIntegration.computeFromAnswers(answers);
+          contributions = result.contributions || [];
+        } catch (e) {}
+      }
+
+      if (!contributions.length) {
+        container.innerHTML = '';
+        return;
+      }
+
+      var dimGroups = {};
+      contributions.forEach(function(c) {
+        if (!dimGroups[c.dimension]) dimGroups[c.dimension] = [];
+        dimGroups[c.dimension].push(c);
+      });
+
+      var RULE_SHORT = {
+        'health.bmi': 'BMI', 'health.vision': isTW()?'視力':'视力', 'health.color_blindness': isTW()?'色覺':'色觉',
+        'health.overall': isTW()?'整體':'整体', 'health.dining': isTW()?'飲食':'饮食',
+        'wealth.housing': isTW()?'住房':'住房', 'wealth.dynamic_baseline': isTW()?'財富':'财富', 'wealth.resilience_buff': isTW()?'韌性':'韧性',
+        'social.relationship': isTW()?'感情':'感情', 'social.siblings': isTW()?'手足':'手足',
+        'social.childcare': isTW()?'育兒':'育儿', 'social.parenting_style': isTW()?'教養':'教养', 'social.children_x_savings': isTW()?'子女':'子女',
+        'mind.addictions': isTW()?'成癮':'成瘾', 'mind.education': isTW()?'學歷':'学历', 'mind.foreign_language': isTW()?'外語':'外语',
+        'mind.travel': isTW()?'旅行':'旅行', 'mind.profession': isTW()?'專業':'专业',
+        'mind.info_literacy': isTW()?'資訊':'信息',
+        'mind.growth': isTW()?'成長':'成长',
+      };
+
+      var html = '';
+      ['health', 'wealth', 'social', 'mind'].forEach(function(dim) {
+        var items = dimGroups[dim];
+        if (!items || !items.length) return;
+
+        var dc = ENGINE_DIM_COLORS[dim];
+        var maxVal = Math.max.apply(null, items.map(function(c) { return Math.abs(c.delta); })) || 1;
+        var dimTotal = items.reduce(function(a, c) { return a + c.delta; }, 0);
+
+        html += '<div class="chart-card" style="--card-color:' + dc.main + '">' +
+          '<div class="cc-header">' +
+            '<span class="cc-title">' + (isTW() ? dc.label_tw : dc.label_cn) + '</span>' +
+            '<span class="cc-badge" style="--card-color:' + dc.main + '">' + (dimTotal >= 0 ? '+' : '') + dimTotal + '</span>' +
+          '</div>' +
+          '<div class="vbar-chart">';
+
+        items.forEach(function(c) {
+          var h = Math.max(8, Math.abs(c.delta) / maxVal * 100);
+          var shortLabel = RULE_SHORT[c.ruleId] || c.ruleId.split('.').pop();
+          var barColor = c.delta < 0 ? '#000000' : dc.main;
+          html += '<div class="vbar-col">' +
+            '<div class="vbar-bar-wrap"><div class="vbar-bar" data-h="' + h + '" style="--vbar-color:' + barColor + '">' +
+              '<span class="vbar-bar-val">' + (c.delta > 0 ? '+' : '') + c.delta + '</span>' +
+            '</div></div>' +
+            '<span class="vbar-label">' + shortLabel + '</span>' +
+          '</div>';
+        });
+
+        html += '</div></div>';
+      });
+
+      container.innerHTML = html;
+
+      setTimeout(function(){
+        container.querySelectorAll('.vbar-bar').forEach(function(el){
+          el.style.height = el.dataset.h + '%';
+        });
+      }, 400);
+    }
+
+    /* ── 5. Rank badge ── */
+    function renderRank(data) {
+      var rankText = document.getElementById('rankText');
+      if (!rankText || !data.finalScore) return;
+      var s = data.finalScore;
+      var rank;
+      if (s > 110) rank = Math.max(1, Math.round(3 - (s - 110) * 0.05));
+      else { var t = (s - 50) / 20, sig = 1 / (1 + Math.exp(-t)); rank = Math.round(sig * 92 + 4); }
+
+      rankText.innerHTML = (isTW() ? '超越了約 ' : '超越了约 ') +
+        '<span class="rank-badge-pct">' + (100 - rank) + '%</span>' +
+        (isTW() ? ' 的測試者' : ' 的测试者');
+    }
+
+    /* ── Master render ── */
+    function renderCharts() {
+      var data = getResult();
+      if (!data) return;
+
+      renderDimBars(data);
+      renderGauge(data);
+      renderEngineWaterfall(data);
+      renderDimVbars(data);
+      renderRank(data);
+    }
+
+    var origApply = window.applyI18n;
+    if (typeof origApply === 'function') {
+      window.applyI18n = function(l) {
+        origApply(l);
+        setTimeout(renderCharts, 100);
+      };
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function(){ setTimeout(renderCharts, 300); });
+    } else {
+      setTimeout(renderCharts, 300);
+    }
+  })();
+  </script>
+
+  <script>
+  (function(){
+    function pad(n){ return n < 10 ? '0' + n : n; }
+    function tick(){
+      var d = new Date();
+      var s = d.getFullYear() + '.' + pad(d.getMonth()+1) + '.' + pad(d.getDate()) + ' '
+            + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+      var el = document.getElementById('liveDate');
+      if(el) el.textContent = s;
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+  </script>
 </body>
 </html>
