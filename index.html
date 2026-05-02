@@ -23,6 +23,9 @@
 </head>
 
 <body>
+  <!-- Full-screen confetti canvas — fired by script.js when ls_last_score >= 100 -->
+  <canvas id="confettiCanvas" style="position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:9999; display:none;"></canvas>
+
   <!-- legacy hook (script.js may inject children) — visually neutralized -->
   <div class="particles" id="particles" aria-hidden="true"></div>
 

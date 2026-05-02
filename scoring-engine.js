@@ -61,6 +61,7 @@
     SET_EMERGENCY_FUNDS:         'emergencyFunds',
     SET_FAMILY_SUPPORT:          'familySupport',
     SET_PARTNER_SUPPORT:         'partnerSupport',
+    SET_EMOTIONAL_HEALTH:        'emotionalHealth',
   };
 
   /**
@@ -416,6 +417,7 @@
     setEmergencyFunds:  function (v) { return { type: 'SET_EMERGENCY_FUNDS',         payload: v }; },
     setFamilySupport:   function (v) { return { type: 'SET_FAMILY_SUPPORT',          payload: v }; },
     setPartnerSupport:  function (v) { return { type: 'SET_PARTNER_SUPPORT',         payload: v }; },
+    setEmotionalHealth: function (v) { return { type: 'SET_EMOTIONAL_HEALTH',        payload: v }; },
     patch:              function (p) { return { type: 'PATCH',  payload: p }; },
     reset:              function ()  { return { type: 'RESET' }; },
   };

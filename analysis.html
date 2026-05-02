@@ -158,23 +158,28 @@
     .hbar-track {
       position: relative;
       height: 28px;
-      background: #ffffff;
-      border: 3px solid #000000;
-      border-radius: 0;
+      background: #ffffff !important;
+      background-image: none !important;
+      border: 3px solid #000000 !important;
+      border-radius: 0 !important;
       overflow: hidden;
     }
+    .hbar-track::before { display: none !important; }   /* kill the checkered overlay from style.css */
     .hbar-fill {
       --bar-color: var(--dim-health);
       position: relative;
-      height: 100%;
-      background: var(--bar-color);
+      z-index: 2;
+      height: 100% !important;
+      background: var(--bar-color, #000000) !important;
+      background-image: none !important;
       width: 0;
       transition: width 0.6s ease;
       display: flex;
       align-items: center;
       justify-content: flex-end;
       padding-right: 8px;
-      border-right: 3px solid #000000;
+      border-right: 3px solid #000000 !important;
+      border-radius: 0 !important;
     }
     .hbar-val {
       font-family: 'Archivo Black', sans-serif;
@@ -200,6 +205,12 @@
       width: 220px;
       height: 220px;
       margin: 0 auto;
+    }
+    /* CRITICAL: kill the grayscale filter from style.css so donut shows real dimension colors */
+    .gauge-wrap canvas {
+      display: block;
+      filter: none !important;
+      -webkit-filter: none !important;
     }
     .gauge-center-text {
       position: absolute;
@@ -249,11 +260,15 @@
       background: #ffffff;
       border: 2px solid #000000;
     }
+    /* Legend dot — must use the JS-set --legend-color, NOT forced black */
     .legend-dot {
-      width: 10px;
-      height: 10px;
-      background: var(--legend-color, #000000);
-      border: 2px solid #000000;
+      display: inline-block !important;
+      width: 12px !important;
+      height: 12px !important;
+      background: var(--legend-color, #000000) !important;
+      background-image: none !important;
+      border: 2px solid #000000 !important;
+      border-radius: 0 !important;
       flex-shrink: 0;
     }
 
@@ -270,11 +285,11 @@
       gap: 12px;
     }
     .wf-label {
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      font-weight: 700;
-      color: #000000;
-      letter-spacing: 0.03em;
+      font-family: 'Space Mono', monospace !important;
+      font-size: 11px !important;
+      font-weight: 700 !important;
+      color: #000000 !important;
+      letter-spacing: 0.03em !important;
       text-align: right;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -283,16 +298,17 @@
     .wf-bar-area {
       position: relative;
       height: 22px;
-      background: #ffffff;
-      border: 2px solid #000000;
+      background: #ffffff !important;
+      border: 2px solid #000000 !important;
     }
+    .wf-bar-area::before { display: none !important; }    /* kill the checkered overlay from style.css */
     .wf-bar-center {
       position: absolute;
       left: 50%;
       top: 0;
       bottom: 0;
       width: 2px;
-      background: #000000;
+      background: #000000 !important;
       transform: translateX(-50%);
       z-index: 2;
     }
@@ -301,30 +317,43 @@
       position: absolute;
       top: 0;
       bottom: 0;
-      background: var(--wf-color);
+      background: var(--wf-color) !important;
+      background-image: none !important;
       border-top: 0;
       border-bottom: 0;
     }
-    .wf-bar.positive { border-left: 2px solid #000000; }
-    .wf-bar.negative { border-right: 2px solid #000000; background: #000000; }
+    /* Positive bars MUST use the JS-set --wf-color (dimension color) */
+    .wf-bar.positive {
+      background: var(--wf-color, #000000) !important;
+      background-image: none !important;
+      border-left: 2px solid #000000 !important;
+    }
+    .wf-bar.negative {
+      background: #000000 !important;
+      background-image: none !important;
+      border-right: 2px solid #000000 !important;
+    }
     .wf-val {
-      font-family: 'Archivo Black', sans-serif;
-      font-size: 12px;
-      font-weight: 900;
-      color: #000000;
+      font-family: 'Archivo Black', sans-serif !important;
+      font-size: 12px !important;
+      font-weight: 900 !important;
+      color: #000000 !important;
       text-align: right;
     }
-    .wf-val.pos { color: #000000; }
-    .wf-val.neg { color: #000000; }
+    .wf-val.pos { color: #000000 !important; }
+    .wf-val.neg { color: #000000 !important; }
 
-    /* ── Vertical bar (per-dimension) ── */
+    /* ── Vertical bar (per-dimension) — BIDIRECTIONAL with center zero-line ── */
     .vbar-chart {
-      display: flex;
-      align-items: flex-end;
-      gap: 10px;
-      min-height: 160px;
-      padding: 10px 0;
-      border-bottom: 3px solid #000000;
+      display: flex !important;
+      align-items: flex-end !important;
+      justify-content: space-around !important;
+      gap: 10px !important;
+      height: 220px !important;
+      min-height: 220px !important;
+      padding: 14px 14px 12px !important;
+      border-bottom: 3px solid #000000 !important;
+      position: relative;
     }
     .vbar-col {
       flex: 1;
@@ -333,43 +362,88 @@
       align-items: center;
       gap: 6px;
       min-width: 0;
+      height: 100%;
     }
     .vbar-bar-wrap {
-      width: 100%;
-      height: 130px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
+      position: relative !important;
+      width: 100% !important;
+      height: 160px !important;
+      flex: 0 0 160px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    /* Solid black ZERO baseline across the middle of the bar zone, extends across gaps */
+    .vbar-bar-wrap::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      right: -8px;
+      top: 50%;
+      height: 3px;
+      background: #000000;
+      transform: translateY(-50%);
+      z-index: 1;
+      pointer-events: none;
     }
     .vbar-bar {
       --vbar-color: #000000;
+      position: absolute !important;
       width: 100%;
       max-width: 36px;
-      background: var(--vbar-color);
-      border: 2px solid #000000;
-      border-bottom: 0;
-      position: relative;
+      background: var(--vbar-color, #000000) !important;
+      background-image: none !important;
+      opacity: 1 !important;
+      border: 2px solid #000000 !important;
+      border-radius: 0 !important;
       height: 0;
       transition: height 0.7s ease;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding-top: 4px;
+      z-index: 2;
     }
+    /* Positive bars: grow UP from the zero line */
+    .vbar-bar.positive {
+      bottom: 50% !important;
+      top: auto !important;
+      border-bottom: 0 !important;
+    }
+    /* Negative bars: grow DOWN from the zero line, hatched black pattern */
+    .vbar-bar.negative {
+      top: 50% !important;
+      bottom: auto !important;
+      border-top: 0 !important;
+      background: #000000 !important;
+      background-image: repeating-linear-gradient(
+        -45deg,
+        #000000 0 4px,
+        #FFFFFF 4px 7px
+      ) !important;
+    }
+    /* Value chip — sits at the OPEN end of the bar, in a small white tag */
     .vbar-bar-val {
-      font-family: 'Space Mono', monospace;
-      font-size: 9px;
-      font-weight: 700;
-      color: #ffffff;
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      letter-spacing: 0.04em;
+      position: absolute !important;
+      left: 50% !important;
+      transform: translateX(-50%) !important;
+      writing-mode: horizontal-tb !important;
+      font-family: 'Space Mono', monospace !important;
+      font-size: 10px !important;
+      font-weight: 700 !important;
+      color: #000000 !important;
+      letter-spacing: 0.04em !important;
+      white-space: nowrap !important;
+      background: #FFFFFF !important;
+      border: 1.5px solid #000000 !important;
+      border-radius: 0 !important;
+      padding: 1px 5px !important;
+      pointer-events: none;
+      z-index: 3;
     }
+    .vbar-bar.positive .vbar-bar-val { top: -22px !important; bottom: auto !important; }
+    .vbar-bar.negative .vbar-bar-val { bottom: -22px !important; top: auto !important; }
     .vbar-label {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      font-weight: 700;
-      color: #000000;
+      font-family: 'Space Mono', monospace !important;
+      font-size: 13px !important;
+      font-weight: 700 !important;
+      color: #000000 !important;
       letter-spacing: 0.02em;
       text-align: center;
       overflow: hidden;
@@ -485,7 +559,280 @@
       .chart-card { box-shadow: 4px 4px 0 var(--card-color) !important; padding: 16px !important; }
       .an-hero-left .an-score-pill { box-shadow: 6px 6px 0 var(--dim-health) !important; }
       .an-radar-wrap { box-shadow: 6px 6px 0 var(--dim-mind) !important; }
+      .vbar-label { font-size: 12px !important; }
     }
+
+    /* ════════════════════════════════════════════════════════════
+       FIX: Chart-card & Dim-deep-card headers — White bg / Black text
+       Overrides the legacy `background: var(--color-text)` (black)
+       inherited from style.css that was making titles invisible.
+       ════════════════════════════════════════════════════════════ */
+
+    /* ── Chart Card header (.cc-header) ── */
+    .cc-header {
+      background: #FFFFFF !important;
+      color: #000000 !important;
+      border-bottom: 3px solid #000000 !important;
+      padding: 10px 0 10px 0 !important;
+      margin-bottom: 16px !important;
+    }
+    .cc-header,
+    .cc-title,
+    .cc-subtitle,
+    .cc-title-icon {
+      color: #000000 !important;
+    }
+    .cc-title-icon {
+      filter: none !important;
+      opacity: 1 !important;
+    }
+
+    /* Score badges (+12, +53 …) — keep dimension color bg, force black text + thick black border */
+    .cc-badge {
+      background: var(--card-color, #000000) !important;
+      color: #000000 !important;
+      border: 2px solid #000000 !important;
+      border-radius: 0 !important;
+      box-shadow: 2px 2px 0 #000000 !important;
+      padding: 4px 10px !important;
+      font-family: 'Space Mono', monospace !important;
+      font-weight: 700 !important;
+    }
+
+    /* ── Dimension Deep Card header (.ddc-header) ── */
+    .ddc-header {
+      background: #FFFFFF !important;
+      color: #000000 !important;
+      border-bottom: 3px solid #000000 !important;
+    }
+    .ddc-label,
+    .ddc-meta,
+    .ddc-score,
+    .ddc-score small {
+      color: #000000 !important;
+    }
+
+    /* Icon block — white bg + thick black border, emoji pops in black */
+    .ddc-icon {
+      background: #FFFFFF !important;
+      color: #000000 !important;
+      border: 3px solid #000000 !important;
+      border-radius: 0 !important;
+      width: 48px !important;
+      height: 48px !important;
+      font-size: 24px !important;
+      line-height: 1 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      box-shadow: 3px 3px 0 #000000;
+    }
+
+    /* ── Right-side progress bar (.ddc-bar-wrap) — chunky brutalist ── */
+    .ddc-bar-wrap {
+      display: block !important;
+      width: 120px !important;
+      min-width: 120px !important;
+      max-width: 120px !important;
+    }
+    .ddc-bar-track {
+      width: 120px !important;
+      height: 16px !important;
+      background: #FFFFFF !important;
+      background-image: none !important;
+      border: 2px solid #000000 !important;
+      border-radius: 0 !important;
+      position: relative;
+      overflow: hidden;
+    }
+    .ddc-bar-fill {
+      height: 100% !important;
+      border-radius: 0 !important;
+      border-right: 2px solid #000000 !important;
+      background-image: none !important;
+      /* background-color comes from the JS-set inline style="background:DIM_COLOR".
+         A small inline script below promotes that to !important so it wins
+         over style.css's `background: var(--color-bg) !important`. */
+    }
+    /* ════════════════════════════════════════════════════════════
+       MODULE A — PERSONAL SWOT_MATRIX (个人核心分析矩阵)
+       2×2 brutalist grid. Each quadrant = thick black border, solid
+       color tag stripe at top, terminal-style body text below.
+       ════════════════════════════════════════════════════════════ */
+    .swot-section { margin-top: 32px; }
+    .swot-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border: 3px solid #000000;
+      box-shadow: 8px 8px 0 #000000;
+      background: #000000;            /* shows as the inter-cell divider */
+      margin-bottom: 24px;
+    }
+    .swot-cell {
+      background: #FFFFFF;
+      padding: 0;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    /* Solid color tag strip across the top of each quadrant */
+    .swot-cell .swot-tag {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: var(--swot-color, #000000);
+      color: #000000;
+      border-bottom: 3px solid #000000;
+      font-family: 'Archivo Black', 'Noto Sans SC', sans-serif;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .swot-cell .swot-tag-code {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      background: #000000;
+      color: #FFFFFF;
+      padding: 2px 6px;
+      letter-spacing: 0.12em;
+    }
+    .swot-cell .swot-body {
+      padding: 14px 16px;
+      flex: 1;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      line-height: 1.65;
+      color: #000000;
+      letter-spacing: 0.02em;
+    }
+    .swot-cell .swot-body .swot-line {
+      display: block;
+      margin-bottom: 4px;
+    }
+    .swot-cell .swot-body .swot-line::before {
+      content: '> ';
+      font-weight: 700;
+      color: #000000;
+    }
+    /* Quadrant accent colors */
+    .swot-cell.swot-s { --swot-color: var(--dim-social); }   /* Strengths — Green */
+    .swot-cell.swot-w { --swot-color: var(--dim-wealth); }   /* Weaknesses — Orange */
+    .swot-cell.swot-o { --swot-color: var(--dim-health); }   /* Opportunities — Blue */
+    .swot-cell.swot-t { --swot-color: var(--dim-mind); }     /* Threats — Purple */
+
+    @media (max-width: 768px) {
+      .swot-grid { grid-template-columns: 1fr; box-shadow: 5px 5px 0 #000000; }
+      .swot-cell { min-height: 140px; }
+    }
+
+    /* ════════════════════════════════════════════════════════════
+       MODULE B — NEXT MILESTONE (下一阶段进阶预测)
+       Wide brutalist terminal window. Header bar = solid color +
+       black text + traffic-light dots. Body = monospace terminal.
+       ════════════════════════════════════════════════════════════ */
+    .milestone-window {
+      background: #FFFFFF;
+      border: 3px solid #000000;
+      box-shadow: 8px 8px 0 var(--dim-health);
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+    .milestone-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      background: #FFFFFF;
+      border-bottom: 3px solid #000000;
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      color: #000000;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+    }
+    .milestone-dots {
+      display: inline-flex;
+      gap: 5px;
+      margin-right: 8px;
+    }
+    .milestone-dots span {
+      width: 12px;
+      height: 12px;
+      border: 2px solid #000000;
+      background: var(--dot, #FFFFFF);
+      border-radius: 0;
+      display: inline-block;
+    }
+    .milestone-dots span:nth-child(1) { --dot: var(--dim-wealth); }
+    .milestone-dots span:nth-child(2) { --dot: var(--dim-social); }
+    .milestone-dots span:nth-child(3) { --dot: var(--dim-health); }
+    .milestone-title-text {
+      font-family: 'Archivo Black', 'Noto Sans SC', sans-serif;
+      font-size: 13px;
+      letter-spacing: 0.06em;
+    }
+    .milestone-status {
+      margin-left: auto;
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      background: #000000;
+      color: #FFFFFF;
+      padding: 2px 8px;
+      letter-spacing: 0.12em;
+    }
+    .milestone-body {
+      padding: 18px 20px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      line-height: 1.85;
+      color: #000000;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0 22px,
+          rgba(0,0,0,0.04) 22px 23px
+        );
+    }
+    .milestone-body .ms-line { display: block; margin-bottom: 2px; }
+    .milestone-body .ms-line::before { content: '$ '; font-weight: 700; opacity: 0.55; }
+    .milestone-body .ms-line.ms-out::before { content: '> '; font-weight: 700; color: #000000; opacity: 1; }
+    .milestone-body .ms-line.ms-blank { height: 8px; }
+    .milestone-sim {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      padding: 6px 12px;
+      background: #000000;
+      color: #FFFFFF;
+      border: 2px solid #000000;
+      font-family: 'Archivo Black', sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.06em;
+    }
+    .milestone-sim .ms-arrow {
+      color: var(--dim-social);
+      font-family: 'Space Mono', monospace;
+      font-weight: 700;
+    }
+    .milestone-sim .ms-old { opacity: 0.55; text-decoration: line-through; }
+    .milestone-sim .ms-new { color: var(--dim-social); }
+    .milestone-cursor {
+      display: inline-block;
+      width: 9px;
+      height: 14px;
+      background: #000000;
+      vertical-align: -2px;
+      margin-left: 4px;
+      animation: ms-blink 1s steps(2, start) infinite;
+    }
+    @keyframes ms-blink { to { visibility: hidden; } }
   </style>
 </head>
 <body class="analysis-body">
@@ -632,6 +979,78 @@
       <span class="ast-line"></span>
     </div>
     <div id="insightRows"></div>
+
+    <!-- ── Module A: Personal SWOT Matrix (个人核心分析矩阵) ── -->
+    <div class="swot-section">
+      <div class="an-section-title">
+        <span class="ast-line"></span>
+        <span data-i18n="analysis.swot">个人核心分析矩阵</span>
+        <span class="ast-line"></span>
+      </div>
+      <div class="swot-grid" id="swotMatrix">
+        <div class="swot-cell swot-s">
+          <div class="swot-tag">
+            <span>优势 / STRENGTHS</span>
+            <span class="swot-tag-code">[ S ]</span>
+          </div>
+          <div class="swot-body" id="swotBodyS">
+            <span class="swot-line">扫描中...</span>
+            <span class="swot-line">DECODING_PROFILE</span>
+          </div>
+        </div>
+        <div class="swot-cell swot-w">
+          <div class="swot-tag">
+            <span>劣势 / WEAKNESSES</span>
+            <span class="swot-tag-code">[ W ]</span>
+          </div>
+          <div class="swot-body" id="swotBodyW">
+            <span class="swot-line">扫描中...</span>
+            <span class="swot-line">DECODING_PROFILE</span>
+          </div>
+        </div>
+        <div class="swot-cell swot-o">
+          <div class="swot-tag">
+            <span>机会 / OPPORTUNITIES</span>
+            <span class="swot-tag-code">[ O ]</span>
+          </div>
+          <div class="swot-body" id="swotBodyO">
+            <span class="swot-line">扫描中...</span>
+            <span class="swot-line">DECODING_PROFILE</span>
+          </div>
+        </div>
+        <div class="swot-cell swot-t">
+          <div class="swot-tag">
+            <span>风险预警 / THREATS</span>
+            <span class="swot-tag-code">[ T ]</span>
+          </div>
+          <div class="swot-body" id="swotBodyT">
+            <span class="swot-line">扫描中...</span>
+            <span class="swot-line">DECODING_PROFILE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Module B: Next Milestone (下一阶段进阶预测) ── -->
+    <div class="milestone-section">
+      <div class="an-section-title">
+        <span class="ast-line"></span>
+        <span data-i18n="analysis.milestone">下一阶段进阶预测</span>
+        <span class="ast-line"></span>
+      </div>
+      <div class="milestone-window" id="milestoneWindow">
+        <div class="milestone-header">
+          <span class="milestone-dots"><span></span><span></span><span></span></span>
+          <span class="milestone-title-text">FORECAST.SH — NEXT_MILESTONE</span>
+          <span class="milestone-status">[ READY ]</span>
+        </div>
+        <div class="milestone-body" id="milestoneBody">
+          <span class="ms-line">init forecast --user=current</span>
+          <span class="ms-line ms-blank"></span>
+          <span class="ms-line ms-out">等待数据载入<span class="milestone-cursor"></span></span>
+        </div>
+      </div>
+    </div>
 
     <div class="sponsor-card sponsor-card--analysis" id="analysisSponsorCard">
       <div class="sponsor-header">
@@ -894,33 +1313,36 @@
         return;
       }
 
-      var HIDDEN_RULES = {'mind.tcm':1, 'mind.criminal_record':1};
+      var HIDDEN_RULES = {'mind.tcm': 1};
       contributions = contributions.filter(function(c) { return !HIDDEN_RULES[c.ruleId]; });
       contributions.sort(function(a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
 
       var maxAbs = Math.max.apply(null, contributions.map(function(c) { return Math.abs(c.delta); })) || 1;
 
       var RULE_NAMES = {
-        'health.bmi': { cn: 'BMI 健康', tw: 'BMI 健康' },
-        'health.vision': { cn: '视力', tw: '視力' },
-        'health.color_blindness': { cn: '色觉', tw: '色覺' },
-        'health.overall': { cn: '整体健康', tw: '整體健康' },
-        'health.dining': { cn: '饮食习惯', tw: '飲食習慣' },
-        'wealth.housing': { cn: '住房条件', tw: '住房條件' },
-        'wealth.dynamic_baseline': { cn: '动态财富基线', tw: '動態財富基線' },
-        'wealth.resilience_buff': { cn: '韧性加成', tw: '韌性加成' },
-        'social.relationship': { cn: '感情状态', tw: '感情狀態' },
-        'social.siblings': { cn: '兄弟姐妹', tw: '兄弟姊妹' },
-        'social.childcare': { cn: '育儿投入', tw: '育兒投入' },
-        'social.parenting_style': { cn: '教养方式', tw: '教養方式' },
-        'social.children_x_savings': { cn: '子女×储蓄', tw: '子女×儲蓄' },
-        'mind.addictions': { cn: '成瘾行为', tw: '成癮行為' },
-        'mind.education': { cn: '学历', tw: '學歷' },
-        'mind.foreign_language': { cn: '外语能力', tw: '外語能力' },
-        'mind.travel': { cn: '旅行经验', tw: '旅行經驗' },
-        'mind.profession': { cn: '专业技能', tw: '專業技能' },
-        'mind.info_literacy': { cn: '信息素养', tw: '資訊素養' },
-        'mind.growth': { cn: '成长乘数', tw: '成長乘數' },
+        'health.bmi':                { cn: 'BMI 健康',    tw: 'BMI 健康' },
+        'health.vision':             { cn: '视力',         tw: '視力' },
+        'health.color_blindness':    { cn: '色觉',         tw: '色覺' },
+        'health.overall':            { cn: '整体健康',     tw: '整體健康' },
+        'health.dining':             { cn: '饮食习惯',     tw: '飲食習慣' },
+        'wealth.housing':            { cn: '住房条件',     tw: '住房條件' },
+        'wealth.dynamic_baseline':   { cn: '动态财富基线', tw: '動態財富基線' },
+        'wealth.resilience_buff':    { cn: '韧性加成',     tw: '韌性加成' },
+        'social.relationship':       { cn: '感情状态',     tw: '感情狀態' },
+        'social.siblings':           { cn: '兄弟姐妹',     tw: '兄弟姊妹' },
+        'social.childcare':          { cn: '育儿投入',     tw: '育兒投入' },
+        'social.child_education':    { cn: '子女教育',     tw: '子女教育' },
+        'social.parenting_style':    { cn: '教养方式',     tw: '教養方式' },
+        'social.children_x_savings': { cn: '子女×储蓄',    tw: '子女×儲蓄' },
+        'mind.addictions':           { cn: '成瘾行为',     tw: '成癮行為' },
+        'mind.education':            { cn: '学历',         tw: '學歷' },
+        'mind.foreign_language':     { cn: '外语能力',     tw: '外語能力' },
+        'mind.travel':               { cn: '旅行履历',     tw: '旅行履歷' },
+        'mind.profession':           { cn: '专业技能',     tw: '專業技能' },
+        'mind.info_literacy':        { cn: '信息素养',     tw: '資訊素養' },
+        'mind.growth':               { cn: '成长乘数',     tw: '成長乘數' },
+        'mind.emotion':              { cn: '情绪健康',     tw: '情緒健康' },
+        'mind.criminal_record':      { cn: '诉讼风险',     tw: '訴訟風險' },
       };
 
       var html = '';
@@ -988,6 +1410,9 @@
         return;
       }
 
+      var HIDDEN_RULES = {'mind.tcm': 1};
+      contributions = contributions.filter(function(c) { return !HIDDEN_RULES[c.ruleId]; });
+
       var dimGroups = {};
       contributions.forEach(function(c) {
         if (!dimGroups[c.dimension]) dimGroups[c.dimension] = [];
@@ -995,15 +1420,30 @@
       });
 
       var RULE_SHORT = {
-        'health.bmi': 'BMI', 'health.vision': isTW()?'視力':'视力', 'health.color_blindness': isTW()?'色覺':'色觉',
-        'health.overall': isTW()?'整體':'整体', 'health.dining': isTW()?'飲食':'饮食',
-        'wealth.housing': isTW()?'住房':'住房', 'wealth.dynamic_baseline': isTW()?'財富':'财富', 'wealth.resilience_buff': isTW()?'韌性':'韧性',
-        'social.relationship': isTW()?'感情':'感情', 'social.siblings': isTW()?'手足':'手足',
-        'social.childcare': isTW()?'育兒':'育儿', 'social.parenting_style': isTW()?'教養':'教养', 'social.children_x_savings': isTW()?'子女':'子女',
-        'mind.addictions': isTW()?'成癮':'成瘾', 'mind.education': isTW()?'學歷':'学历', 'mind.foreign_language': isTW()?'外語':'外语',
-        'mind.travel': isTW()?'旅行':'旅行', 'mind.profession': isTW()?'專業':'专业',
-        'mind.info_literacy': isTW()?'資訊':'信息',
-        'mind.growth': isTW()?'成長':'成长',
+        'health.bmi': 'BMI',
+        'health.vision':             isTW() ? '視力'   : '视力',
+        'health.color_blindness':    isTW() ? '色覺'   : '色觉',
+        'health.overall':            isTW() ? '整體'   : '整体',
+        'health.dining':             isTW() ? '飲食'   : '饮食',
+        'health.raw_score':          isTW() ? '基礎分' : '基础分',
+        'wealth.housing':            isTW() ? '住房'   : '住房',
+        'wealth.dynamic_baseline':   isTW() ? '財富'   : '财富',
+        'wealth.resilience_buff':    isTW() ? '韌性'   : '韧性',
+        'social.relationship':       isTW() ? '感情'   : '感情',
+        'social.siblings':           isTW() ? '手足'   : '手足',
+        'social.childcare':          isTW() ? '育兒'   : '育儿',
+        'social.child_education':    isTW() ? '教育'   : '教育',
+        'social.parenting_style':    isTW() ? '教養'   : '教养',
+        'social.children_x_savings': isTW() ? '子女'   : '子女',
+        'mind.addictions':           isTW() ? '成癮'   : '成瘾',
+        'mind.education':            isTW() ? '學歷'   : '学历',
+        'mind.foreign_language':     isTW() ? '外語'   : '外语',
+        'mind.travel':               isTW() ? '旅行'   : '旅行',
+        'mind.profession':           isTW() ? '專業'   : '专业',
+        'mind.info_literacy':        isTW() ? '資訊'   : '信息',
+        'mind.growth':               isTW() ? '成長'   : '成长',
+        'mind.emotion':              isTW() ? '情緒'   : '情绪',
+        'mind.criminal_record':      isTW() ? '訴訟'   : '诉讼',
       };
 
       var html = '';
@@ -1023,13 +1463,21 @@
           '<div class="vbar-chart">';
 
         items.forEach(function(c) {
-          var h = Math.max(8, Math.abs(c.delta) / maxVal * 100);
+          // pct expressed as % of HALF the wrap (0..100 → 0..50% of full wrap height)
+          var pct = Math.max(8, Math.abs(c.delta) / maxVal * 100);
+          var halfPct = pct / 2;          // applied as `height: X%` of the 160px wrap
           var shortLabel = RULE_SHORT[c.ruleId] || c.ruleId.split('.').pop();
-          var barColor = c.delta < 0 ? '#000000' : dc.main;
+          var isPos = c.delta >= 0;
+          var dirClass = isPos ? 'positive' : 'negative';
+          var sign = c.delta > 0 ? '+' : '';
+          // Positive bars use the dimension color; negative bars use hatched black (CSS handles it)
+          var barColor = isPos ? dc.main : '#000000';
           html += '<div class="vbar-col">' +
-            '<div class="vbar-bar-wrap"><div class="vbar-bar" data-h="' + h + '" style="--vbar-color:' + barColor + '">' +
-              '<span class="vbar-bar-val">' + (c.delta > 0 ? '+' : '') + c.delta + '</span>' +
-            '</div></div>' +
+            '<div class="vbar-bar-wrap">' +
+              '<div class="vbar-bar ' + dirClass + '" data-h="' + halfPct + '" style="--vbar-color:' + barColor + '">' +
+                '<span class="vbar-bar-val">' + sign + c.delta + '</span>' +
+              '</div>' +
+            '</div>' +
             '<span class="vbar-label">' + shortLabel + '</span>' +
           '</div>';
         });
@@ -1060,6 +1508,161 @@
         (isTW() ? ' 的測試者' : ' 的测试者');
     }
 
+    /* ── 6. SWOT Matrix — derive S/W/O/T from dimPct + finalScore ── */
+    function renderSWOT(data) {
+      if (!document.getElementById('swotMatrix')) return;
+
+      // Quiz-section dims (basic / social / identity) — these are the dimPct values
+      var dimMap = {
+        basic:    { cn: '基础信息', tw: '基礎資訊' },
+        social:   { cn: '社会生活', tw: '社會生活' },
+        identity: { cn: '个人认同', tw: '個人認同' },
+      };
+
+      var dimPct = data.dimPct || {};
+      var entries = Object.keys(dimMap)
+        .map(function(k){ return { key: k, pct: dimPct[k] || 0, label_cn: dimMap[k].cn, label_tw: dimMap[k].tw }; })
+        .filter(function(e){ return e.pct > 0; });
+
+      var top = null, bottom = null, mid = null;
+      if (entries.length) {
+        var sorted = entries.slice().sort(function(a,b){ return b.pct - a.pct; });
+        top    = sorted[0];
+        bottom = sorted[sorted.length - 1];
+        mid    = sorted[Math.floor(sorted.length / 2)] || top;
+      }
+
+      var score = data.finalScore || 0;
+      var L = function(cn, tw){ return isTW() ? tw : cn; };
+      var lbl = function(e){ return e ? L(e.label_cn, e.label_tw) : L('未知维度', '未知維度'); };
+      var pct = function(e){ return e ? Math.round(e.pct) : 0; };
+
+      // ─ STRENGTHS — best-performing dimension ─
+      var sLines = top ? [
+        L('核心优势 ：', '核心優勢 ：') + lbl(top) + ' [ ' + pct(top) + '/100 ]',
+        L('该维度领先你的整体表现，可作为个人品牌锚点。', '該維度領先你的整體表現，可作為個人品牌錨點。'),
+      ] : [
+        L('数据不足，无法识别核心优势。', '資料不足，無法識別核心優勢。'),
+        L('建议完成完整测评以解锁。', '建議完成完整測評以解鎖。'),
+      ];
+
+      // ─ WEAKNESSES — worst-performing dimension ─
+      var wLines = bottom ? [
+        L('短板维度 ：', '短板維度 ：') + lbl(bottom) + ' [ ' + pct(bottom) + '/100 ]',
+        L('该维度拖累整体得分，建议优先投入资源补强。', '該維度拖累整體得分，建議優先投入資源補強。'),
+      ] : [
+        L('数据不足，无法识别短板。', '資料不足，無法識別短板。'),
+        L('建议完成完整测评以解锁。', '建議完成完整測評以解鎖。'),
+      ];
+
+      // ─ OPPORTUNITIES — middle dim with growth potential ─
+      var oLines = mid ? [
+        L('增长机会 ：', '增長機會 ：') + lbl(mid) + L(' 处于中位区间。', ' 處於中位區間。'),
+        L('小幅投入即可获得最大边际回报。', '小幅投入即可獲得最大邊際回報。'),
+      ] : [
+        L('系统正在分析潜在机会窗口...', '系統正在分析潛在機會窗口...'),
+        L('请完成完整测评。', '請完成完整測評。'),
+      ];
+
+      // ─ THREATS — based on score band ─
+      var tLines;
+      if (score === 0) {
+        tLines = [
+          L('系统检测中...', '系統檢測中...'),
+          L('未发现已知风险信号。', '未發現已知風險信號。'),
+        ];
+      } else if (score < 70) {
+        tLines = [
+          L('风险等级 ：', '風險等級 ：') + L('高 [ HIGH ]', '高 [ HIGH ]'),
+          L('多维度同步偏低，建议系统性重塑生活策略。', '多維度同步偏低，建議系統性重塑生活策略。'),
+        ];
+      } else if (score < 95) {
+        tLines = [
+          L('风险等级 ：', '風險等級 ：') + L('中 [ MEDIUM ]', '中 [ MEDIUM ]'),
+          L('警惕短板维度的复利衰减效应。', '警惕短板維度的複利衰減效應。'),
+        ];
+      } else {
+        tLines = [
+          L('风险等级 ：', '風險等級 ：') + L('低 [ LOW ]', '低 [ LOW ]'),
+          L('警惕高分舒适区，避免成长停滞。', '警惕高分舒適區，避免成長停滯。'),
+        ];
+      }
+
+      var fill = function(id, lines){
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = lines.map(function(t){ return '<span class="swot-line">' + t + '</span>'; }).join('');
+      };
+      fill('swotBodyS', sLines);
+      fill('swotBodyW', wLines);
+      fill('swotBodyO', oLines);
+      fill('swotBodyT', tLines);
+    }
+
+    /* ── 7. Next Milestone — simulate +10 boost to weakest dim ── */
+    function renderMilestone(data) {
+      var body = document.getElementById('milestoneBody');
+      if (!body) return;
+
+      var L = function(cn, tw){ return isTW() ? tw : cn; };
+      var dimMap = {
+        basic:    { cn: '基础信息', tw: '基礎資訊' },
+        social:   { cn: '社会生活', tw: '社會生活' },
+        identity: { cn: '个人认同', tw: '個人認同' },
+      };
+
+      var dimPct = data.dimPct || {};
+      var entries = Object.keys(dimMap)
+        .map(function(k){ return { key: k, pct: dimPct[k] || 0, label_cn: dimMap[k].cn, label_tw: dimMap[k].tw }; })
+        .filter(function(e){ return e.pct > 0; });
+
+      var weakest = entries.length
+        ? entries.slice().sort(function(a,b){ return a.pct - b.pct; })[0]
+        : null;
+
+      var score = data.finalScore || 0;
+      // Mock boost — +10 absolute on the dim translates to a rough +8 on total (dim has ~80% weight)
+      var simulatedScore = score > 0 ? Math.min(150, Math.round(score + 8)) : score;
+
+      var weakestLabel = weakest ? L(weakest.label_cn, weakest.label_tw) : L('短板维度', '短板維度');
+      var weakestPct   = weakest ? Math.round(weakest.pct) : 0;
+      var targetPct    = weakest ? Math.min(100, weakestPct + 10) : 0;
+
+      var lines = [];
+      lines.push({ k: 'in',  t: 'forecast --user=current --boost=+10' });
+      lines.push({ k: 'in',  t: 'analyze weak_dimension' });
+      lines.push({ k: 'blank' });
+      lines.push({ k: 'out', t: L('已识别短板维度 ：', '已識別短板維度 ：') + weakestLabel +
+                              ' [ ' + weakestPct + '/100 → ' + targetPct + '/100 ]' });
+      lines.push({ k: 'out', t: L('该维度若提升 10 点，预计可解锁 ：', '該維度若提升 10 點，預計可解鎖 ：') });
+      lines.push({ k: 'out', t: L('• 整体认知风险显著下降', '• 整體認知風險顯著下降') });
+      lines.push({ k: 'out', t: L('• 配套维度（情绪 / 关系 / 储蓄）出现复利效应', '• 配套維度（情緒 / 關係 / 儲蓄）出現複利效應') });
+      lines.push({ k: 'blank' });
+
+      var html = lines.map(function(L_){
+        if (L_.k === 'blank') return '<span class="ms-line ms-blank"></span>';
+        if (L_.k === 'out')   return '<span class="ms-line ms-out">' + L_.t + '</span>';
+        return '<span class="ms-line">' + L_.t + '</span>';
+      }).join('');
+
+      // Simulated score chip — old → new
+      var simLabel = L('[ 模拟推演 ]', '[ 模擬推演 ]');
+      if (score > 0) {
+        html += '<span class="ms-line ms-out">' +
+                  '<span class="milestone-sim">' +
+                    '<span style="font-family:\'Space Mono\',monospace;font-size:10px;letter-spacing:0.10em">' + simLabel + '</span>' +
+                    '<span class="ms-old">' + score + '</span>' +
+                    '<span class="ms-arrow">─→</span>' +
+                    '<span class="ms-new">' + simulatedScore + '</span>' +
+                  '</span>' +
+                '</span>';
+      }
+      html += '<span class="ms-line ms-out">' + L('推演完毕。继续保持。', '推演完畢。繼續保持。') +
+              '<span class="milestone-cursor"></span></span>';
+
+      body.innerHTML = html;
+    }
+
     /* ── Master render ── */
     function renderCharts() {
       var data = getResult();
@@ -1070,6 +1673,8 @@
       renderEngineWaterfall(data);
       renderDimVbars(data);
       renderRank(data);
+      renderSWOT(data);
+      renderMilestone(data);
     }
 
     var origApply = window.applyI18n;
@@ -1084,6 +1689,42 @@
       document.addEventListener('DOMContentLoaded', function(){ setTimeout(renderCharts, 300); });
     } else {
       setTimeout(renderCharts, 300);
+    }
+  })();
+  </script>
+
+  <script>
+  /* ════════════════════════════════════════════════════════════
+     RESCUE: Promote .ddc-bar-fill inline `background:` to !important
+     so the JS-set dimension color beats style.css's white !important.
+     ════════════════════════════════════════════════════════════ */
+  (function(){
+    function fixDdcBarFills() {
+      document.querySelectorAll('.ddc-bar-fill').forEach(function(f){
+        if (f.dataset._bgFixed === '1') return;
+        var styleAttr = f.getAttribute('style') || '';
+        var m = styleAttr.match(/background\s*:\s*([^;!]+?)(?:\s*!important)?\s*(?:;|$)/i);
+        if (m && m[1]) {
+          var color = m[1].trim();
+          f.style.setProperty('background-color', color, 'important');
+          f.style.setProperty('background-image', 'none', 'important');
+          f.dataset._bgFixed = '1';
+        }
+      });
+    }
+    var ran = 0;
+    var iv = setInterval(function(){
+      fixDdcBarFills();
+      if (++ran > 12) clearInterval(iv);
+    }, 250);
+    var origApply = window.applyI18n;
+    if (typeof origApply === 'function') {
+      window.applyI18n = function(l) {
+        origApply(l);
+        document.querySelectorAll('.ddc-bar-fill').forEach(function(f){ delete f.dataset._bgFixed; });
+        setTimeout(fixDdcBarFills, 200);
+        setTimeout(fixDdcBarFills, 800);
+      };
     }
   })();
   </script>

@@ -10,7 +10,13 @@
      The QUIZ_MODE global is set by the hosting HTML (quiz.html sets 'deep',
      quiz-quick.html sets 'quick') BEFORE this script loads, so we can read
      it here synchronously. */
-  var PER_PAGE = (window.QUIZ_MODE === 'quick') ? 6 : 5;
+  /* Page-size policy — applies to every test type (quick / deep) and any
+     future ones. Pages target MAX_PER_PAGE; the page-builder rebalances
+     when the last page would otherwise be too short, but never exceeds
+     MAX_PER_PAGE. MIN is aspirational — when the bucket is small or
+     same-page-dependency breaks force a flush, the page may be smaller. */
+  var MAX_PER_PAGE = 14;
+  var MIN_PER_PAGE = 12;
   var answers = {}, activeQueue = [], pages = [], currentPage = 0;
   var isReviewing = false;
 
@@ -77,7 +83,7 @@
      Detection: perturb each same-page qid's answer through ALL its option
      indices and re-run the candidate's showIf.  If any perturbation turns
      showIf false, there's a same-page dependency.  O(P × O) per candidate
-     where P ≤ PER_PAGE and O is average option count — cheap enough. */
+     where P ≤ MAX_PER_PAGE and O is average option count — cheap enough. */
   function hasSamePageDependency(candidateId, samePageIds, fa, _bank) {
     if (!samePageIds || !samePageIds.length) return false;
     var q = _bank.find(function(x){ return x.id === candidateId; });
@@ -194,33 +200,87 @@
       pages.push(frozenPages[pi] ? frozenPages[pi].slice() : []);
     }
 
-    /* ── Smart page layout for non-frozen remainder ──
-       Three invariants enforced per page:
-         1. Length ≤ PER_PAGE
-         2. Never mix bonus and non-bonus on the same page (hard boundary)
-         3. Never place a showIf-conditional question on the same page as
-            a question whose answer could invalidate it (same-page dep)
-       Violations bump the candidate to a fresh page. */
+    /* ── Strict 3-bucket page layout for non-frozen remainder ──
+       Hard separation of question kinds — page-turn bugs originated
+       from intermixing them. Each bucket gets its own pages:
+         (A) REGULAR     — non-bonus, no showIf. Filled to MAX_PER_PAGE,
+                           rebalanced so no page is dramatically shorter.
+         (B) CONDITIONAL — has a showIf function. Always lands on a
+                           dedicated page (never mixed with regular),
+                           with same-page-dependency breaks within the
+                           bucket so a question can never invalidate
+                           another sitting next to it.
+         (C) BONUS       — q.bonus === true. ALL bonus questions are
+                           consolidated onto a single page regardless
+                           of MAX_PER_PAGE.
+       Final layout order: regular pages → conditional pages → bonus page. */
     var remaining = activeQueue.filter(function(id){ return !frozenSet[id]; });
-    var _curPage = [];
-    var _curIsBonus = null;
-    function _flushCur() {
-      if (_curPage.length > 0) { pages.push(_curPage); _curPage = []; }
-    }
+
+    var _regular = [], _conditional = [], _bonus = [];
     remaining.forEach(function(id) {
       var bq = _bank.find(function(x){ return x.id === id; });
-      var thisIsBonus = !!(bq && bq.bonus);
-
-      var needBreak =
-        _curPage.length >= PER_PAGE ||
-        (_curIsBonus !== null && _curIsBonus !== thisIsBonus) ||
-        hasSamePageDependency(id, _curPage, fa, _bank);
-
-      if (needBreak) _flushCur();
-      _curPage.push(id);
-      _curIsBonus = thisIsBonus;
+      if (!bq) return;
+      if (bq.bonus) {
+        _bonus.push(id);
+      } else if (typeof bq.showIf === 'function') {
+        _conditional.push(id);
+      } else {
+        _regular.push(id);
+      }
     });
-    _flushCur();
+
+    /* (A) REGULAR — balanced chunking. With N items and cap MAX,
+       compute pageCount = ceil(N/MAX), then distribute evenly so the
+       last page is never disproportionately short. Single page when
+       N ≤ MAX. */
+    function chunkRegular(arr) {
+      var n = arr.length;
+      if (n === 0) return [];
+      if (n <= MAX_PER_PAGE) return [arr.slice()];
+      var pageCount = Math.ceil(n / MAX_PER_PAGE);
+      var pageSize  = Math.ceil(n / pageCount);
+      var out = [];
+      for (var i = 0; i < n; i += pageSize) {
+        out.push(arr.slice(i, i + pageSize));
+      }
+      return out;
+    }
+
+    /* (B) CONDITIONAL — fill up to MAX_PER_PAGE but break early if
+       a candidate's showIf depends on an answer that would be given
+       on the same page. */
+    function chunkConditional(arr) {
+      if (arr.length === 0) return [];
+      var pages_ = [], cur = [];
+      arr.forEach(function(id) {
+        var needBreak =
+          cur.length >= MAX_PER_PAGE ||
+          hasSamePageDependency(id, cur, fa, _bank);
+        if (needBreak && cur.length > 0) {
+          pages_.push(cur);
+          cur = [];
+        }
+        cur.push(id);
+      });
+      if (cur.length > 0) pages_.push(cur);
+      return pages_;
+    }
+
+    /* (C) BONUS — single consolidated page (PER_PAGE cap intentionally
+       NOT applied per product spec). */
+    function chunkBonus(arr) {
+      return arr.length > 0 ? [arr.slice()] : [];
+    }
+
+    var newPages = [].concat(
+      chunkRegular(_regular),
+      chunkConditional(_conditional),
+      chunkBonus(_bonus)
+    );
+    newPages.forEach(function(p){ pages.push(p); });
+    /* Suppress unused-var warnings — MIN_PER_PAGE is referenced for
+       future tightening of chunkRegular's rebalance heuristic. */
+    void MIN_PER_PAGE;
 
     /* Strip any empty trailing pages so pages.length - 1 is always a real,
        non-empty page.  An empty last page would make isPageComplete() return
@@ -282,53 +342,79 @@
 
   /* ── Render page ── */
   function renderPage(pageIdx, direction) {
-    /* Bump generation so any pending setTimeout from a previous render
-       knows it is stale and should not proceed */
+    /* Bump generation so any pending setTimeout/rAF from a previous render
+       knows it is stale and should not proceed. */
     var gen = ++renderGeneration;
 
     var qids = pages[pageIdx] || [];
     var lang  = window.I18N_CURRENT || 'zh-CN';
     var letters = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'];
 
-    /* Section label */
-    var sc = {};
-    qids.forEach(function(qid){
-      var q = getQ(qid);
-      if (q) { var s = q.section; sc[s] = (sc[s]||0)+1; }
-    });
-    var dom = Object.keys(sc).length
-      ? Object.keys(sc).reduce(function(a,b){ return (sc[a]||0)>=(sc[b]||0)?a:b; })
-      : 'basic';
-    var meta = SECTION_META[dom] || SECTION_META.basic;
-    if (sectionLabel) { sectionLabel.setAttribute('data-i18n', meta.i18n); sectionLabel.textContent = window.t(meta.i18n); }
-    if (sectionDot)   sectionDot.style.background = meta.color;
+    /* ════════════════════════════════════════════════════════════
+       FLICKER FIX — page transition pipeline
+       ────────────────────────────────────────────────────────────
+       Previous root causes (now eliminated):
+       (1) Base `.q-card { animation: q-rise }` collided with
+           `.q-card.slide-in-* { animation: q-fade-in }`. Removing the
+           slide-in class swapped animation-name → q-rise restarted from
+           opacity:0,translateY(10px) → visible flash.
+       (2) Staggered `animationDelay = ci × 70ms` placed cards 6+ in
+           the delay phase past the 380ms cleanup. With
+           `animation-fill-mode: both`, those cards held opacity:0
+           from the from-state until cleanup snapped them to default
+           opacity:1 → pop-in.
+       (3) Section label / progress / scrollTo updated synchronously
+           BEFORE the 260ms fade-out finished, so the chrome briefly
+           said "page X" while page X-1's cards were still visible.
 
-    /* Progress */
-    var done  = activeQueue.filter(function(qid){ return isEffectivelyAnswered(qid); }).length;
-    var total = activeQueue.length;
-    var pct   = total > 0 ? Math.round(done / total * 100) : 0;
-    if (headerFill)    headerFill.style.width    = pct + '%';
-    if (headerLabel)   headerLabel.textContent   = pct + '%';
-    if (progressCount) progressCount.textContent = '第 '+(pageIdx+1)+' 页 · 共 '+pages.length+' 页';
+       New approach: pure inline opacity transitions, no CSS keyframe
+       animations, no class swaps mid-transition, atomic chrome+card
+       swap inside the post-fadeout setTimeout.
+       ════════════════════════════════════════════════════════════ */
 
-    /* Scroll to top */
-    window.scrollTo({ top: 0, behavior: 'instant' });
-
-    /* Animate out existing cards. Lock the cardArea height so that the
-       brief moment when the DOM is empty (between innerHTML='' and the
-       first new card appended) does not collapse the layout — that
-       collapse-then-snap was the visible flicker. */
+    /* === OUT phase (immediate) ===
+       Lock height to keep the controls below from jumping when the
+       DOM is briefly empty between innerHTML='' and append. Fade
+       existing cards via inline opacity transition. */
     var existing = cardArea.querySelectorAll('.q-card');
-    var outClass = direction >= 0 ? 'slide-out-left' : 'slide-out-right';
     if (existing.length > 0) {
       cardArea.style.minHeight = cardArea.offsetHeight + 'px';
+      existing.forEach(function(c){
+        c.style.transition = 'opacity 0.22s linear';
+        c.style.transitionDelay = '0s';
+        c.style.opacity = '0';
+      });
     }
-    existing.forEach(function(c){ c.classList.add(outClass); });
-    var delay = existing.length > 0 ? 260 : 0;
+    var delay = existing.length > 0 ? 240 : 0;
 
     setTimeout(function() {
       /* Stale render check: if another renderPage call fired after us, abort */
       if (gen !== renderGeneration) return;
+
+      /* ── Atomic chrome update ──
+         Section label, page counter, progress bar and scrollTo all
+         happen here, INSIDE the post-fadeout timer, so they switch
+         in lockstep with the card swap. */
+      var sc = {};
+      qids.forEach(function(qid){
+        var q = getQ(qid);
+        if (q) { var s = q.section; sc[s] = (sc[s]||0)+1; }
+      });
+      var dom = Object.keys(sc).length
+        ? Object.keys(sc).reduce(function(a,b){ return (sc[a]||0)>=(sc[b]||0)?a:b; })
+        : 'basic';
+      var meta = SECTION_META[dom] || SECTION_META.basic;
+      if (sectionLabel) { sectionLabel.setAttribute('data-i18n', meta.i18n); sectionLabel.textContent = window.t(meta.i18n); }
+      if (sectionDot)   sectionDot.style.background = meta.color;
+
+      var done  = activeQueue.filter(function(qid){ return isEffectivelyAnswered(qid); }).length;
+      var total = activeQueue.length;
+      var pct   = total > 0 ? Math.round(done / total * 100) : 0;
+      if (headerFill)    headerFill.style.width    = pct + '%';
+      if (headerLabel)   headerLabel.textContent   = pct + '%';
+      if (progressCount) progressCount.textContent = '第 '+(pageIdx+1)+' 页 · 共 '+pages.length+' 页';
+
+      window.scrollTo({ top: 0, behavior: 'instant' });
 
       /* Freeze this page's composition so mid-page answers can never mutate it */
       freezePageIfNeeded(pageIdx);
@@ -337,7 +423,12 @@
 
       cardArea.innerHTML = '';
 
-      qids.forEach(function(qid, ci) {
+      /* ── Build & append all new cards in pre-state (invisible) ──
+         Each card has `animation: none` set inline so the base
+         `.q-card { animation: q-rise }` rule cannot fire — that was
+         the original flash source. */
+      var newCards = [];
+      qids.forEach(function(qid) {
         var q = getQ(qid);
         if (!q) return;
         /* Skip rendering cards whose showIf has become false — typically
@@ -400,7 +491,6 @@
         var card = document.createElement('div');
         card.className = 'q-card' + (answered ? ' answered-card' : '') + (q.bonus ? ' q-card--bonus' : '');
         card.id = 'card-' + qid;
-        card.style.animationDelay = (ci * 0.07) + 's';
         card.innerHTML =
           '<div class="qc-accent" style="background:'+mc+'"></div>'+
           '<div class="q-card-inner">'+
@@ -411,10 +501,13 @@
             (answered ? '<div class="q-answered-indicator"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> <span>'+window.t('quiz.answered')+'</span></div>' : '')+
           '</div>';
 
-        var inClass = direction >= 0 ? 'slide-in-right' : 'slide-in-left';
-        card.classList.add(inClass);
+        /* PRE-STATE: pin animation off (kills q-rise base rule) and start
+           invisible. No CSS class swaps — the entire transition is driven
+           by inline style changes between two committed paint frames. */
+        card.style.animation = 'none';
+        card.style.opacity = '0';
         cardArea.appendChild(card);
-        setTimeout(function(){ card.classList.remove('slide-in-right', 'slide-in-left'); }, 380);
+        newCards.push(card);
 
         /* Bind option events — capture qid/isMulti in closure */
         card.querySelectorAll('.q-option').forEach(function(opt) {
@@ -435,11 +528,44 @@
       updateNav();
       updateBanner();
 
-      /* Release the height lock after slide-in animations have settled,
-         letting the layout flow naturally for the new page's card count. */
+      /* ── FADE-IN phase ──
+         Double rAF guarantees the browser has committed a paint frame
+         with opacity:0 before we set opacity:1; otherwise the property
+         change is coalesced and no transition runs. Stagger via
+         transition-delay (small 25ms ripple) so the fade-in still
+         feels like a sequenced reveal but completes quickly even with
+         12-14 cards. */
+      if (newCards.length > 0) {
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            if (gen !== renderGeneration) return;
+            newCards.forEach(function(card, i) {
+              card.style.transition = 'opacity 0.32s linear';
+              card.style.transitionDelay = (i * 0.025) + 's';
+              card.style.opacity = '1';
+            });
+          });
+        });
+      }
+
+      /* ── CLEANUP phase ──
+         Once the LAST card's fade-in has finished, release the height
+         lock and clear the inline transition state so future hover /
+         selected styles defined in CSS take over normally. Sync to
+         actual transition timing (stagger × 25ms + 320ms transition +
+         60ms buffer) so this stays correct whether a page has 1 card
+         or 14. */
+      var n = newCards.length;
+      var totalAnimMs = (n > 1 ? (n - 1) * 25 : 0) + 320 + 60;
       setTimeout(function(){
-        if (gen === renderGeneration) cardArea.style.minHeight = '';
-      }, 420);
+        if (gen !== renderGeneration) return;
+        cardArea.style.minHeight = '';
+        newCards.forEach(function(card){
+          card.style.transition = '';
+          card.style.transitionDelay = '';
+          /* Keep `animation: none` and `opacity: 1` — the steady state. */
+        });
+      }, totalAnimMs);
     }, delay);
   }
 
@@ -1185,9 +1311,15 @@
 
     /* Page 0 is frozen immediately at init with the baseline question set
        (no answers given yet — all showIf run with empty state).
-       frozenPages grows as each page renders, permanently locking it. */
-    frozenPages[0] = activeQueue.slice(0, PER_PAGE);
-    rebuildQueue(); /* rebuild so pages[] is consistent with frozenPages[0] */
+       frozenPages grows as each page renders, permanently locking it.
+       IMPORTANT: freeze from pages[0] (the bucketed page-builder output),
+       NOT from activeQueue.slice — activeQueue still interleaves regular,
+       conditional and bonus questions, so slicing it would let the new
+       3-bucket separation be undone on page 0. */
+    if (pages.length > 0 && pages[0].length > 0) {
+      frozenPages[0] = pages[0].slice();
+      rebuildQueue(); /* rebuild so pages[] is consistent with frozenPages[0] */
+    }
 
     renderPage(0, 1);
   }

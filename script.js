@@ -189,14 +189,103 @@
     renderScoreBadge();
     setupViewResultBtn();
 
-    /* Winner mode — golden homepage when last score > 100 */
+    /* Winner mode — golden homepage when last score >= 100 */
     var lastScore = 0;
     try { lastScore = parseInt(localStorage.getItem('ls_last_score') || '0', 10); } catch(e){}
-    if (lastScore > 100) {
+    if (lastScore >= 100) {
       document.body.classList.add('winner-mode');
       var wb = document.getElementById('winnerBanner');
       if (wb) wb.style.display = 'block';
+      /* Fire confetti twice for full brutalist celebration */
+      setTimeout(function(){ launchConfetti(); },  600);
+      setTimeout(function(){ launchConfetti(); }, 2200);
     }
+  }
+
+  /* ══════════════════════════════════════════════════════
+     BRUTALIST CONFETTI — squares & sharp rectangles only,
+     palette restricted to Gold / Orange / Black (+ pure
+     White as a high-contrast accent so the gold particles
+     remain readable when they overlap each other).
+     Ported from result.js with shape/palette adjustments
+     to match the homepage Neo-Brutalism aesthetic.
+     ══════════════════════════════════════════════════════ */
+  function launchConfetti() {
+    var canvas = document.getElementById('confettiCanvas');
+    if (!canvas) return;
+    canvas.style.display = 'block';
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+    var ctx = canvas.getContext('2d');
+    var particles = [];
+    var colors = ['#FFD700', '#f59e0b', '#FFA500', '#000000', '#FFFFFF'];
+
+    /* Create particles from both sides — symmetric burst */
+    for (var i = 0; i < 140; i++) {
+      var fromLeft = i % 2 === 0;
+      /* Brutalist shapes only: square OR sharp horizontal/vertical rectangle.
+         No circles, no soft shapes. */
+      var aspectRoll = Math.random();
+      var shape;
+      if      (aspectRoll < 0.55) shape = 'square';     /* 1:1 */
+      else if (aspectRoll < 0.80) shape = 'rect-wide';  /* 2:1 */
+      else                        shape = 'rect-tall';  /* 1:2 */
+      particles.push({
+        x:        fromLeft ? -10 : canvas.width + 10,
+        y:        canvas.height * 0.5 + (Math.random() - 0.5) * canvas.height * 0.4,
+        vx:       (fromLeft ? 1 : -1) * (Math.random() * 12 + 4),
+        vy:      -(Math.random() * 14 + 4),
+        gravity:  0.25,
+        size:     Math.random() * 10 + 6,
+        color:    colors[Math.floor(Math.random() * colors.length)],
+        shape:    shape,
+        rotation: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 12,
+        opacity:  1,
+        decay:    0.008 + Math.random() * 0.006,
+      });
+    }
+
+    var startTime = Date.now();
+    function animate() {
+      var elapsed = Date.now() - startTime;
+      if (elapsed > 4000) {
+        canvas.style.display = 'none';
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(function(p) {
+        p.x  += p.vx;
+        p.vy += p.gravity;
+        p.y  += p.vy;
+        p.vx *= 0.98;
+        p.rotation += p.rotSpeed;
+        p.opacity  -= p.decay;
+        if (p.opacity <= 0) return;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation * Math.PI / 180);
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.fillStyle = p.color;
+        var w, h;
+        if      (p.shape === 'rect-wide') { w = p.size * 1.6; h = p.size * 0.7; }
+        else if (p.shape === 'rect-tall') { w = p.size * 0.7; h = p.size * 1.6; }
+        else                              { w = p.size;       h = p.size; }
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+        /* Thick black outline gives the brutalist hard-edge look on every
+           non-black particle. Black particles get no outline (would be
+           invisible). */
+        if (p.color !== '#000000') {
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(-w / 2, -h / 2, w, h);
+        }
+        ctx.restore();
+      });
+      requestAnimationFrame(animate);
+    }
+    animate();
   }
 
   if (document.readyState === 'loading') {

@@ -5290,3 +5290,280 @@ body.database-body { background: var(--color-bg); }
   .db-category-subtitle { font-size: 10px !important; }
   .db-scroll-top { bottom: 16px; right: 16px; width: 42px; height: 42px; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   QUIZ CONTROLS — Connected Terminal Track redesign
+   Overrides legacy .quiz-controls / .btn-prev / .btn-next /
+   .quiz-page-dots / .qdot rules earlier in this file via
+   source order + !important. Fixes button text wrapping and
+   cluttered bracketed pagination.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Controls row ── */
+.quiz-controls {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+}
+
+/* ── Prev / Next buttons — strict single-line, perfectly centered ── */
+.btn-prev,
+.btn-next {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: nowrap !important;
+  white-space: nowrap !important;
+  min-width: max-content !important;
+  flex-shrink: 0 !important;
+  gap: 8px !important;
+  line-height: 1 !important;
+}
+.btn-prev > *,
+.btn-next > * {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.btn-prev span,
+.btn-next span {
+  display: inline-block;
+  white-space: nowrap !important;
+  line-height: 1 !important;
+}
+.btn-prev svg,
+.btn-next svg {
+  flex-shrink: 0;
+  display: block;
+}
+
+/* ── Pagination — individual brutalist square blocks (centered) ── */
+.quiz-page-dots {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: visible;
+}
+.quiz-page-dots::-webkit-scrollbar { display: none; }
+
+/* ── Individual qdot — bordered square + small hard shadow ── */
+.qdot {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 36px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  margin: 0 !important;
+  border: 2px solid #000000 !important;
+  border-radius: 0 !important;
+  background: #FFFFFF !important;
+  color: #000000 !important;
+  font-family: 'Space Mono', monospace !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+  box-shadow: 2px 2px 0 #000000 !important;
+  transform: none !important;
+  opacity: 1 !important;
+  transition: all 0.1s linear !important;
+}
+
+/* Kill the legacy [ ] brackets entirely */
+.qdot::before,
+.qdot::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* ── Clickable hover — pop up + bigger shadow ── */
+.qdot--clickable { cursor: pointer !important; }
+.qdot--clickable:hover:not(.qdot--current) {
+  background: #F7F7F7 !important;
+  color: #000000 !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 4px 4px 0 #000000 !important;
+  opacity: 1 !important;
+}
+
+/* ── Active / current — pressed-in (inverted, no shadow, translated down) ── */
+.qdot.qdot--current {
+  background: #000000 !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+  transform: translate(2px, 2px) !important;
+  opacity: 1 !important;
+}
+
+/* ── Mobile ── */
+@media (max-width: 540px) {
+  .quiz-page-dots { gap: 8px !important; }
+  .qdot {
+    min-width: 32px !important;
+    height: 32px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   WINNER MODE — Golden Neo-Brutalism overrides for ls_last_score >= 100
+   ────────────────────────────────────────────────────────────
+   Strict aesthetic rules:
+     - No blur, no soft glows, no gradients.
+     - Keep thick 3px black borders.
+     - Solid Gold (#FFD700) as the accent fill, Orange (#f59e0b) as
+       a secondary heat color, pure Black (#000000) for borders & text.
+     - Hard square shadows only.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Hero accent line — black text on solid gold block ── */
+body.winner-mode .hero-title .accent,
+body.winner-mode .hero-title .line.accent {
+  background: #FFD700 !important;
+  color: #000000 !important;
+  border: 3px solid #000000 !important;
+  padding: 0 10px !important;
+  box-shadow: 6px 6px 0 #000000 !important;
+}
+
+/* ── Primary start CTA — solid gold square w/ chunky black shadow ── */
+body.winner-mode .btn-start,
+body.winner-mode #startBtn,
+body.winner-mode .btn.btn-primary,
+body.winner-mode .btn.btn-primary.btn-accent-red {
+  background: #FFD700 !important;
+  background-image: none !important;
+  color: #000000 !important;
+  border: 3px solid #000000 !important;
+  border-radius: 0 !important;
+  box-shadow: 8px 8px 0 #000000 !important;
+  text-shadow: none !important;
+  filter: none !important;
+  transition: transform 0.12s linear, box-shadow 0.12s linear, background 0.12s linear, color 0.12s linear !important;
+}
+body.winner-mode .btn-start *,
+body.winner-mode #startBtn *,
+body.winner-mode .btn.btn-primary *,
+body.winner-mode .btn.btn-primary.btn-accent-red * {
+  color: #000000 !important;
+}
+
+/* Hover — invert: black bg, gold text, push shadow tighter */
+body.winner-mode .btn-start:hover,
+body.winner-mode #startBtn:hover,
+body.winner-mode .btn.btn-primary:hover,
+body.winner-mode .btn.btn-primary.btn-accent-red:hover {
+  background: #000000 !important;
+  color: #FFD700 !important;
+  box-shadow: 4px 4px 0 #FFD700 !important;
+  transform: translate(2px, 2px) !important;
+}
+body.winner-mode .btn-start:hover *,
+body.winner-mode #startBtn:hover *,
+body.winner-mode .btn.btn-primary:hover *,
+body.winner-mode .btn.btn-primary.btn-accent-red:hover * {
+  color: #FFD700 !important;
+}
+
+/* ── Arcade scoreboard — gold outer chassis, black inner CRT ── */
+body.winner-mode .arcade {
+  background: #FFD700 !important;
+  background-image: none !important;
+  border-color: #000000 !important;
+  box-shadow: 8px 8px 0 #000000 !important;
+}
+body.winner-mode .arcade-head {
+  background: #000000 !important;
+  color: #FFD700 !important;
+}
+body.winner-mode .arcade-head * { color: #FFD700 !important; }
+/* Inner CRT stays pitch black so the score number remains readable */
+body.winner-mode .arcade-crt {
+  background: #000000 !important;
+  border: 3px solid #000000 !important;
+}
+body.winner-mode .arcade-num,
+body.winner-mode .arcade-slash,
+body.winner-mode .arcade-max,
+body.winner-mode .arcade-unit {
+  color: #FFD700 !important;
+  text-shadow: none !important;
+}
+body.winner-mode .arcade-bar-wrap,
+body.winner-mode .arcade-dims,
+body.winner-mode .arcade-status {
+  color: #000000 !important;
+}
+body.winner-mode .arcade-bar {
+  background: #FFFFFF !important;
+  border: 3px solid #000000 !important;
+}
+body.winner-mode .arcade-bar-fill {
+  background: #000000 !important;
+  background-image: none !important;
+}
+body.winner-mode .arcade-status,
+body.winner-mode .arcade-dims-title { color: #000000 !important; }
+body.winner-mode .arcade-status-cursor { background: #000000 !important; }
+
+/* ── Winner banner — large, gold, brutalist ── */
+body.winner-mode .winner-banner {
+  display: inline-block !important;
+  background: #FFD700 !important;
+  color: #000000 !important;
+  border: 3px solid #000000 !important;
+  border-radius: 0 !important;
+  padding: 12px 20px !important;
+  font-family: var(--f-display, 'Archivo Black', 'Noto Sans SC', sans-serif) !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.08em !important;
+  box-shadow: 6px 6px 0 #000000 !important;
+  text-shadow: none !important;
+  filter: none !important;
+}
+
+/* ── Hero badge — also recolored when in winner-mode for cohesion ── */
+body.winner-mode .hero-badge {
+  background: #000000 !important;
+  color: #FFD700 !important;
+  border: 3px solid #000000 !important;
+}
+
+/* ── Stat numbers in the hero strip pop in orange ── */
+body.winner-mode .stat-num {
+  color: #f59e0b !important;
+}
+
+/* ── Mobile: reduce shadow offsets so they don't overflow viewport ── */
+@media (max-width: 768px) {
+  body.winner-mode .btn-start,
+  body.winner-mode #startBtn,
+  body.winner-mode .btn.btn-primary,
+  body.winner-mode .btn.btn-primary.btn-accent-red {
+    box-shadow: 5px 5px 0 #000000 !important;
+  }
+  body.winner-mode .btn-start:hover,
+  body.winner-mode #startBtn:hover,
+  body.winner-mode .btn.btn-primary:hover,
+  body.winner-mode .btn.btn-primary.btn-accent-red:hover {
+    box-shadow: 3px 3px 0 #FFD700 !important;
+  }
+  body.winner-mode .arcade { box-shadow: 5px 5px 0 #000000 !important; }
+  body.winner-mode .winner-banner { box-shadow: 4px 4px 0 #000000 !important; font-size: 13px !important; padding: 10px 14px !important; }
+  body.winner-mode .hero-title .accent,
+  body.winner-mode .hero-title .line.accent { box-shadow: 4px 4px 0 #000000 !important; }
+}
