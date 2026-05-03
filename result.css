@@ -130,7 +130,6 @@ body.result-body {
 .result-card,
 .persona-card,
 .rank-card,
-.sponsor-card,
 .result-tip,
 .result-hero {
   background: var(--rb-paper);
@@ -371,8 +370,8 @@ body.result-body {
 .result-score-breakdown:empty { display: none; }
 .breakdown-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px 14px;
+  grid-template-columns: 1fr !important;
+  gap: 8px !important;
 }
 .breakdown-grid > * {
   padding: 4px 0;
@@ -410,12 +409,22 @@ body.result-body {
 }
 .btn-retake { background: var(--rb-paper); color: var(--rb-ink); }
 .btn-analysis { background: var(--rb-cyan); color: var(--rb-ink); }
-.btn-share { background: var(--rb-yellow); color: var(--rb-ink); }
+.btn-share {
+  background: #ff7ce5 !important;
+  color: #000000 !important;
+  border: 3px solid #000000 !important;
+  box-shadow: 6px 6px 0 #000000 !important;
+}
 .btn-retake:hover,
-.btn-analysis:hover,
-.btn-share:hover {
+.btn-analysis:hover {
   transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0 var(--rb-ink);
+}
+.btn-share:hover {
+  background: #000000 !important;
+  color: #ff7ce5 !important;
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 8px 8px 0 #000000 !important;
 }
 .btn-retake:active,
 .btn-analysis:active,
@@ -428,117 +437,14 @@ body.result-body {
 .btn-share svg { stroke-width: 2.5; }
 
 /* ═══════════════════════════════════════════════════════════════
- *  §6 · SPONSOR CARD  ::  windowed
+ *  §6 · SPONSOR CARD  ::  REMOVED
+ *  ─────────────────────────────────────────────────────────────
+ *  The sponsor card uses the pure-white Pac-Man sawtooth styling
+ *  defined in style.css. All previous brutalist overrides for
+ *  .sponsor-card / .sponsor-logo-btn / .slb-* were removed so
+ *  the cleaner aesthetic survives. Do NOT re-add brutalist
+ *  sponsor rules here.
  * ═══════════════════════════════════════════════════════════════ */
-.sponsor-card {
-  margin-bottom: 28px;
-}
-.sponsor-card .sponsor-header {
-  display: flex !important;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
-  background: var(--rb-violet);
-  color: var(--rb-ink);
-  border-bottom: var(--border-thick);
-}
-.sponsor-card .sponsor-heart {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  background: var(--rb-paper);
-  color: var(--rb-ink);
-  border: var(--border-hairline);
-  font-family: var(--font-sans);
-  font-size: 22px;
-}
-.sponsor-card .sponsor-title {
-  font-family: var(--font-sans) !important;
-  font-size: 16px !important;
-  letter-spacing: -0.01em !important;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.sponsor-card .sponsor-sub {
-  font-family: var(--font-mono) !important;
-  font-weight: 700 !important;
-  font-size: 11px !important;
-  letter-spacing: 0.06em !important;
-  line-height: 1.55;
-}
-.sponsor-card .sponsor-sub::before { content: '> '; }
-.sponsor-logo-row {
-  display: grid !important;
-  grid-template-columns: repeat(4, 1fr) !important;
-  gap: 0 !important;
-  padding: 0 !important;
-}
-.sponsor-logo-btn {
-  display: flex !important;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 22px 12px !important;
-  background: var(--rb-paper) !important;
-  color: var(--rb-ink) !important;
-  border: 0 !important;
-  border-right: var(--border-hairline) !important;
-  border-radius: 0 !important;
-  font-family: var(--font-mono) !important;
-  font-weight: 700 !important;
-  cursor: pointer;
-  transition: background 0.1s linear, transform 0.1s linear;
-}
-.sponsor-logo-btn:last-child { border-right: 0 !important; }
-.sponsor-logo-btn[data-payment="wechat"]:hover { background: var(--rb-green) !important; }
-.sponsor-logo-btn[data-payment="alipay"]:hover { background: var(--rb-cyan) !important; }
-.sponsor-logo-btn[data-payment="crypto"]:hover { background: var(--rb-yellow) !important; }
-.sponsor-logo-btn[data-payment="qq"]:hover    { background: var(--rb-magenta) !important; }
-.slb-logo-wrap {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: var(--border-hairline);
-  background: var(--rb-paper);
-  border-radius: 0 !important;
-  overflow: hidden;
-}
-.slb-logo-img {
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover;
-  filter: none !important;
-}
-.slb-logo-fallback {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 100% !important;
-  height: 100% !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-  font-size: 18px;
-}
-.slb-label {
-  font-family: var(--font-mono) !important;
-  font-weight: 700 !important;
-  font-size: 12px !important;
-  letter-spacing: 0.06em !important;
-}
-.slb-tap-hint {
-  font-family: var(--font-mono) !important;
-  font-weight: 700 !important;
-  font-size: 10px !important;
-  letter-spacing: 0.12em !important;
-  text-transform: uppercase;
-  opacity: 0.6;
-}
-.slb-tap-hint::before { content: '> '; }
 
 /* ═══════════════════════════════════════════════════════════════
  *  §7 · DIMENSION ROWS  ::  chunky horizontal bars w/ flat color
@@ -1097,9 +1003,12 @@ body.result-body {
 
 /* ═══════════════════════════════════════════════════════════════
  *  §17 · SHARE MODAL  +  SHARE CARD
+ *  ─────────────────────────────────────────────────────────────
+ *  NOTE: .payment-modal was previously bundled here but has been
+ *  unbundled — the payment modal now uses the pure-white Pac-Man
+ *  sawtooth styling defined in style.css.
  * ═══════════════════════════════════════════════════════════════ */
-.share-modal-overlay,
-.payment-modal-overlay {
+.share-modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 200;
@@ -1112,10 +1021,8 @@ body.result-body {
   pointer-events: none;
   transition: opacity 0.15s linear;
 }
-.share-modal-overlay.open,
-.payment-modal-overlay.open { opacity: 1; pointer-events: auto; }
-.share-modal,
-.payment-modal {
+.share-modal-overlay.open { opacity: 1; pointer-events: auto; }
+.share-modal {
   position: relative;
   max-width: 460px;
   width: 100%;
@@ -1126,11 +1033,9 @@ body.result-body {
   transform: translate(8px, 8px);
   transition: transform 0.15s linear;
 }
-.share-modal-overlay.open .share-modal,
-.payment-modal-overlay.open .payment-modal { transform: translate(0, 0); }
+.share-modal-overlay.open .share-modal { transform: translate(0, 0); }
 
-.share-modal-close,
-.payment-modal-close {
+.share-modal-close {
   position: absolute;
   top: 6px; right: 8px;
   width: 28px; height: 28px;
@@ -1141,8 +1046,7 @@ body.result-body {
   z-index: 5;
   border-radius: 0 !important;
 }
-.share-modal::before,
-.payment-modal::before {
+.share-modal::before {
   content: '! WINDOW ──────────────────── [ X ]';
   display: block;
   padding: 10px 14px;
@@ -1462,10 +1366,6 @@ body.result-body {
   .result-score-row { grid-template-columns: 1fr !important; gap: 22px; }
   .result-circle { width: 200px; height: 200px; }
   .result-circle .rc-score { font-size: 48px !important; }
-  .sponsor-logo-row { grid-template-columns: repeat(2, 1fr) !important; }
-  .sponsor-logo-btn:nth-child(2) { border-right: 0 !important; }
-  .sponsor-logo-btn:nth-child(1),
-  .sponsor-logo-btn:nth-child(2) { border-bottom: var(--border-hairline) !important; }
   .share-platforms { grid-template-columns: repeat(2, 1fr); }
   .sp-btn:nth-child(2n) { border-right: 0 !important; }
   .sp-btn:nth-child(-n+6) { border-bottom: var(--border-hairline) !important; }
@@ -1487,4 +1387,296 @@ body.result-body {
   .share-card { padding: 18px 14px; }
   .sc-score-num { font-size: 48px; }
   .sc-qr { width: 48px; height: 48px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  RESULT CARD TITLE + DIM ICON  ::  cleanup overrides
+ * ═══════════════════════════════════════════════════════════════ */
+.result-card-title::before,
+.result-card-title::after {
+  display: none !important;
+  content: none !important;
+}
+.result-card-title,
+.result-card-title > span:not(.rct-bar) {
+  font-size: 16px !important;
+}
+.dim-icon {
+  background: transparent !important;
+  filter: none !important;
+  font-size: 22px !important;
+  width: auto !important;
+  height: auto !important;
+  box-shadow: none !important;
+  margin-right: 4px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  FOOD PERSONA CARD  ::  POSTER REDESIGN  (overrides)
+ *  ─────────────────────────────────────────────────────────────
+ *  Aggressive fighting-game / poster aesthetic:
+ *    - prelude as freestanding huge headline (no black box)
+ *    - removes top "PERSONA.PROFILE" pseudo bar
+ *    - hides bottom dim bars + stats (handled in result.js too)
+ *    - tier letter ("S级") as absolute massive watermark, top-right
+ *    - emoji 3-4× larger, no frame, full vivid color, tier animations
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Prelude: huge freestanding headline, no box ── */
+.section-prelude.prelude-persona {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 28px 0 8px !important;
+  margin: 48px 0 12px !important;
+  color: var(--rb-ink) !important;
+  align-items: baseline;
+}
+.section-prelude.prelude-persona .sp-bar { display: none !important; }
+.section-prelude.prelude-persona .sp-text {
+  font-family: var(--font-sans) !important;
+  font-size: clamp(28px, 5.5vw, 48px) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+  line-height: 1.05 !important;
+  color: var(--rb-ink) !important;
+}
+.section-prelude.prelude-persona .sp-text::before { content: '' !important; }
+
+/* ── 2. Remove top "PERSONA.PROFILE" decorative bar ── */
+.persona-card::before { display: none !important; content: none !important; }
+
+/* ── 3. Hide bottom section (dim bars + stats + next-tier) ── */
+.persona-card .persona-dims,
+.persona-card .persona-next-tier { display: none !important; }
+
+/* ── 4. Card itself: poster layout, room for watermark ── */
+.persona-card {
+  position: relative;
+  overflow: hidden;
+  padding-top: 0 !important;
+  background: var(--rb-cyan);
+}
+/* Diagonal high-contrast slash background pattern for poster vibe */
+.persona-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      transparent 0 32px,
+      rgba(0,0,0,0.04) 32px 33px
+    );
+  z-index: 0;
+}
+.persona-card > * { position: relative; z-index: 2; }
+
+/* ── 5. MASSIVE TIER WATERMARK ── */
+.persona-card .persona-tier {
+  position: absolute !important;
+  top: -8px !important;
+  right: 8px !important;
+  align-self: auto !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: rgba(0,0,0,0.18) !important;
+  font-family: 'Archivo Black', 'Noto Sans SC', 'Impact', system-ui, sans-serif !important;
+  font-size: clamp(120px, 22vw, 240px) !important;
+  font-weight: 900 !important;
+  font-style: italic !important;
+  letter-spacing: -0.06em !important;
+  line-height: 0.85 !important;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1 !important;
+  text-shadow:
+    4px 4px 0 rgba(0,0,0,0.08),
+    -2px -2px 0 rgba(255,255,255,0.25);
+  animation: tierWatermarkIn 0.7s cubic-bezier(0.2, 1.2, 0.4, 1) both;
+}
+.persona-card .persona-tier::before,
+.persona-card .persona-tier::after { content: '' !important; margin: 0 !important; }
+@keyframes tierWatermarkIn {
+  0%   { transform: translateX(60px) rotate(8deg) scale(0.6); opacity: 0; }
+  60%  { opacity: 0.35; }
+  100% { transform: translateX(0) rotate(0) scale(1); opacity: 1; }
+}
+
+/* Tier-specific watermark color tints */
+.persona-tier-sss .persona-tier,
+.persona-tier-ss  .persona-tier,
+.persona-tier-s   .persona-tier { color: rgba(255, 215, 0, 0.55) !important; text-shadow: 4px 4px 0 rgba(0,0,0,0.25), -2px -2px 0 rgba(255,255,255,0.4) !important; }
+.persona-tier-a   .persona-tier { color: rgba(0, 0, 0, 0.28) !important; }
+.persona-tier-b   .persona-tier { color: rgba(0, 0, 0, 0.20) !important; }
+.persona-tier-c   .persona-tier { color: rgba(0, 0, 0, 0.16) !important; }
+.persona-tier-d   .persona-tier,
+.persona-tier-f   .persona-tier { color: rgba(120, 30, 30, 0.30) !important; }
+
+/* ── 6. EPIC FOOD EMOJI ── */
+.persona-card .persona-header {
+  padding: 24px 24px 12px !important;
+  align-items: center !important;
+  gap: 20px;
+}
+.persona-card .persona-animal {
+  width: auto !important;
+  height: auto !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  font-size: clamp(120px, 18vw, 180px) !important;
+  line-height: 1 !important;
+  flex-shrink: 0;
+  transform-origin: center center;
+  -webkit-text-fill-color: initial !important;
+  /* default entrance pop for any tier */
+  animation: emojiPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes emojiPopIn {
+  0%   { transform: scale(0.2) rotate(-20deg); opacity: 0; }
+  70%  { transform: scale(1.15) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* Tier-specific vibe layered on top of the entrance pop */
+.persona-tier-sss .persona-animal,
+.persona-tier-ss  .persona-animal,
+.persona-tier-s   .persona-animal {
+  animation: emojiPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             emojiFireFloat 2.6s ease-in-out 0.6s infinite;
+  filter: drop-shadow(0 0 18px rgba(255, 165, 0, 0.55))
+          drop-shadow(0 0 36px rgba(255, 80, 0, 0.35)) !important;
+}
+@keyframes emojiFireFloat {
+  0%, 100% { transform: translateY(0) scale(1) rotate(-2deg); }
+  50%      { transform: translateY(-10px) scale(1.06) rotate(2deg); }
+}
+
+.persona-tier-a .persona-animal {
+  animation: emojiPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             emojiPulseGlow 2.8s ease-in-out 0.6s infinite;
+  filter: drop-shadow(0 0 14px rgba(14, 165, 233, 0.45)) !important;
+}
+@keyframes emojiPulseGlow {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.05); }
+}
+
+.persona-tier-b .persona-animal,
+.persona-tier-c .persona-animal {
+  animation: emojiPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             emojiBob 3.2s ease-in-out 0.6s infinite;
+}
+@keyframes emojiBob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+.persona-tier-d .persona-animal,
+.persona-tier-f .persona-animal {
+  animation: emojiPopIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+             emojiSadJitter 0.45s steps(2) 0.6s infinite;
+  filter: grayscale(0.15) drop-shadow(0 4px 0 rgba(0,0,0,0.2)) !important;
+}
+@keyframes emojiSadJitter {
+  0%   { transform: translate(0, 0)   rotate(-1.5deg); }
+  25%  { transform: translate(2px, 1px) rotate(0.8deg); }
+  50%  { transform: translate(-1px, 2px) rotate(-1deg); }
+  75%  { transform: translate(1px, -1px) rotate(1.2deg); }
+  100% { transform: translate(0, 0)   rotate(-1.5deg); }
+}
+
+/* ── 7. Persona name: bigger, poster-strong ── */
+.persona-card .persona-meta {
+  flex: 1;
+  display: flex !important;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 3;
+}
+.persona-card .persona-name {
+  font-family: 'Archivo Black', 'Noto Sans SC', system-ui, sans-serif !important;
+  font-size: clamp(26px, 4.2vw, 40px) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.05 !important;
+  text-transform: none !important;
+  color: var(--rb-ink) !important;
+  text-shadow: 3px 3px 0 rgba(255,255,255,0.5);
+}
+
+/* ── 8. Mobile: keep watermark contained ── */
+@media (max-width: 540px) {
+  .persona-card .persona-tier {
+    font-size: clamp(80px, 28vw, 140px) !important;
+    top: -4px !important;
+    right: 4px !important;
+  }
+  .persona-card .persona-animal {
+    font-size: clamp(96px, 28vw, 140px) !important;
+  }
+  .persona-card .persona-header {
+    flex-wrap: nowrap !important;
+    gap: 14px;
+    padding: 20px 16px 12px !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  PERSONA NAME  ::  high-contrast foreground over watermark
+ * ═══════════════════════════════════════════════════════════════ */
+.persona-card .persona-meta {
+  position: relative !important;
+  z-index: 10 !important;
+}
+.persona-card .persona-name {
+  position: relative;
+  z-index: 10 !important;
+  color: #FFFFFF !important;
+  text-shadow:
+    0px 2px 4px rgba(0,0,0,1),
+    0px 0px 10px rgba(0,0,0,0.8),
+    0px 0px 20px rgba(0,0,0,0.6) !important;
+  -webkit-text-stroke: 1px rgba(0,0,0,0.5);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  PERSONA TITLE + WATERMARK  ::  bug-fix overrides
+ *  ─────────────────────────────────────────────────────────────
+ *  1. Kill wireframe look on title (remove -webkit-text-stroke)
+ *  2. Contain watermark inside the header (overflow:hidden + re-anchor)
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* ── 1. Clean solid-white title — remove any stroke / hollow effect ── */
+.persona-card .persona-name {
+  color: #FFFFFF !important;
+  text-shadow: 0px 4px 12px rgba(0,0,0,0.9) !important;
+  -webkit-text-stroke: 0 !important;
+  -webkit-text-stroke-width: 0 !important;
+  -webkit-text-stroke-color: transparent !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+}
+
+/* ── 2. Make .persona-header the positioning + clipping context ── */
+.persona-card .persona-header {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* ── 2b. Re-anchor watermark to header, vertically centered, clipped ── */
+.persona-card .persona-tier {
+  position: absolute !important;
+  top: 50% !important;
+  right: 8px !important;
+  transform: translateY(-50%) !important;
+  animation: tierWatermarkFade 0.7s ease-out both !important;
+}
+@keyframes tierWatermarkFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }

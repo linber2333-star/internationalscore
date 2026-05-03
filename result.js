@@ -871,7 +871,7 @@ function buildRankVerdict(lang){
   var verdict=getVerdict(finalScore);
   var rankEl=document.getElementById('resultRank'), vEl=document.getElementById('resultVerdict');
   if(rankEl){ rankEl.innerHTML=''; rankEl.style.display='none'; }
-  if(vEl) vEl.textContent=window.t('result.'+verdict);
+  if(vEl) vEl.textContent = (lang==='zh-TW' ? '你的人生評分為：' : '你的人生评分为：');
   var tipEl=document.getElementById('tipText');
 
   /* ── Under-18 special encouragement ────────────────────────────────────────
@@ -1624,7 +1624,7 @@ function buildPersona(lang){
   if(card) card.className='result-card persona-card persona-tier-'+String(p.tier).toLowerCase();
 
   var el=document.getElementById('personaAnimal'); if(el) el.textContent=p.animal;
-  var tierEl=document.getElementById('personaTier'); if(tierEl) tierEl.textContent='TIER '+p.tier;
+  var tierEl=document.getElementById('personaTier'); if(tierEl) tierEl.textContent=p.tier+(isTW?'級':'级');
   var nameEl=document.getElementById('personaName'); if(nameEl) nameEl.textContent=isTW?p.title_tw:p.title_cn;
   /* Use innerHTML so <br> + <span class="p-quote"> in desc strings render */
   var desc=document.getElementById('personaDesc'); if(desc) desc.innerHTML=isTW?p.desc_tw:p.desc_cn;
@@ -1634,9 +1634,13 @@ function buildPersona(lang){
     traits.innerHTML=arr.map(function(t){ return '<span class="persona-trait">'+t+'</span>'; }).join('');
   }
 
-  /* ── Dimension mini-bars inside persona card ── */
+  /* ── Dimension mini-bars + stats: REMOVED for poster redesign.
+        The food persona card now ends after the trait tags. */
   var dimsEl=document.getElementById('personaDims');
-  if(dimsEl && dimPct){
+  if(dimsEl){ dimsEl.innerHTML=''; dimsEl.style.display='none'; }
+  var nextTierEl=document.getElementById('personaNextTier');
+  if(nextTierEl){ nextTierEl.innerHTML=''; nextTierEl.style.display='none'; }
+  if(false && dimsEl && dimPct){
     var dimConf=[
       {key:'basic',   label_cn:'基础维度',     label_tw:'基礎維度',     color:'#7dd3fc'},
       {key:'social',  label_cn:'社会生活方向', label_tw:'社會生活方向', color:'#0ea5e9'},
