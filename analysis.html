@@ -841,7 +841,7 @@
   <header class="hud" id="header">
     <div class="hud-row">
       <a href="index.html" class="brand">
-        <img class="brand-mark" src="images/favicon.ico" alt="LS"/>
+        <img class="brand-mark" src="images/apple-touch-icon.png" alt="LS"/>
         <span class="brand-text" data-i18n="brandName">人生评分</span>
         <span class="brand-system">.SYS</span>
       </a>
@@ -1494,18 +1494,18 @@
       }, 400);
     }
 
-    /* ── 5. Rank badge ── */
+    /* ── 5. Rank badge — repurposed as "score saved" indicator ── */
     function renderRank(data) {
       var rankText = document.getElementById('rankText');
       if (!rankText || !data.finalScore) return;
-      var s = data.finalScore;
-      var rank;
-      if (s > 110) rank = Math.max(1, Math.round(3 - (s - 110) * 0.05));
-      else { var t = (s - 50) / 20, sig = 1 / (1 + Math.exp(-t)); rank = Math.round(sig * 92 + 4); }
-
-      rankText.innerHTML = (isTW() ? '超越了約 ' : '超越了约 ') +
-        '<span class="rank-badge-pct">' + (100 - rank) + '%</span>' +
-        (isTW() ? ' 的測試者' : ' 的测试者');
+      /* Per spec: replace the original "超越了约 XX% 的测试者" copy with a
+         neutral "score saved" message, and change the highlighted white-on-
+         black percentage badge to a "已保存 / 已保存" / "Saved" pill. The
+         percentile-rank math is intentionally dropped because the new copy
+         no longer references it. */
+      rankText.innerHTML =
+        (isTW() ? '您的得分已保存供日後參考 ' : '您的得分已保存供日后参考 ') +
+        '<span class="rank-badge-pct">' + (isTW() ? '已保存' : '已保存') + '</span>';
     }
 
     /* ── 6. SWOT Matrix — derive S/W/O/T from dimPct + finalScore ── */

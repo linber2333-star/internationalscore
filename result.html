@@ -11,141 +11,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Mono:wght@400;700&family=Noto+Sans+SC:wght@500;700;900&display=swap" rel="stylesheet"/>
 
   <link rel="stylesheet" href="style.css"/>
-
-  <style>
-    /* ─── LOADING / RESULT STATE DECOUPLING ──────────────────────
-       Loading screen is shown by default; result screen is hidden
-       until the inline progress script flips the .visible flag. */
-    .loading-overlay{
-      position:fixed;
-      inset:0;
-      z-index:9999;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:#ffffff !important;
-      transition:opacity .5s ease,visibility .5s ease;
-    }
-    .loading-overlay.fade-out{
-      opacity:0;
-      visibility:hidden;
-      pointer-events:none;
-    }
-    .loading-card{
-      text-align:center;
-      width:90%;
-      max-width:420px;
-      position:relative;
-      z-index:1;
-      padding:44px 36px;
-      background:#ffffff;
-      border:3px solid #000000;
-      box-shadow:8px 8px 0 0 #000000;
-      border-radius:0;
-    }
-
-    /* ─── ROTATING SPINNER RING (SVG) ───────────────────────────
-       Override the style.css rule that hides the SVG, and apply the
-       spin animation to the dashed circle so it rotates visibly. */
-    .loading-ring-wrap{
-      position:relative !important;
-      width:80px !important;
-      height:80px !important;
-      margin:0 auto 32px !important;
-      display:block !important;
-    }
-    .loading-ring-wrap::before{ content:none !important; }
-    .loading-ring-wrap svg{
-      display:block !important;
-      width:80px;
-      height:80px;
-    }
-    .loading-spinner{
-      transform-origin:40px 40px;
-      animation:ls-spin 1s linear infinite;
-    }
-    @keyframes ls-spin{
-      0%   { transform:rotate(0deg); }
-      100% { transform:rotate(360deg); }
-    }
-
-    /* Percentage label sits under the ring (not absolutely centered) */
-    .loading-pct{
-      position:static !important;
-      display:block !important;
-      font-family:var(--font-mono,'Space Mono',monospace) !important;
-      font-weight:700 !important;
-      font-size:14px !important;
-      color:#000000 !important;
-      letter-spacing:0.06em !important;
-      text-shadow:none !important;
-      margin-top:16px;
-    }
-
-    .loading-title{
-      font-family:var(--font-sans,'Noto Sans SC',sans-serif) !important;
-      font-size:20px !important;
-      font-weight:900 !important;
-      text-transform:uppercase;
-      letter-spacing:-0.01em !important;
-      color:#000000 !important;
-      text-shadow:none !important;
-      margin:24px 0 24px !important;
-      margin-bottom:24px !important;
-    }
-
-    /* ─── PROGRESS BAR — Neo-Brutalism B&W ──────────────────────
-       Track: white background, thick black border, sharp corners.
-       Fill : solid black block with smooth width transition. */
-    .loading-bar-wrap{
-      margin:0 auto 20px;
-      padding:0 4px;
-    }
-    .loading-bar-track{
-      height:18px !important;
-      background:#ffffff !important;
-      border:2px solid #000000 !important;
-      border-radius:0 !important;
-      box-shadow:none !important;
-      position:relative;
-      overflow:hidden;
-    }
-    .loading-bar-track::before{ content:none !important; }
-    .loading-bar-fill{
-      height:100% !important;
-      width:0%;
-      background:#000000 !important;
-      background-image:none !important;
-      border-radius:0 !important;
-      box-shadow:none !important;
-      animation:none !important;
-      transition:width 0.2s linear !important;
-      position:relative;
-      z-index:2;
-    }
-
-    .loading-hint{
-      font-family:var(--font-mono,'Space Mono',monospace) !important;
-      font-weight:700 !important;
-      font-size:12px !important;
-      letter-spacing:0.08em !important;
-      color:#000000 !important;
-      text-transform:uppercase;
-      min-height:18px;
-      margin-top:8px;
-    }
-
-    /* Result screen — hidden until loading completes. */
-    .result-wrap{
-      opacity:0;
-      visibility:hidden;
-      transition:opacity .6s ease,visibility .6s ease;
-    }
-    .result-wrap.visible{
-      opacity:1;
-      visibility:visible;
-    }
-  </style>
 </head>
 <body class="result-body">
   <div class="particles" id="particles" aria-hidden="true"></div>
@@ -153,7 +18,7 @@
   <header class="hud" id="header">
     <div class="hud-row">
       <a href="index.html" class="brand">
-        <img class="brand-mark" src="images/favicon.ico" alt="LS"/>
+        <img class="brand-mark" src="images/apple-touch-icon.png" alt="LS"/>
         <span class="brand-text" data-i18n="brandName">人生评分</span>
         <span class="brand-system">.SYS</span>
       </a>
@@ -187,15 +52,12 @@
     </div>
   </header>
 
-  <!-- ════════════════════════════════════════════════════════════
-       LOADING SCREEN — visible by default, hides after progress hits 100%
-       ════════════════════════════════════════════════════════════ -->
   <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-card">
       <div class="loading-ring-wrap">
         <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-          <circle cx="40" cy="40" r="34" stroke="rgba(0,0,0,0.10)" stroke-width="5"/>
-          <circle cx="40" cy="40" r="34" stroke="#000000" stroke-width="5" stroke-linecap="round" stroke-dasharray="80 134" class="loading-spinner"/>
+          <circle cx="40" cy="40" r="34" stroke="rgba(0,0,0,0.06)" stroke-width="5"/>
+          <circle cx="40" cy="40" r="34" stroke="#000" stroke-width="5" stroke-linecap="round" stroke-dasharray="80 134" class="loading-spinner"/>
         </svg>
         <div class="loading-pct" id="loadingPct">0%</div>
       </div>
@@ -232,7 +94,7 @@
         if(pctEl) pctEl.textContent='100%';
         setTimeout(function(){
           var ov=document.getElementById('loadingOverlay');
-          if(ov) ov.classList.add('fade-out');
+          ov.classList.add('fade-out');
           var rw=document.querySelector('.result-wrap');
           if(rw) rw.classList.add('visible');
         },350);
@@ -249,9 +111,6 @@
   })();
   </script>
 
-  <!-- ════════════════════════════════════════════════════════════
-       RESULT SCREEN — hidden until .visible class is added
-       ════════════════════════════════════════════════════════════ -->
   <div class="result-wrap">
 
     <div class="result-hero">

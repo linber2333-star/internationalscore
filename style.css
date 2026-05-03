@@ -5567,3 +5567,75 @@ body.winner-mode .stat-num {
   body.winner-mode .hero-title .accent,
   body.winner-mode .hero-title .line.accent { box-shadow: 4px 4px 0 #000000 !important; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   HUD CONTROLS — height/alignment polish for .hud-right
+   Overrides earlier .lang-switcher / .menu-toggle rules in
+   this file via source order + !important. Fixes the language
+   switcher wrapping into two lines on mobile and aligns both
+   controls to a matched 40px box height.
+   ════════════════════════════════════════════════════════════ */
+
+/* ── Language switcher — single-line, fixed 40px height ── */
+.lang-switcher {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  height: 40px !important;
+  box-sizing: border-box !important;
+  flex-shrink: 0 !important;
+}
+.lang-switcher * {
+  white-space: nowrap !important;
+}
+
+/* ── Menu toggle — square 40×40 to match the lang-switcher ── */
+.menu-toggle {
+  width: 40px !important;
+  height: 40px !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+  flex-shrink: 0 !important;
+  padding: 0 !important;
+}
+
+/* ── Hamburger lines — recentered for the new 40px box ── */
+.menu-toggle span {
+  position: absolute !important;
+  left: 50% !important;
+  transform: translateX(-50%);
+  transition: top 0.2s ease, transform 0.2s ease !important;
+}
+.menu-toggle span:nth-child(1) { top: 11px !important; }
+.menu-toggle span:nth-child(2) { top: 19px !important; }
+.menu-toggle span:nth-child(3) { top: 27px !important; }
+
+/* ── Active (X) state — rotate around the new center (19px) ── */
+.menu-toggle[aria-expanded="true"] span:nth-child(1) {
+  top: 19px !important;
+  transform: translateX(-50%) rotate(45deg) !important;
+}
+.menu-toggle[aria-expanded="true"] span:nth-child(2) {
+  opacity: 0 !important;
+}
+.menu-toggle[aria-expanded="true"] span:nth-child(3) {
+  top: 19px !important;
+  transform: translateX(-50%) rotate(-45deg) !important;
+}
+
+/* ── Hud-right container — keep the two controls perfectly aligned ── */
+.hud-right {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px;
+}
+
+/* ── Mobile: tighter padding so we don't overflow narrow viewports ── */
+@media (max-width: 540px) {
+  .lang-switcher {
+    padding: 0 10px !important;
+    font-size: 11px !important;
+  }
+  .hud-right { gap: 8px; }
+}
