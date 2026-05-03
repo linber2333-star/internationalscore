@@ -1686,8 +1686,8 @@ function buildPersona(lang){
   var pRankText = document.querySelector('.prelude-rank .sp-text');
   if(pRankText){
     pRankText.textContent = isTW
-      ? '如果你的人生是一場轟轟烈烈的戰役，那麼你就是一名'
-      : '如果你的人生是一场轰轰烈烈的战役，那么你就是一名';
+      ? '你的人生軍銜是——'
+      : '你的人生军衔是——';
   }
 
   /* ── Tier classification — now lives in standalone #rankCard ──
@@ -2139,148 +2139,120 @@ var RANK_ORDER = [
 function injectMilitaryProgressStyles(){
   if (document.getElementById('milProgressStyles')) return;
   var css = [
-    /* ── Host card ── */
-    '#milProg{padding:4px 0;}',
+    /* ── Host ── */
+    '#milProg{padding:4px 0;color:var(--rb-ink);}',
 
-    /* ── Header: icon + title + desc chip ── */
+    /* ── Header: brutalist square icon + chunky title + sticker chip ── */
     '#milProg .mp-header{display:flex;align-items:center;gap:14px;margin-bottom:18px;}',
-    '#milProg .mp-icon{flex:none;width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;box-shadow:0 10px 24px rgba(15,23,42,0.12);}',
+    '#milProg .mp-icon{flex:none;width:54px;height:54px;border-radius:0!important;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--rb-paper);background:var(--rb-ink)!important;background-image:none!important;border:3px solid var(--rb-ink);box-shadow:5px 5px 0 var(--rb-ink);}',
     '#milProg .mp-meta{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}',
-    '#milProg .mp-title{font-size:22px;font-weight:800;letter-spacing:0.02em;line-height:1.2;}',
-    '#milProg .mp-chip{align-self:flex-start;padding:3px 12px;border-radius:999px;font-size:12.5px;font-weight:600;letter-spacing:0.04em;}',
+    '#milProg .mp-title{font-family:var(--font-sans);font-size:24px;font-weight:900;letter-spacing:-0.01em;line-height:1.1;text-transform:uppercase;color:var(--rb-ink)!important;}',
+    '#milProg .mp-chip{align-self:flex-start;padding:4px 12px;border-radius:0!important;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;background:var(--rb-paper)!important;color:var(--rb-ink)!important;border:2px solid var(--rb-ink);}',
 
     /* ── Score line ── */
-    '#milProg .mp-score{display:flex;align-items:baseline;gap:6px;margin-bottom:22px;font-variant-numeric:tabular-nums;}',
-    '#milProg .mp-score-val{font-size:15px;font-weight:700;color:#1f2937;}',
-    '#milProg .mp-score-max{font-size:13px;color:#94a3b8;font-weight:500;}',
+    '#milProg .mp-score{display:flex;align-items:baseline;gap:6px;margin-bottom:18px;font-family:var(--font-mono);font-variant-numeric:tabular-nums;}',
+    '#milProg .mp-score-val{font-size:18px;font-weight:900;color:var(--rb-ink);}',
+    '#milProg .mp-score-max{font-size:13px;color:var(--rb-ink);font-weight:700;opacity:0.55;}',
 
-    /* ── Horizontal track ── */
-    '#milProg .mp-track-wrap{position:relative;padding:42px 0 56px;margin:0 14px;}',
-    /* Base rail */
-    '#milProg .mp-rail{position:absolute;left:0;right:0;top:50%;height:4px;border-radius:2px;background:linear-gradient(90deg,#e2e8f0 0%,#e2e8f0 60%,#eef2f7 100%);transform:translateY(-50%);overflow:hidden;}',
-    /* Fog overlay on rail past the current position — subtle crosshatch */
-    '#milProg .mp-rail::after{content:"";position:absolute;top:0;bottom:0;right:0;width:var(--fog-width,0%);background:repeating-linear-gradient(90deg,rgba(148,163,184,0.18) 0 6px,rgba(148,163,184,0.06) 6px 12px);pointer-events:none;}',
-    /* Filled bar from start up to current node */
-    '#milProg .mp-fill{position:absolute;left:0;top:50%;height:6px;border-radius:3px;transform:translateY(-50%);width:0;background:var(--fill-grad,linear-gradient(90deg,#6366f1,#8b5cf6));box-shadow:0 4px 12px color-mix(in srgb,var(--fill-color,#6366f1) 35%,transparent);transition:width 900ms cubic-bezier(.22,.8,.34,1);}',
+    /* ── SCROLLABLE TRACK WRAPPER ── */
+    /* Outer wrap = scroll viewport; sits in a white brutalist box */
+    '#milProg .mp-track-wrap{background:var(--rb-paper);border:3px solid var(--rb-ink);box-shadow:6px 6px 0 var(--rb-ink);padding:24px 0 24px;margin:8px 0 14px;overflow-x:auto;-webkit-overflow-scrolling:touch;}',
+    '#milProg .mp-track-wrap::-webkit-scrollbar{height:8px;}',
+    '#milProg .mp-track-wrap::-webkit-scrollbar-thumb{background:var(--rb-ink);border-radius:0;}',
+    /* Inner = actual rail + nodes; min-width keeps the journey roomy on mobile */
+    '#milProg .mp-track-inner{position:relative;min-width:800px;padding:48px 32px 56px;}',
 
-    /* ── Node (anchor for each rank) ── */
+    /* Base rail — solid thick black bar */
+    '#milProg .mp-rail{position:absolute;left:32px;right:32px;top:50%;height:6px;border-radius:0;background:var(--rb-ink);transform:translateY(-50%);overflow:hidden;}',
+    '#milProg .mp-rail::after{display:none;}',
+    /* Filled bar from start up to current node — solid color (no glow) */
+    '#milProg .mp-fill{position:absolute;left:32px;top:50%;height:10px;border-radius:0;transform:translateY(-50%);width:0;background:var(--node-color,var(--rb-cyan));border:2px solid var(--rb-ink);box-shadow:none;transition:width 900ms cubic-bezier(.22,.8,.34,1);}',
+
+    /* ── Node anchor ── */
     '#milProg .mp-node{position:absolute;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;}',
 
-    /* Marker — the circle on the track */
-    '#milProg .mp-marker{width:14px;height:14px;border-radius:50%;background:#fff;border:2px solid #cbd5e1;box-sizing:border-box;transition:transform .3s ease,box-shadow .3s ease;z-index:2;}',
+    /* Marker — sharp square, thick black border */
+    '#milProg .mp-marker{width:18px;height:18px;border-radius:0!important;background:var(--rb-paper);border:3px solid var(--rb-ink);box-sizing:border-box;z-index:2;position:relative;}',
 
-    /* Label block (above or below the rail, alternating for density) */
-    '#milProg .mp-label{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;text-align:center;font-size:11.5px;letter-spacing:0.03em;z-index:3;}',
-    '#milProg .mp-node--above .mp-label{bottom:calc(50% + 16px);}',
-    '#milProg .mp-node--below .mp-label{top:calc(50% + 16px);}',
-    '#milProg .mp-label-name{font-weight:700;line-height:1.25;}',
-    '#milProg .mp-label-score{font-size:10.5px;color:#94a3b8;font-weight:500;margin-top:2px;font-variant-numeric:tabular-nums;}',
+    /* Labels (above/below) */
+    '#milProg .mp-label{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;text-align:center;font-family:var(--font-mono);font-size:11.5px;letter-spacing:0.06em;z-index:3;}',
+    '#milProg .mp-node--above .mp-label{bottom:calc(50% + 18px);}',
+    '#milProg .mp-node--below .mp-label{top:calc(50% + 18px);}',
+    '#milProg .mp-label-name{font-weight:800;line-height:1.2;color:var(--rb-ink);text-transform:uppercase;}',
+    '#milProg .mp-label-score{font-size:10px;color:var(--rb-ink);opacity:0.6;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums;letter-spacing:0.04em;}',
 
-    /* ── State 1: achieved (idx < current) — lit, bright ── */
-    '#milProg .mp-node--achieved .mp-marker{width:18px;height:18px;background:var(--node-color,#6366f1);border-color:var(--node-color,#6366f1);box-shadow:0 0 0 4px color-mix(in srgb,var(--node-color,#6366f1) 18%,transparent);}',
-    '#milProg .mp-node--achieved .mp-marker::before{content:"✓";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;line-height:1;}',
-    '#milProg .mp-node--achieved .mp-marker{position:relative;}',
-    '#milProg .mp-node--achieved .mp-label-name{color:var(--node-color,#6366f1);}',
+    /* ── State 1: achieved — STAR BADGES ── */
+    '#milProg .mp-node--achieved .mp-marker{width:22px;height:22px;background:var(--rb-ink);border:2px solid var(--rb-ink);border-radius:50%!important;box-shadow:2px 2px 0 rgba(255,255,255,0.8);}',
+    '#milProg .mp-node--achieved .mp-marker::before{content:"★";display:flex!important;align-items:center;justify-content:center;color:var(--rb-yellow);font-size:12px;position:absolute;inset:0;top:-1px;}',
+    '#milProg .mp-node--achieved .mp-label-name{color:var(--rb-ink);}',
 
-    /* ── State 2: current (idx === current) — glowing, enlarged ── */
-    '#milProg .mp-node--current .mp-marker{width:30px;height:30px;background:var(--node-color,#6366f1);border:3px solid #fff;box-shadow:0 0 0 4px var(--node-color,#6366f1),0 0 0 10px color-mix(in srgb,var(--node-color,#6366f1) 20%,transparent),0 8px 22px color-mix(in srgb,var(--node-color,#6366f1) 45%,transparent);animation:mpPulse 2.4s ease-in-out infinite;}',
-    '#milProg .mp-node--current .mp-marker::before{content:attr(data-icon);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;line-height:1;}',
-    '#milProg .mp-node--current .mp-marker{position:relative;}',
-    '#milProg .mp-node--current .mp-label-name{font-size:13px;font-weight:800;color:var(--node-color,#6366f1);}',
-    '#milProg .mp-node--current .mp-label-desc{display:block;font-size:11px;font-weight:600;color:#475569;margin-top:1px;letter-spacing:0.04em;}',
-    '@keyframes mpPulse{0%,100%{box-shadow:0 0 0 4px var(--node-color,#6366f1),0 0 0 10px color-mix(in srgb,var(--node-color,#6366f1) 20%,transparent),0 8px 22px color-mix(in srgb,var(--node-color,#6366f1) 45%,transparent);}50%{box-shadow:0 0 0 4px var(--node-color,#6366f1),0 0 0 16px color-mix(in srgb,var(--node-color,#6366f1) 10%,transparent),0 8px 30px color-mix(in srgb,var(--node-color,#6366f1) 60%,transparent);}}',
+    /* ── State 2: current — MASSIVE square + hard shadow + jitter ── */
+    '#milProg .mp-node--current .mp-marker{width:42px;height:42px;background:var(--node-color,var(--rb-cyan));border:4px solid var(--rb-ink);box-shadow:6px 6px 0 var(--rb-ink);animation:mpJitter 0.18s steps(2) infinite;}',
+    '#milProg .mp-node--current .mp-marker::before{content:attr(data-icon);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;}',
+    '#milProg .mp-node--current .mp-label-name{font-size:13px;font-weight:900;color:var(--rb-ink);text-transform:uppercase;letter-spacing:0.08em;}',
+    '#milProg .mp-node--current .mp-label-desc{display:block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:var(--rb-ink);opacity:0.7;margin-top:3px;letter-spacing:0.06em;}',
+    '@keyframes mpJitter{0%{transform:translate(0,0);}25%{transform:translate(1px,-1px);}50%{transform:translate(-1px,1px);}75%{transform:translate(1px,1px);}100%{transform:translate(-1px,-1px);}}',
 
-    /* ── State 3: pending unlock (idx === current+1) — name visible but dim ── */
-    '#milProg .mp-node--pending .mp-marker{width:16px;height:16px;background:#fff;border:2px dashed var(--node-color,#94a3b8);opacity:0.8;}',
-    '#milProg .mp-node--pending .mp-label{opacity:0.45;}',
-    '#milProg .mp-node--pending .mp-label-name{color:#64748b;font-weight:600;}',
-    '#milProg .mp-node--pending .mp-label-name::before{content:"🔒 ";font-size:10px;}',
+    /* ── State 3: pending — DASHED THICK BORDER + WHITE FILL ── */
+    '#milProg .mp-node--pending .mp-marker{width:20px;height:20px;background:var(--rb-paper);border:3px dashed var(--rb-ink);opacity:1;}',
+    '#milProg .mp-node--pending .mp-label{opacity:0.7;}',
+    '#milProg .mp-node--pending .mp-label-name{color:var(--rb-ink);font-weight:700;}',
+    '#milProg .mp-node--pending .mp-label-name::before{content:"[ ]";font-family:var(--font-mono);margin-right:4px;opacity:0.6;}',
 
-    /* ── State 4: fog of war (idx > current+1) — anonymous dot ── */
-    '#milProg .mp-node--fog .mp-marker{width:8px;height:8px;background:#cbd5e1;border:none;opacity:0.55;}',
-    /* Hide the full label; replace with neutral tick mark below rail */
+    /* ── State 4: fog — tiny hairline square ── */
+    '#milProg .mp-node--fog .mp-marker{width:10px;height:10px;background:var(--rb-paper);border:2px dashed var(--rb-ink);opacity:0.45;}',
     '#milProg .mp-node--fog .mp-label{display:none;}',
-    '#milProg .mp-node--fog .mp-label-tick{display:block;position:absolute;left:50%;top:calc(50% + 14px);transform:translateX(-50%);color:#cbd5e1;font-size:10px;letter-spacing:0.2em;font-weight:700;}',
-
-    /* ── Responsive — vertical fallback on narrow screens ── */
-    '@media (max-width:640px){',
-      '#milProg .mp-icon{width:46px;height:46px;font-size:22px;border-radius:14px;}',
-      '#milProg .mp-title{font-size:19px;}',
-      '#milProg .mp-track-wrap{margin:0 8px;padding:36px 0 48px;}',
-      '#milProg .mp-label-name{font-size:10.5px;}',
-      '#milProg .mp-label-score{font-size:9.5px;}',
-      '#milProg .mp-node--current .mp-label-name{font-size:12px;}',
-      '#milProg .mp-node--current .mp-label-desc{font-size:10px;}',
-    '}',
+    '#milProg .mp-node--fog .mp-label-tick{display:block;position:absolute;left:50%;top:calc(50% + 14px);transform:translateX(-50%);color:var(--rb-ink);opacity:0.4;font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;font-weight:700;}',
 
     /* ════════════════════════════════════════════════════════════════
-       Phase block — Barnum-effect copy + cinematic typography
+       PHASE BLOCK — brutalist white box inside colored card
        ════════════════════════════════════════════════════════════════ */
-    /* Container — fades in after the rest of the bar settles */
-    '#milProg .mp-phase{margin-top:36px;padding-top:22px;border-top:1px solid rgba(255,255,255,0.10);'+
-      'opacity:0;transform:translateY(8px);'+
-      'animation:mpPhaseFadeIn 900ms cubic-bezier(.22,.8,.34,1) 600ms forwards;}',
+    '#milProg .mp-phase{margin-top:20px;padding:22px 24px;background:var(--rb-paper);border:3px solid var(--rb-ink);box-shadow:6px 6px 0 var(--rb-ink);'+
+      'opacity:0;animation:mpPhaseFadeIn 700ms ease-out 400ms forwards;}',
+    '@keyframes mpPhaseFadeIn{to{opacity:1;}}',
 
-    '@keyframes mpPhaseFadeIn{to{opacity:1;transform:translateY(0);}}',
+    /* Tagline — bold poster headline */
+    '#milProg .mp-phase-tagline{font-family:var(--font-sans);font-size:20px;font-weight:900;line-height:1.25;letter-spacing:-0.005em;text-transform:uppercase;margin-bottom:12px;color:var(--rb-ink);'+
+      '-webkit-background-clip:initial!important;-webkit-text-fill-color:initial!important;background:none!important;}',
+    '#milProg .mp-phase-tagline::before{content:"// ";opacity:0.5;}',
 
-    /* Tagline — the punchy headline */
-    '#milProg .mp-phase-tagline{font-size:17px;font-weight:800;line-height:1.4;letter-spacing:0.04em;margin-bottom:12px;color:rgba(255,255,255,0.96);}',
+    /* Body */
+    '#milProg .mp-phase-body{font-family:var(--font-mono);font-size:13.5px;line-height:1.85;color:var(--rb-ink);margin-bottom:18px;letter-spacing:0.01em;}',
 
-    /* Body — the Barnum paragraph */
-    '#milProg .mp-phase-body{font-size:14.5px;line-height:1.85;color:rgba(255,255,255,0.78);margin-bottom:20px;letter-spacing:0.02em;}',
-
-    /* Tag rows — pros above, cons below */
+    /* Tag rows */
     '#milProg .mp-phase-tags{display:flex;flex-direction:column;gap:12px;}',
-    '#milProg .mp-phase-tag-row{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;}',
-    '#milProg .mp-phase-tag-label{flex-shrink:0;font-size:12px;font-weight:800;padding:5px 12px;border-radius:6px;letter-spacing:0.12em;}',
-    '#milProg .mp-phase-tag-label--pro{background:rgba(74,222,128,0.18);color:#86efac;border:1px solid rgba(74,222,128,0.30);}',
-    '#milProg .mp-phase-tag-label--con{background:rgba(251,113,133,0.18);color:#fda4af;border:1px solid rgba(251,113,133,0.30);}',
+    '#milProg .mp-phase-tag-row{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;}',
+    '#milProg .mp-phase-tag-label{flex-shrink:0;font-family:var(--font-mono);font-size:11px;font-weight:900;padding:5px 10px;border-radius:0!important;letter-spacing:0.16em;text-transform:uppercase;border:2px solid var(--rb-ink);}',
+    '#milProg .mp-phase-tag-label--pro{background:var(--rb-green)!important;color:var(--rb-ink)!important;}',
+    '#milProg .mp-phase-tag-label--con{background:var(--rb-magenta)!important;color:var(--rb-paper)!important;}',
     '#milProg .mp-phase-tag-list{display:flex;flex-wrap:wrap;gap:6px;flex:1;min-width:0;}',
 
-    /* Tag pills — the actual phrases. Color is tier-driven via per-phase
-       overrides further down, but here we set the baseline structure. */
-    '#milProg .mp-tag{display:inline-block;padding:5px 11px;font-size:12.5px;font-weight:600;line-height:1.4;border-radius:999px;letter-spacing:0.02em;'+
-      'background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.88);'+
-      'border:1px solid rgba(255,255,255,0.14);'+
-      'transition:transform 200ms ease,box-shadow 200ms ease;}',
+    /* Warning-sticker tags — square corners, thick borders */
+    '#milProg .mp-tag{display:inline-block;padding:5px 10px;font-family:var(--font-mono);font-size:11.5px;font-weight:700;line-height:1.4;border-radius:0!important;letter-spacing:0.04em;'+
+      'background:var(--rb-paper)!important;color:var(--rb-ink)!important;border:2px solid var(--rb-ink)!important;'+
+      'box-shadow:2px 2px 0 var(--rb-ink)!important;'+
+      'transition:transform 120ms linear,box-shadow 120ms linear;}',
+    '#milProg .mp-tag::before{content:"#";opacity:0.4;margin-right:3px;}',
+    '#milProg .mp-tag--pro{background:var(--rb-green)!important;}',
+    '#milProg .mp-tag--con{background:var(--rb-yellow)!important;}',
 
-    /* General phase — gold-glow tags */
-    '#milProg.mp-phase-host--general .mp-tag{background:rgba(255,215,0,0.10);border-color:rgba(255,215,0,0.32);color:#fde68a;'+
-      'box-shadow:0 0 12px rgba(255,215,0,0.18);}',
-    '#milProg.mp-phase-host--general .mp-tag--pro{box-shadow:0 0 14px rgba(255,215,0,0.28);}',
-    '#milProg.mp-phase-host--general .mp-tag--con{background:rgba(251,191,36,0.08);border-color:rgba(251,191,36,0.28);color:#fcd34d;}',
-    '#milProg.mp-phase-host--general .mp-phase-tagline{background:linear-gradient(120deg,#fef3c7 0%,#fbbf24 40%,#f59e0b 65%,#fef9c3 100%);background-size:200% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:mpGoldFlow 5s linear infinite;}',
-    '@keyframes mpGoldFlow{0%{background-position:0% 50%;}100%{background-position:200% 50%;}}',
-
-    /* Field phase — bronze-silver tags */
-    '#milProg.mp-phase-host--field .mp-tag{background:rgba(251,191,36,0.08);border-color:rgba(251,191,36,0.28);color:#fed7aa;'+
-      'box-shadow:0 0 10px rgba(251,146,60,0.18);}',
-    '#milProg.mp-phase-host--field .mp-tag--con{background:rgba(220,38,38,0.10);border-color:rgba(220,38,38,0.28);color:#fca5a5;}',
-    '#milProg.mp-phase-host--field .mp-phase-tagline{background:linear-gradient(120deg,#fed7aa 0%,#fbbf24 50%,#fde68a 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}',
-
-    /* Junior phase — cool tactical tags */
-    '#milProg.mp-phase-host--junior .mp-tag{background:rgba(96,165,250,0.10);border-color:rgba(96,165,250,0.28);color:#bfdbfe;}',
-    '#milProg.mp-phase-host--junior .mp-tag--con{background:rgba(148,163,184,0.10);border-color:rgba(148,163,184,0.28);color:#cbd5e1;}',
-    '#milProg.mp-phase-host--junior .mp-phase-tagline{color:#dbeafe;}',
-
-    /* Hover lift for tag pills (desktop only) */
+    /* Hover lift */
     '@media (hover:hover){',
-      '#milProg .mp-tag:hover{transform:translateY(-1px);}',
+      '#milProg .mp-tag:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--rb-ink)!important;}',
     '}',
 
-    /* Mobile — tighter spacing */
+    /* Mobile */
     '@media (max-width:640px){',
-      '#milProg .mp-phase{margin-top:28px;padding-top:18px;}',
-      '#milProg .mp-phase-tagline{font-size:15.5px;}',
-      '#milProg .mp-phase-body{font-size:13.5px;line-height:1.75;}',
-      '#milProg .mp-tag{font-size:11.5px;padding:4px 9px;}',
-      '#milProg .mp-phase-tag-label{font-size:11px;padding:4px 10px;}',
-    '}',
-
-    /* color-mix fallback */
-    '@supports not (color:color-mix(in srgb,#000 10%,#fff 90%)){',
-      '#milProg .mp-node--achieved .mp-marker{box-shadow:none;}',
-      '#milProg .mp-node--current .mp-marker{box-shadow:0 0 0 4px #6366f1,0 8px 22px rgba(99,102,241,0.4);}',
+      '#milProg .mp-icon{width:46px;height:46px;font-size:22px;}',
+      '#milProg .mp-title{font-size:20px;}',
+      '#milProg .mp-track-inner{min-width:720px;padding:40px 24px 48px;}',
+      '#milProg .mp-rail{left:24px;right:24px;}',
+      '#milProg .mp-fill{left:24px;}',
+      '#milProg .mp-phase{padding:18px 16px;}',
+      '#milProg .mp-phase-tagline{font-size:17px;}',
+      '#milProg .mp-phase-body{font-size:12.5px;line-height:1.75;}',
+      '#milProg .mp-tag{font-size:11px;padding:4px 9px;}',
+      '#milProg .mp-phase-tag-label{font-size:10px;padding:4px 9px;}',
     '}',
   ].join('');
   var styleEl = document.createElement('style');
@@ -2364,15 +2336,12 @@ function renderMilitaryProgressBar(container, score, isTW){
   var tTitle = isTW ? currentTier.tw.title : currentTier.cn.title;
   var tDesc  = isTW ? currentTier.tw.desc  : currentTier.cn.desc;
 
-  /* Fill bar width: percentage from first node center to current node center.
-     Nodes are laid out at positions i/(n-1) for i in 0..n-1.
-     First node = 0%, last node = 100%. */
+  /* Fill bar width: percentage from first node to current node center. */
   var nMax    = RANK_ORDER.length - 1;
   var fillPct = nMax > 0 ? (currentIdx / nMax) * 100 : 0;
   var fogPct  = 100 - fillPct;
 
-  /* Build the nodes. Alternate labels above/below so dense horizontal
-     labels don't overlap on narrower layouts. */
+  /* ── Build timeline nodes (logic unchanged) ─────────────────────── */
   var nodesHtml = '';
   for (var i = 0; i < RANK_ORDER.length; i++){
     var t = USER_TIERS[RANK_ORDER[i]];
@@ -2384,10 +2353,9 @@ function renderMilitaryProgressBar(container, score, isTW){
     else                         state = 'fog';
 
     var placement = (i % 2 === 0) ? 'above' : 'below';
-    /* On the CURRENT node, always show labels above for emphasis. */
     if (state === 'current') placement = 'above';
 
-    var classes = 'mp-node mp-node--'+state+' mp-node--'+placement;
+    var classes  = 'mp-node mp-node--'+state+' mp-node--'+placement;
     var styleVar = '--node-color:'+t.color;
 
     var labelHtml = '';
@@ -2417,7 +2385,6 @@ function renderMilitaryProgressBar(container, score, isTW){
           '<div class="mp-label-score">'+t.minScore+'-'+t.maxScore+'</div>'+
         '</div>';
     } else {
-      /* Fog: no name/score shown, just a neutral three-dot tick */
       tickHtml = '<div class="mp-label-tick">···</div>';
     }
 
@@ -2430,26 +2397,40 @@ function renderMilitaryProgressBar(container, score, isTW){
       '</div>';
   }
 
-  /* Fill bar gradient — blend current color with a mid-tone for warmth */
   var fillGrad = 'linear-gradient(90deg,' +
     'color-mix(in srgb,'+currentTier.color+' 55%,#ffffff 45%) 0%,' +
     currentTier.color + ' 100%)';
 
-  /* ── Phase block (Barnum-effect copy) ────────────────────────────── */
-  var phaseKey = getRankPhase(score);
+  /* ── Phase block — body now wrapped in heavy-border box ─────────── */
+  var phaseKey  = getRankPhase(score);
   var phaseData = RANK_PHASES[phaseKey][isTW ? 'tw' : 'cn'];
   var prosLabel = isTW ? '優勢' : '优势';
   var consLabel = isTW ? '挑戰' : '挑战';
-  var prosHtml = phaseData.pros.map(function(p){
+  var prosHtml  = phaseData.pros.map(function(p){
     return '<span class="mp-tag mp-tag--pro">'+p+'</span>';
   }).join('');
-  var consHtml = phaseData.cons.map(function(c){
+  var consHtml  = phaseData.cons.map(function(c){
     return '<span class="mp-tag mp-tag--con">'+c+'</span>';
   }).join('');
+
+  /* Heavy-border container around the body text — sits on top of the
+     animated pixel canvas, so the background is opaque-ish to keep the
+     copy legible regardless of which palette is active. */
+  var phaseBodyStyle =
+    'background:rgba(255,255,255,0.85);'+
+    'border:3px solid #000;'+
+    'padding:16px;'+
+    'font-family:var(--font-mono);'+
+    'font-size:13.5px;'+
+    'line-height:1.85;'+
+    'color:var(--rb-ink);'+
+    'margin-bottom:18px;'+
+    'letter-spacing:0.01em;';
+
   var phaseHtml =
     '<div class="mp-phase mp-phase--'+phaseKey+'">'+
       '<div class="mp-phase-tagline">'+phaseData.tagline+'</div>'+
-      '<div class="mp-phase-body">'+phaseData.body+'</div>'+
+      '<div class="mp-phase-body" style="'+phaseBodyStyle+'">'+phaseData.body+'</div>'+
       '<div class="mp-phase-tags">'+
         '<div class="mp-phase-tag-row">'+
           '<span class="mp-phase-tag-label mp-phase-tag-label--pro">'+prosLabel+'</span>'+
@@ -2463,35 +2444,127 @@ function renderMilitaryProgressBar(container, score, isTW){
     '</div>';
 
   container.id = container.id || 'personaTierSection';
-  /* Give it the host class so our scoped CSS targets it */
   container.setAttribute('data-mil-prog','1');
   container.setAttribute('data-phase', phaseKey);
+
+  /* ── New header: jumping icon (left) + massive h1 rank-name (right) ── */
+  var rankIconStyle =
+    'flex:none;width:90px;height:90px;'+
+    'background:var(--rb-paper)!important;background-image:none!important;'+
+    'border:4px solid var(--rb-ink);'+
+    'box-shadow:6px 6px 0 var(--rb-ink);'+
+    'display:flex;align-items:center;justify-content:center;'+
+    'font-size:50px;color:var(--rb-ink);'+
+    'animation:mpRankJitter 1s steps(2) infinite;';
+
+  var rankNameStyle =
+    'position:absolute;right:0;top:-10px;margin:0;text-align:right;'+
+    'font-family:var(--font-sans);'+
+    'font-style:italic;'+
+    'font-size:clamp(80px,16vw,140px);'+
+    'font-weight:900;'+
+    'color:#B8860B !important;'+
+    '-webkit-text-fill-color:#B8860B !important;'+
+    'text-shadow:4px 4px 0 #000000, 8px 8px 0 rgba(0,0,0,0.2) !important;'+
+    'letter-spacing:-0.05em;line-height:1;z-index:5;';
+
+  var taglineStyle =
+    'display:inline-block;font-size:14px;font-weight:900;'+
+    'background:var(--rb-ink);color:var(--rb-paper);'+
+    'padding:6px 14px;margin-bottom:14px;letter-spacing:0.04em;';
+
+  var headerStyle = 'display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;position:relative;min-height:100px;';
+
+  container.style.position = 'static';
+  container.style.padding = '0';
+
+  /* ── Inject markup: pixel layer + foreground content ───────────── */
   container.innerHTML =
-    '<div id="milProg" class="mp-phase-host mp-phase-host--'+phaseKey+'">'+
-      '<div class="mp-header">'+
-        '<div class="mp-icon" style="background:'+currentTier.bgGradient+'">'+currentTier.icon+'</div>'+
-        '<div class="mp-meta">'+
-          '<div class="mp-title" style="color:'+currentTier.color+'">'+tTitle+'</div>'+
-          '<div class="mp-chip" style="background:'+currentTier.color+'1a;color:'+currentTier.color+'">'+tDesc+'</div>'+
+    /* (1) animated 8-bit pixel background forced to stretch */
+    '<div class="pixel-bg-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">'+
+      '<canvas id="pixelCanvas_mil" style="width: 100%; height: 100%; display: block; image-rendering: -moz-crisp-edges; image-rendering: -webkit-crisp-edges; image-rendering: pixelated; image-rendering: crisp-edges;"></canvas>'+
+    '</div>'+
+    /* (2) crisp foreground content layer with transferred padding */
+    '<div id="milProg" class="mp-phase-host mp-phase-host--'+phaseKey+' card-content" style="position:relative; z-index:10; padding:28px 24px;">'+
+      '<div class="mp-header" style="'+headerStyle+'">'+
+        '<div class="mp-icon" style="'+rankIconStyle+'">'+
+          '<!-- 占位：未来在此处解开注释并替换为专属勋章 JPG -->'+
+          '<!-- <img src="assets/medal_placeholder.jpg" style="width:100%; height:100%; object-fit:cover; display:none;" /> -->'+
+          '<span>'+currentTier.icon+'</span>'+
         '</div>'+
+        '<h1 class="rank-name" style="'+rankNameStyle+'">'+tTitle+'</h1>'+
       '</div>'+
+      '<div class="mp-tagline" style="'+taglineStyle+'">'+tDesc+'</div>'+
       '<div class="mp-score">'+
         '<span class="mp-score-val">'+score+'</span>'+
         '<span class="mp-score-max">/ 150</span>'+
       '</div>'+
       '<div class="mp-track-wrap" style="--fill-color:'+currentTier.color+';--fill-grad:'+fillGrad+';--fog-width:'+fogPct+'%">'+
-        '<div class="mp-rail"></div>'+
-        '<div class="mp-fill" data-target="'+fillPct+'"></div>'+
-        nodesHtml +
+        '<div class="mp-track-inner" style="--node-color:'+currentTier.color+'">'+
+          '<div class="mp-rail"></div>'+
+          '<div class="mp-fill" data-target="'+fillPct+'"></div>'+
+          nodesHtml +
+        '</div>'+
       '</div>'+
       phaseHtml +
     '</div>';
 
-  /* Animate the fill bar width after the DOM settles */
+  /* Animate the fill bar after the DOM settles */
   setTimeout(function(){
     var fill = container.querySelector('.mp-fill');
     if (fill) fill.style.width = fillPct + '%';
   }, 60);
+
+  /* ── 8-bit pixel-wave canvas (40×30, 12 FPS, phase-tinted palette) ── */
+  (function startPixelCanvas(){
+    var canvas = container.querySelector('#pixelCanvas_mil');
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    /* Tiny internal grid; CSS scales it up into chunky retro pixels */
+    var W = 40, H = 30;
+    canvas.width  = W;
+    canvas.height = H;
+
+    /* Phase-driven 3-color palette: highlight / mid / base */
+    var pal;
+    if (phaseKey === 'general'){
+      /* 将级 — 白 / 橙 / 金 */
+      pal = { hi: '#FFFFFF', mid: '#FFA500', base: '#FFD93D' };
+    } else if (phaseKey === 'field'){
+      /* 校级 — 白 / 浅绿 / 深绿 */
+      pal = { hi: '#FFFFFF', mid: '#7FE07F', base: '#1E8E3E' };
+    } else {
+      /* 尉级及以下 — 白 / 浅蓝 / 深蓝 */
+      pal = { hi: '#FFFFFF', mid: '#7FD4FF', base: '#0066CC' };
+    }
+
+    var time = 0;
+    function drawPixelWaves(){
+      /* Auto-stop if a re-render replaced the canvas (innerHTML reset) */
+      if (!canvas.isConnected) return;
+      time += 0.2;
+      for (var x = 0; x < W; x++){
+        for (var y = 0; y < H; y++){
+          /* Triangular noise — same model as demo.html */
+          var noise = Math.sin((x * 0.3) + time) +
+                      Math.cos((y * 0.4) + (time * 0.8)) +
+                      Math.sin((x + y) * 0.2 - time);
+          /* Posterize into 3 hard color stops */
+          if (noise > 1.2)      ctx.fillStyle = pal.hi;
+          else if (noise > 0.2) ctx.fillStyle = pal.mid;
+          else                  ctx.fillStyle = pal.base;
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+      /* Lock to 12 FPS for that authentic chunky 8-bit jitter */
+      setTimeout(function(){
+        if (canvas.isConnected) requestAnimationFrame(drawPixelWaves);
+      }, 1000 / 12);
+    }
+    drawPixelWaves();
+  })();
 }
 window.renderMilitaryProgressBar = renderMilitaryProgressBar;
 
