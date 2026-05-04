@@ -1787,3 +1787,103 @@ body.result-body {
   cursor: grab !important;
 }
 #milProg .mp-track-wrap::-webkit-scrollbar-thumb:hover { background-color: #64748b !important; }
+
+/* ═══════════════════════════════════════════════════════════════
+ *  ULTIMATE MOBILE RESPONSIVE HOTFIXES
+ * ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* 1. Fix Image 1: Breakdown grid text overflow */
+  .result-score-meta { padding: 16px 12px !important; }
+  .result-score-breakdown { padding: 10px !important; }
+  .breakdown-row, .breakdown-grid > div {
+    padding: 8px 6px !important;
+    font-size: 10.5px !important;
+    overflow-x: auto !important;
+  }
+  .breakdown-row::-webkit-scrollbar, .breakdown-grid > div::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* 2. Fix Image 2: Force 4 sponsor icons on one row */
+  .sponsor-logo-row {
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    gap: 4px !important;
+  }
+  .sponsor-logo-btn {
+    flex: 1 !important;
+    min-width: 0 !important;
+    padding: 10px 2px !important;
+  }
+  .slb-logo-wrap { width: 32px !important; height: 32px !important; }
+  .slb-label { font-size: 9px !important; letter-spacing: 0 !important; }
+  .slb-tap-hint { display: none !important; }
+
+  /* 3. Fix Image 3: Persona layout (Tier Top-Left, Emoji Top-Right) */
+  .persona-card .persona-header {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: flex-start !important;
+    padding: 24px 20px 16px !important;
+  }
+  .persona-card .persona-meta {
+    order: 1 !important;
+    text-align: left !important;
+  }
+  .persona-card .persona-tier {
+    /* Demote from massive watermark to standard badge on mobile */
+    position: relative !important;
+    top: 0 !important; right: 0 !important;
+    font-size: 12px !important;
+    color: var(--rb-yellow) !important;
+    background: var(--rb-ink) !important;
+    text-shadow: none !important;
+    transform: none !important;
+    animation: none !important;
+    padding: 4px 8px !important;
+    margin-bottom: 8px !important;
+    display: inline-block !important;
+    letter-spacing: 0.1em !important;
+  }
+  .persona-card .persona-animal {
+    order: 2 !important;
+    font-size: 64px !important;
+    margin: 0 !important;
+    position: static !important;
+  }
+  .persona-card .persona-name {
+    font-size: 22px !important;
+    text-align: left !important;
+    white-space: normal !important;
+  }
+
+  /* 4 & 5. Fix Image 4/5: Military Rank Card stretching & wrapping */
+  #milProg .mp-header {
+    min-height: 70px !important;
+    align-items: center !important;
+  }
+  #milProg .mp-icon {
+    width: 64px !important;
+    height: 64px !important;
+    font-size: 32px !important;
+  }
+  #milProg .rank-name {
+    font-size: 42px !important; 
+    top: 5px !important;
+    white-space: nowrap !important; /* CRITICAL: Prevents text wrapping */
+  }
+  #milProg .mp-track-wrap {
+    padding: 16px !important; /* Reduce massive outer padding */
+  }
+  #milProg .mp-track-inner {
+    padding: 24px 24px 32px !important; /* Reduce inner spacing causing stretch */
+  }
+  #milProg .mp-phase {
+    margin-top: 10px !important;
+    padding: 16px !important;
+  }
+  .rank-card .persona-tier-section {
+    padding: 16px !important;
+  }
+}
