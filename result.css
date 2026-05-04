@@ -1024,14 +1024,15 @@ body.result-body {
 .share-modal-overlay.open { opacity: 1; pointer-events: auto; }
 .share-modal {
   position: relative;
-  max-width: 460px;
+  max-width: 720px !important; /* Wider for 16:9 */
   width: 100%;
   background: var(--rb-paper);
-  border: var(--border-thick);
-  box-shadow: var(--shadow-lg);
+  border: 4px solid var(--color-text) !important;
+  box-shadow: 12px 12px 0 var(--color-text) !important;
   padding: 0;
   transform: translate(8px, 8px);
   transition: transform 0.15s linear;
+  border-radius: 0 !important;
 }
 .share-modal-overlay.open .share-modal { transform: translate(0, 0); }
 
@@ -1068,18 +1069,24 @@ body.result-body {
   padding: 22px 24px 8px;
 }
 
-/* ─── Share card itself ─── */
+/* ─── HORIZONTAL SHARE CARD ─── */
 .share-card-wrap {
-  padding: 18px 24px;
-  background: var(--rb-faint);
+  padding: 24px;
+  background: var(--color-bg);
 }
 .share-card {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--rb-yellow) !important;
+  border: 4px solid var(--color-text) !important;
+  box-shadow: 8px 8px 0 rgba(0,0,0,0.15) !important;
+  padding: 24px !important;
+  display: flex !important;
+  justify-content: space-between !important;
   position: relative;
-  background: var(--rb-yellow);
-  border: var(--border-thick);
-  box-shadow: var(--shadow-hard);
-  padding: 24px 22px;
+  overflow: hidden;
   border-radius: 0 !important;
+  margin-bottom: 24px !important;
 }
 .sc-brand {
   font-family: var(--font-sans);
@@ -1181,68 +1188,62 @@ body.result-body {
 }
 
 /* ─── Share platform buttons ─── */
+/* ─── SHARE PLATFORMS 4x2 GRID ─── */
 .share-platforms {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
-  padding: 0;
-  border-top: var(--border-thick);
-  border-bottom: var(--border-thick);
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 12px !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
 }
 .sp-btn {
   display: flex !important;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 16px 10px !important;
-  background: var(--rb-paper);
-  color: var(--rb-ink);
-  border: 0 !important;
-  border-right: var(--border-hairline) !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 16px 8px !important;
+  background: var(--color-bg) !important;
+  border: 3px solid var(--color-text) !important;
+  box-shadow: 4px 4px 0 var(--color-text) !important;
   border-radius: 0 !important;
   font-family: var(--font-mono) !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
-  font-size: 11px !important;
-  letter-spacing: 0.06em !important;
+  color: var(--color-text) !important;
   cursor: pointer;
-  text-decoration: none;
-  transition: background 0.1s linear;
+  transition: transform 0.1s linear, box-shadow 0.1s linear !important;
 }
-.sp-btn:nth-child(4n) { border-right: 0 !important; }
-.sp-btn:nth-child(-n+4) { border-bottom: var(--border-hairline) !important; }
-.sp-btn:hover { background: var(--rb-yellow); }
-.sp-btn[id="sp-copy"]:hover { background: var(--rb-cyan); }
-.sp-btn[id="sp-weibo"]:hover { background: var(--rb-magenta); color: var(--rb-paper); }
-.sp-btn[id="sp-wechat"]:hover { background: var(--rb-green); }
-.sp-btn[id="sp-qzone"]:hover { background: var(--rb-yellow); }
-.sp-btn[id="sp-rednote"]:hover { background: var(--rb-magenta); color: var(--rb-paper); }
-.sp-btn[id="sp-douyin"]:hover { background: var(--rb-ink); color: var(--rb-paper); }
-.sp-btn[id="sp-kuaishou"]:hover { background: var(--rb-orange); }
-.sp-btn-save { background: var(--rb-yellow); }
-.sp-btn-save:hover { background: var(--rb-orange); }
+.sp-btn:hover {
+  transform: translate(2px, 2px) !important;
+  box-shadow: 2px 2px 0 var(--color-text) !important;
+  background: var(--color-text) !important;
+  color: var(--color-bg) !important;
+}
+/* Retain Original Icons/Logos */
 .sp-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  background: var(--rb-paper);
-  border: var(--border-hairline);
-  margin-bottom: 2px;
+  width: 36px !important;
+  height: 36px !important;
+  background: var(--color-text) !important;
+  color: var(--color-bg) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border: none !important;
+  border-radius: 0 !important;
 }
 .sp-logo {
-  width: 28px;
-  height: 28px;
-  display: block;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 0 !important;
+  display: block !important;
 }
-.sp-logo-fallback {
-  display: flex !important;
-  align-items: center;
-  justify-content: center;
-  width: 100%; height: 100%;
-  font-family: var(--font-sans);
-  font-size: 14px;
+.sp-btn:hover .sp-icon {
+  background: var(--color-bg) !important;
+  color: var(--color-text) !important;
 }
+.sp-logo-fallback { font-size: 16px !important; }
 .share-wechat-hint {
   display: none !important;
 }
@@ -1939,4 +1940,26 @@ body.result-body {
   .rank-card .persona-tier-section { padding: 16px 8px !important; }
   #milProg .mp-track-wrap { padding: 24px 8px !important; }
   #milProg .mp-phase { padding: 20px 16px !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  HORIZONTAL SHARE CARD  ::  mobile overrides
+ * ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  .share-card {
+    padding: 16px !important;
+    aspect-ratio: 4 / 3 !important; /* Slightly taller on narrow screens */
+  }
+  .sc-score-num { font-size: 56px !important; }
+  .sc-max { font-size: 18px !important; }
+  .sc-verdict { font-size: 16px !important; }
+  .sc-food-emoji { font-size: 48px !important; }
+  .sc-qr-wrap { width: 70px !important; height: 70px !important; }
+  .sc-rank-name { font-size: 36px !important; letter-spacing: -2px !important; }
+  .sc-rank-img-placeholder { width: 90px !important; height: 120px !important; font-size: 11px !important; }
+
+  .share-platforms { grid-template-columns: repeat(4, 1fr) !important; gap: 8px !important; }
+  .sp-btn { padding: 12px 4px !important; font-size: 10px !important; }
+  .sp-icon { width: 28px !important; height: 28px !important; }
+  .sp-logo { width: 18px !important; height: 18px !important; }
 }

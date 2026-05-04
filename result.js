@@ -3429,201 +3429,74 @@ function launchConfetti(){
    ══════════════════════════════ */
 function buildShareCard(lang){
   var isTW = (lang === 'zh-TW');
-  var persona = getPersona();        /* SINGLE source of truth — no more getVerdict here */
-  var tier = persona.tier;           /* 'S' | 'A' | 'B' | 'C' | 'D' | 'E' */
-
-  /* ── 1. Score number ─────────────────────────────────────── */
-  var sn = document.getElementById('scScoreNum');
-  if(sn) sn.textContent = finalScore;
-
-  /* ── 2. Verdict slot → persona title (e.g. "S级 · 奇迹般的蓝鳍金枪鱼大腹") ── */
-  var sv = document.getElementById('scVerdict');
-  if(sv) sv.textContent = isTW ? persona.title_tw : persona.title_cn;
-
-  /* ── 3. Dimension pills (only scDims innerHTML touched) ───── */
-  var sd = document.getElementById('scDims');
-  if(sd && dimPct){
-    sd.innerHTML = DIM_CONF.map(function(d){
-      var s = dimPct[d.key] || 0;
-      return '<div class="sc-dim"><span>'+d.icon+'</span> '+window.t(d.i18n)+' <strong>'+s+'</strong></div>';
-    }).join('');
-  }
-
+  var persona = getPersona();
+  var currentTier = getUserTier(finalScore);
   var card = document.getElementById('shareCard');
   if(!card) return;
 
-  /* ── 4. Safe persona block (quote + traits) ───────────────────
-     NEVER wipe card.innerHTML — that would destroy the QR <img>.
-     Remove only the previous persona block (if any), then rebuild it
-     and insert it right after scVerdict. All styles inline for
-     html2canvas reliability.                                      */
-  var oldBlock = card.querySelector('#scPersonaBlock');
-  if(oldBlock) oldBlock.remove();
+  var title = isTW ? persona.title_tw : persona.title_cn;
+  var rankTitle = isTW ? currentTier.tw.title : currentTier.cn.title;
 
-  var isTierS = (tier === 'S');
-  var isTierE = (tier === 'E');
-  var quoteColor   = isTierS ? 'rgba(255,230,140,0.92)' : 'rgba(255,255,255,0.92)';
-  var quoteBorder  = isTierS ? 'rgba(255,215,0,0.45)'   : 'rgba(255,255,255,0.35)';
-  var traitBg      = isTierS ? 'rgba(255,215,0,0.14)'   : 'rgba(255,255,255,0.14)';
-  var traitBorder  = isTierS ? 'rgba(255,215,0,0.38)'   : 'rgba(255,255,255,0.28)';
-  var traitColor   = isTierS ? 'rgba(255,240,180,0.95)' : 'rgba(255,255,255,0.92)';
+  /* Override the entire HTML structure of the share card for the new horizontal layout */
+  card.innerHTML =
+    '<div class="pixel-bg-layer" style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">'+
+      '<canvas id="sharePixelCanvas" style="width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated;"></canvas>'+
+    '</div>'+
+    '<div class="sc-left" style="position:relative; z-index:2; display:flex; flex-direction:column; justify-content:space-between; width:55%;">'+
+      '<div>'+
+        '<div class="sc-brand" style="font-family:var(--font-sans); font-size:16px; font-weight:900; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-text);">LIFE SCORE · 人生评分</div>'+
+        '<div class="sc-score-wrap" style="margin-top:4px;"><span class="sc-score-num" style="font-family:var(--font-sans); font-size:72px; font-weight:900; color:var(--color-text); text-shadow:3px 3px 0 var(--color-bg); line-height:1;">'+finalScore+'</span><span class="sc-max" style="font-family:var(--font-mono); font-size:24px; color:var(--color-text); opacity:0.7; font-weight:700;">/150</span></div>'+
+      '</div>'+
+      '<div class="sc-food-tier" style="margin-bottom:12px;">'+
+        '<div class="sc-verdict" style="font-family:var(--font-sans); font-size:clamp(18px, 4vw, 22px); font-weight:900; color:var(--color-text); margin-bottom:8px;">'+title+'</div>'+
+        '<div class="sc-food-emoji" style="font-size:64px; filter:drop-shadow(4px 4px 0 rgba(0,0,0,0.15));">'+persona.animal+'</div>'+
+      '</div>'+
+      '<div class="sc-footer" style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--color-text); text-align:left; border:none; padding:0; margin:0;">> 测测你的人生值多少分</div>'+
+    '</div>'+
+    '<div class="sc-right" style="position:relative; z-index:2; width:45%; display:flex; justify-content:flex-end; align-items:flex-end; gap:16px;">'+
+      '<div class="sc-qr-wrap" style="position:absolute; top:0; right:0; width:100px; height:100px; background:var(--color-bg); border:4px solid var(--color-text); padding:4px; box-shadow:4px 4px 0 var(--color-text); display:flex; justify-content:center; align-items:center;">'+
+        '<img class="sc-qr" src="assets/share-qr.png" alt="QR" onerror="this.style.display=\'none\'" style="width:100%; height:100%; object-fit:contain; filter:grayscale(1) contrast(1.5);" />'+
+      '</div>'+
+      '<div class="sc-rank-name" style="writing-mode: vertical-rl; text-orientation: upright; font-family:var(--font-sans); font-size:48px; font-weight:900; letter-spacing:-4px; color:var(--color-text); text-shadow:2px 2px 0 var(--color-bg); margin:0;">'+rankTitle+'</div>'+
+      '<div class="sc-rank-img-placeholder" style="width:130px; height:170px; background:rgba(255,255,255,0.8); border:3px dashed var(--color-text); display:flex; align-items:center; justify-content:center; text-align:center; font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--color-text); opacity:0.8;">军衔JPG<br>预留位</div>'+
+    '</div>';
 
-  var block = document.createElement('div');
-  block.id = 'scPersonaBlock';
-  block.className = 'sc-persona-block';
-  block.setAttribute('style',
-    'margin:10px 18px 8px;padding:8px 12px;'+
-    'border-left:2px solid '+quoteBorder+';'+
-    'display:flex;flex-direction:column;gap:8px;'+
-    'position:relative;z-index:2;'
-  );
+  /* Remove old classes */
+  card.classList.remove('sc-gold', 'sc-pink');
 
-  var q = document.createElement('div');
-  q.className = 'sc-quote';
-  q.setAttribute('style',
-    'font-size:13px;line-height:1.55;font-style:italic;'+
-    'color:'+quoteColor+';'+
-    'letter-spacing:0.2px;'
-  );
-  q.textContent = '"' + (isTW ? persona.quote_tw : persona.quote_cn) + '"';
-  block.appendChild(q);
+  /* ── 8-bit pixel-wave canvas (Dynamic Resolution) ── */
+  setTimeout(function(){
+    var canvas = card.querySelector('#sharePixelCanvas');
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-  var traits = document.createElement('div');
-  traits.className = 'sc-traits';
-  traits.setAttribute('style',
-    'display:flex;flex-wrap:wrap;gap:6px;'
-  );
-  var arr = isTW ? persona.traits_tw : persona.traits_cn;
-  arr.forEach(function(t){
-    var span = document.createElement('span');
-    span.className = 'sc-trait';
-    span.setAttribute('style',
-      'display:inline-block;padding:3px 10px;border-radius:999px;'+
-      'font-size:11px;line-height:1.3;'+
-      'background:'+traitBg+';'+
-      'border:1px solid '+traitBorder+';'+
-      'color:'+traitColor+';'+
-      'white-space:nowrap;'
-    );
-    span.textContent = t;
-    traits.appendChild(span);
-  });
-  block.appendChild(traits);
+    var rect = card.getBoundingClientRect();
+    var pixelSize = 12;
+    var W = Math.ceil((rect.width || 600) / pixelSize);
+    var H = Math.ceil((rect.height || 340) / pixelSize);
+    canvas.width = W; canvas.height = H;
 
-  /* Insert after scVerdict — preserves QR, brand, score, dims, footer */
-  if(sv && sv.parentNode === card){
-    if(sv.nextSibling) card.insertBefore(block, sv.nextSibling);
-    else card.appendChild(block);
-  } else {
-    card.appendChild(block);
-  }
+    /* Warning Yellow Phase Palette */
+    var pal = { hi: '#FFFFFF', mid: '#FFD93D', base: '#F59E0B' };
+    var time = 0;
 
-  /* ── 5. Tier-based theme class ───────────────────────────────
-     Tier S        → black & gold ('sc-gold')
-     Tier A/B/C/D  → blue for men, pink for women (default / 'sc-pink')
-     Tier E        → no extra class (gender already encoded in title)  */
-  var isFemale = false;
-  if(answerMap){
-    var gq = answerMap['QK2'] || answerMap['A0'] || answerMap['q_gender'];
-    if(gq && gq.questionIdx === 1) isFemale = true;
-  }
-
-  card.classList.remove('sc-gold','sc-pink');
-  if(isTierS)           card.classList.add('sc-gold');
-  else if(isFemale)     card.classList.add('sc-pink');
-  /* else: no class → original blue palette for men (tier A/B/C/D/E) */
-
-  /* ── 6. Remove old SVG background if re-rendering ───────────── */
-  var oldSvg = card.querySelector('.sc-geo-bg');
-  if(oldSvg) oldSvg.remove();
-
-  /* ── 7. Tier-driven SVG palette ─────────────────────────────── */
-  var circleHi, circleLo, dotC, sparkC, accentStroke;
-  if(isTierS){
-    /* Black & gold epic */
-    circleHi     = 'rgba(255,215,100,0.28)';
-    circleLo     = 'rgba(255,180,40,0.09)';
-    dotC         = 'rgba(255,220,120,0.30)';
-    sparkC       = 'rgba(255,245,180,0.58)';
-    accentStroke = 'rgba(255,215,0,0.38)';
-  } else if(isFemale){
-    /* Pink (tier A/B/C/D/E, female) */
-    circleHi     = 'rgba(255,255,255,0.14)';
-    circleLo     = 'rgba(255,200,230,0.06)';
-    dotC         = 'rgba(255,255,255,0.15)';
-    sparkC       = 'rgba(255,255,255,0.30)';
-    accentStroke = 'rgba(255,255,255,0.18)';
-  } else {
-    /* Blue (tier A/B/C/D/E, male) */
-    circleHi     = 'rgba(255,255,255,0.12)';
-    circleLo     = 'rgba(200,230,255,0.05)';
-    dotC         = 'rgba(255,255,255,0.13)';
-    sparkC       = 'rgba(255,255,255,0.28)';
-    accentStroke = 'rgba(255,255,255,0.15)';
-  }
-
-  /* ── 8. SVG background (pure <svg> injection — html2canvas safe) ── */
-  var VB = '0 0 400 240';
-  var svg = '<svg class="sc-geo-bg" xmlns="http://www.w3.org/2000/svg" viewBox="'+VB+'" preserveAspectRatio="xMidYMid slice">';
-
-  svg += '<defs>';
-  svg += '<radialGradient id="scBigArc" cx="85%" cy="-5%" r="55%">';
-  svg += '<stop offset="0%" stop-color="'+circleHi+'"/>';
-  svg += '<stop offset="60%" stop-color="'+circleLo+'"/>';
-  svg += '<stop offset="100%" stop-color="transparent"/>';
-  svg += '</radialGradient>';
-  svg += '<radialGradient id="scSmArc" cx="10%" cy="110%" r="45%">';
-  svg += '<stop offset="0%" stop-color="'+circleLo+'"/>';
-  svg += '<stop offset="100%" stop-color="transparent"/>';
-  svg += '</radialGradient>';
-  svg += '</defs>';
-  svg += '<rect width="400" height="240" fill="url(#scBigArc)"/>';
-  svg += '<rect width="400" height="240" fill="url(#scSmArc)"/>';
-
-  svg += '<circle cx="340" cy="20" r="110" fill="none" stroke="'+circleHi+'" stroke-width="1.5"/>';
-  svg += '<circle cx="350" cy="10" r="75"  fill="none" stroke="'+circleHi+'" stroke-width="1"/>';
-  svg += '<circle cx="30"  cy="220" r="55" fill="none" stroke="'+circleLo+'" stroke-width="1.2"/>';
-
-  var _s = 42;
-  function R(){ _s = (_s*1664525 + 1013904223) & 0xffffffff; return ((_s>>>0)/0xffffffff); }
-  for(var i=0; i<16; i++){
-    var dx = 20 + R()*360, dy = 15 + R()*210, dr = 1.2 + R()*2.2;
-    svg += '<circle cx="'+dx.toFixed(1)+'" cy="'+dy.toFixed(1)+'" r="'+dr.toFixed(1)+'" fill="'+dotC+'"/>';
-  }
-
-  var spk = [[365,55,7],[25,30,5],[180,8,4],[15,180,5],[375,200,6],[200,230,4]];
-  spk.forEach(function(s){
-    var x=s[0], y=s[1], r=s[2], ir=r*0.25;
-    var d = 'M'+x+','+(y-r)+' L'+(x+ir)+','+(y-ir)+' L'+(x+r)+','+y+
-            ' L'+(x+ir)+','+(y+ir)+' L'+x+','+(y+r)+' L'+(x-ir)+','+(y+ir)+
-            ' L'+(x-r)+','+y+' L'+(x-ir)+','+(y-ir)+'Z';
-    svg += '<path d="'+d+'" fill="'+sparkC+'"/>';
-  });
-
-  svg += '<line x1="290" y1="0" x2="400" y2="110" stroke="'+accentStroke+'" stroke-width="0.8"/>';
-  svg += '<line x1="310" y1="0" x2="400" y2="90"  stroke="'+accentStroke+'" stroke-width="0.5"/>';
-
-  if(isTierS){
-    svg += '<defs><linearGradient id="scGoldShim" x1="0" y1="0" x2="400" y2="240" gradientUnits="userSpaceOnUse">';
-    svg += '<stop offset="0%" stop-color="transparent"/>';
-    svg += '<stop offset="32%" stop-color="transparent"/>';
-    svg += '<stop offset="44%" stop-color="rgba(255,240,160,0.09)"/>';
-    svg += '<stop offset="50%" stop-color="rgba(255,248,200,0.18)"/>';
-    svg += '<stop offset="56%" stop-color="rgba(255,240,160,0.09)"/>';
-    svg += '<stop offset="68%" stop-color="transparent"/>';
-    svg += '<stop offset="100%" stop-color="transparent"/>';
-    svg += '</linearGradient></defs>';
-    svg += '<rect width="400" height="240" fill="url(#scGoldShim)"/>';
-    svg += '<path d="M160,5 Q200,-15 240,5" fill="none" stroke="rgba(255,215,0,0.28)" stroke-width="1.5"/>';
-    svg += '<path d="M140,12 Q200,-22 260,12" fill="none" stroke="rgba(255,215,0,0.18)" stroke-width="1"/>';
-    svg += '<text x="200" y="20" text-anchor="middle" font-size="14" fill="rgba(255,215,0,0.4)">♛</text>';
-  }
-
-  svg += '</svg>';
-
-  var wrap = document.createElement('div');
-  wrap.innerHTML = svg;
-  card.insertBefore(wrap.firstChild, card.firstChild);
+    function drawPixelWaves(){
+      if (!canvas.isConnected) return;
+      time += 0.2;
+      for (var x = 0; x < W; x++){
+        for (var y = 0; y < H; y++){
+          var noise = Math.sin((x * 0.3) + time) + Math.cos((y * 0.4) + (time * 0.8)) + Math.sin((x + y) * 0.2 - time);
+          if (noise > 1.2)      ctx.fillStyle = pal.hi;
+          else if (noise > 0.2) ctx.fillStyle = pal.mid;
+          else                  ctx.fillStyle = pal.base;
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+      setTimeout(function(){ if (canvas.isConnected) requestAnimationFrame(drawPixelWaves); }, 1000 / 12);
+    }
+    drawPixelWaves();
+  }, 100);
 }
 
 function getShareText(lang){
