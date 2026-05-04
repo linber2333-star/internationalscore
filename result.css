@@ -1868,16 +1868,20 @@ body.result-body {
     height: 64px !important;
     font-size: 32px !important;
   }
+  /* Force massive rank name and wrapping on mobile */
   #milProg .rank-name {
-    font-size: 42px !important; 
-    top: 5px !important;
-    white-space: nowrap !important; /* CRITICAL: Prevents text wrapping */
+    font-size: clamp(64px, 18vw, 90px) !important;
+    white-space: normal !important;
+    width: 2.2em !important;
+    line-height: 0.95 !important;
+    top: 0 !important;
   }
+  /* Restore vertical breathing room for timeline track */
   #milProg .mp-track-wrap {
-    padding: 16px !important; /* Reduce massive outer padding */
+    padding: 24px 16px !important;
   }
   #milProg .mp-track-inner {
-    padding: 24px 24px 32px !important; /* Reduce inner spacing causing stretch */
+    padding: 48px 24px 56px !important;
   }
   #milProg .mp-phase {
     margin-top: 10px !important;

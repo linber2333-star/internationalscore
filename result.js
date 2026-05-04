@@ -2461,12 +2461,13 @@ function renderMilitaryProgressBar(container, score, isTW){
     'position:absolute;right:0;top:-10px;margin:0;text-align:right;'+
     'font-family:var(--font-sans);'+
     'font-style:italic;'+
-    'font-size:clamp(80px,16vw,140px);'+
+    'font-size:clamp(80px,18vw,140px);'+
     'font-weight:900;'+
     'color:#B8860B !important;'+
     '-webkit-text-fill-color:#B8860B !important;'+
     'text-shadow:4px 4px 0 #000000, 8px 8px 0 rgba(0,0,0,0.2) !important;'+
-    'letter-spacing:-0.05em;line-height:1;z-index:5;';
+    'letter-spacing:-0.05em;line-height:0.95;z-index:5;'+
+    'width:2.2em;word-wrap:break-word;white-space:normal;';
 
   var taglineStyle =
     'display:inline-block;font-size:14px;font-weight:900;'+
@@ -2482,7 +2483,7 @@ function renderMilitaryProgressBar(container, score, isTW){
   container.innerHTML =
     /* (1) animated 8-bit pixel background forced to stretch */
     '<div class="pixel-bg-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none;">'+
-      '<canvas id="pixelCanvas_mil" style="width: 100%; height: 100%; display: block; image-rendering: -moz-crisp-edges; image-rendering: -webkit-crisp-edges; image-rendering: pixelated; image-rendering: crisp-edges;"></canvas>'+
+      '<canvas id="pixelCanvas_mil" style="width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: -moz-crisp-edges; image-rendering: -webkit-crisp-edges; image-rendering: pixelated; image-rendering: crisp-edges;"></canvas>'+
     '</div>'+
     /* (2) crisp foreground content layer with transferred padding */
     '<div id="milProg" class="mp-phase-host mp-phase-host--'+phaseKey+' card-content" style="position:relative; z-index:10; padding:28px 24px;">'+
