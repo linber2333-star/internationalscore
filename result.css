@@ -1917,3 +1917,26 @@ body.result-body {
     box-shadow: 4px 4px 0 var(--color-text) !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+ *  FINAL POLISH — Artifact purge & mobile spacing
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 1. 彻底干掉加分项多余的"+"号符号残留 */
+.bonus-badge::before { display: none !important; content: none !important; }
+
+@media (max-width: 640px) {
+  /* 2. 彻底去除手机端"S级"徽章底下的黑色背景框 */
+  .persona-card .persona-tier {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    text-shadow: 2px 2px 0 var(--color-text) !important;
+  }
+
+  /* 3. 把军衔描述框和轨道稍微扩宽一点，减少左右的拥挤感 */
+  .rank-card .persona-tier-section { padding: 16px 8px !important; }
+  #milProg .mp-track-wrap { padding: 24px 8px !important; }
+  #milProg .mp-phase { padding: 20px 16px !important; }
+}
