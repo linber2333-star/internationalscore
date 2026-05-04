@@ -3436,40 +3436,44 @@ function buildShareCard(lang){
 
   var title = isTW ? persona.title_tw : persona.title_cn;
   var rankTitle = isTW ? currentTier.tw.title : currentTier.cn.title;
+  var phaseKey = getRankPhase(finalScore);
 
-  /* Override the entire HTML structure of the share card for the new horizontal layout */
+  /* Share Card Horizontal HTML Structure (Ticket Style) */
   card.innerHTML =
     '<div class="pixel-bg-layer" style="position: absolute; inset: 0; z-index: 0; pointer-events: none;">'+
       '<canvas id="sharePixelCanvas" style="width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated;"></canvas>'+
     '</div>'+
-    '<div class="sc-left" style="position:relative; z-index:2; display:flex; flex-direction:column; justify-content:space-between; width:55%;">'+
+    '<div style="position:relative; z-index:2; display:flex; flex-direction:column; justify-content:space-between; width:55%; height:100%;">'+
       '<div>'+
-        '<div class="sc-brand" style="font-family:var(--font-sans); font-size:16px; font-weight:900; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-text);">LIFE SCORE · 人生评分</div>'+
-        '<div class="sc-score-wrap" style="margin-top:4px;"><span class="sc-score-num" style="font-family:var(--font-sans); font-size:72px; font-weight:900; color:var(--color-text); text-shadow:3px 3px 0 var(--color-bg); line-height:1;">'+finalScore+'</span><span class="sc-max" style="font-family:var(--font-mono); font-size:24px; color:var(--color-text); opacity:0.7; font-weight:700;">/150</span></div>'+
+        '<div style="font-family:var(--font-sans); font-size:16px; font-weight:900; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-text);">LIFE SCORE · 人生评分</div>'+
+        '<div style="margin-top:10px; display:flex; align-items:baseline;">'+
+          '<span style="font-family:var(--font-sans); font-size:clamp(60px, 10vw, 84px); font-weight:900; color:var(--color-text); text-shadow:3px 3px 0 var(--color-bg); line-height:0.8;">'+finalScore+'</span>'+
+          '<span style="font-family:var(--font-mono); font-size:24px; color:var(--color-text); opacity:0.7; font-weight:700; margin-left:4px;">/150</span>'+
+        '</div>'+
       '</div>'+
-      '<div class="sc-food-tier" style="margin-bottom:12px;">'+
-        '<div class="sc-verdict" style="font-family:var(--font-sans); font-size:clamp(18px, 4vw, 22px); font-weight:900; color:var(--color-text); margin-bottom:8px;">'+title+'</div>'+
-        '<div class="sc-food-emoji" style="font-size:64px; filter:drop-shadow(4px 4px 0 rgba(0,0,0,0.15));">'+persona.animal+'</div>'+
+      '<div style="margin-top:auto;">'+
+        '<div style="font-family:var(--font-sans); font-size:clamp(16px, 3.5vw, 22px); font-weight:900; color:var(--color-text); margin-bottom:12px; line-height:1.3;">'+title+'</div>'+
+        '<div style="display:flex; align-items:center; gap:10px;">'+
+          '<div style="font-size:64px; filter:drop-shadow(4px 4px 0 rgba(0,0,0,0.15)); line-height:1; background:transparent; border:none; padding:0;">'+persona.animal+'</div>'+
+        '</div>'+
+        '<div style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--color-text); margin-top:16px; opacity:0.8; border-top: 1px dashed var(--color-text); padding-top: 12px;">> 测测你的人生值多少分</div>'+
       '</div>'+
-      '<div class="sc-footer" style="font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--color-text); text-align:left; border:none; padding:0; margin:0;">> 测测你的人生值多少分</div>'+
     '</div>'+
-    '<div class="sc-right" style="position:relative; z-index:2; width:45%; display:flex; justify-content:flex-end; align-items:flex-end; gap:16px;">'+
-      '<div class="sc-qr-wrap" style="position:absolute; top:0; right:0; width:100px; height:100px; background:var(--color-bg); border:4px solid var(--color-text); padding:4px; box-shadow:4px 4px 0 var(--color-text); display:flex; justify-content:center; align-items:center;">'+
-        '<img class="sc-qr" src="assets/share-qr.png" alt="QR" onerror="this.style.display=\'none\'" style="width:100%; height:100%; object-fit:contain; filter:grayscale(1) contrast(1.5);" />'+
+    '<div style="position:relative; z-index:2; width:45%; display:flex; justify-content:flex-end; align-items:flex-end; gap:20px;">'+
+      '<div style="position:absolute; top:0; right:0; width:80px; height:80px; background:transparent; padding:0; display:flex; justify-content:center; align-items:center;">'+
+        '<img src="assets/share-qr.png" alt="QR" onerror="this.style.display=\'none\'" style="width:100%; height:100%; object-fit:contain; filter:grayscale(1) contrast(1.5); mix-blend-mode: multiply;" />'+
       '</div>'+
-      '<div class="sc-rank-name" style="writing-mode: vertical-rl; text-orientation: upright; font-family:var(--font-sans); font-size:48px; font-weight:900; letter-spacing:-4px; color:var(--color-text); text-shadow:2px 2px 0 var(--color-bg); margin:0;">'+rankTitle+'</div>'+
-      '<div class="sc-rank-img-placeholder" style="width:130px; height:170px; background:rgba(255,255,255,0.8); border:3px dashed var(--color-text); display:flex; align-items:center; justify-content:center; text-align:center; font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--color-text); opacity:0.8;">军衔JPG<br>预留位</div>'+
+      '<div style="writing-mode: vertical-rl; text-orientation: upright; font-family:var(--font-sans); font-size:52px; font-weight:900; letter-spacing:-4px; color:var(--color-text); text-shadow:2px 2px 0 var(--color-bg); margin:0;">'+rankTitle+'</div>'+
+      '<div style="width:120px; height:160px; background:rgba(255,255,255,0.6); border:2px dashed var(--color-text); display:flex; align-items:center; justify-content:center; text-align:center; font-family:var(--font-mono); font-size:12px; font-weight:700; color:var(--color-text); opacity:0.8;">军衔JPG<br>预留位</div>'+
     '</div>';
 
-  /* Remove old classes */
   card.classList.remove('sc-gold', 'sc-pink');
 
-  /* ── 8-bit pixel-wave canvas (Dynamic Resolution) ── */
+  /* Render Pixel Canvas matching the Rank Phase Palette */
   setTimeout(function(){
     var canvas = card.querySelector('#sharePixelCanvas');
     if (!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     var rect = card.getBoundingClientRect();
     var pixelSize = 12;
@@ -3477,10 +3481,10 @@ function buildShareCard(lang){
     var H = Math.ceil((rect.height || 340) / pixelSize);
     canvas.width = W; canvas.height = H;
 
-    /* Warning Yellow Phase Palette */
-    var pal = { hi: '#FFFFFF', mid: '#FFD93D', base: '#F59E0B' };
+    var pal = phaseKey === 'general' ? { hi: '#FFFFFF', mid: '#FFD93D', base: '#F59E0B' } :
+              phaseKey === 'field'   ? { hi: '#FFFFFF', mid: '#7FE07F', base: '#1E8E3E' } :
+                                       { hi: '#FFFFFF', mid: '#7FD4FF', base: '#0066CC' };
     var time = 0;
-
     function drawPixelWaves(){
       if (!canvas.isConnected) return;
       time += 0.2;

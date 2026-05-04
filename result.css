@@ -1963,3 +1963,168 @@ body.result-body {
   .sp-icon { width: 28px !important; height: 28px !important; }
   .sp-logo { width: 18px !important; height: 18px !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+ *  TICKET-STYLE SHARE MODAL  ::  ultimate horizontal overhaul
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* ─── 1. SHARE MODAL (TICKET STYLE) ─── */
+.share-modal {
+  --pac-tooth: 8px;
+  max-width: 680px !important;
+  background: #FFFFFF !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25) !important;
+  padding: calc(var(--pac-tooth) + 24px) 32px calc(var(--pac-tooth) + 24px) !important;
+  /* Sawtooth edges top and bottom */
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000 90deg, #000 0) 0 0 / var(--pac-tooth) var(--pac-tooth) repeat-x,
+    conic-gradient(from 135deg at top, #0000 90deg, #000 0) 0 100% / var(--pac-tooth) var(--pac-tooth) repeat-x,
+    linear-gradient(#000, #000) 0 var(--pac-tooth) / 100% calc(100% - var(--pac-tooth) * 2) no-repeat !important;
+}
+/* Remove terminal header */
+.share-modal::before { display: none !important; content: none !important; }
+.share-modal-title { display: none !important; }
+.share-modal-close { top: 20px !important; right: 20px !important; color: #9ca3af !important; z-index: 10 !important; }
+
+/* ─── 2. HORIZONTAL SHARE CARD ─── */
+.share-card-wrap { padding: 0 !important; background: transparent !important; border-bottom: 2px dashed #000 !important; margin-bottom: 20px !important; padding-bottom: 24px !important; }
+.share-card {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #FFD93D !important;
+  border: 3px solid #000 !important;
+  padding: 24px !important;
+  display: flex !important;
+  position: relative;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ─── 3. SHARE BUTTONS (WHITE BACKGROUND, NO BLACK BOXES) ─── */
+.share-platforms {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 0 !important;
+  border: 2px solid #000 !important;
+}
+.sp-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 16px 8px !important;
+  background: #FFF !important;
+  color: #000 !important;
+  border: none !important;
+  border-right: 1px solid #000 !important;
+  border-bottom: 1px solid #000 !important;
+  transition: background 0.1s linear !important;
+}
+.sp-btn:nth-child(4n) { border-right: none !important; }
+.sp-btn:nth-child(n+5) { border-bottom: none !important; }
+.sp-btn:hover { background: #f0f0f0 !important; color: #000 !important; }
+
+/* Transparent icon backgrounds */
+.sp-icon {
+  background: transparent !important;
+  color: #000 !important;
+  border: none !important;
+  width: 28px !important; height: 28px !important;
+}
+.sp-logo-fallback { background: transparent !important; color: #000 !important; }
+.sp-btn:hover .sp-icon { background: transparent !important; color: #000 !important; }
+
+/* Mobile Overrides */
+@media (max-width: 640px) {
+  .share-card { aspect-ratio: 4 / 3; padding: 16px !important; }
+  .share-platforms { grid-template-columns: repeat(4, 1fr) !important; }
+  .sp-btn { padding: 12px 4px !important; font-size: 10px !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  RETRO TICKET SHARE MODAL  ::  ultimate horizontal restyle
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* ─── 1. SHARE MODAL (TICKET/RECEIPT STYLE) ─── */
+.share-modal {
+  --pac-tooth: 8px;
+  max-width: 680px !important;
+  background: #FFFFFF !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25) !important;
+  padding: calc(var(--pac-tooth) + 24px) 32px calc(var(--pac-tooth) + 24px) !important;
+  /* Sawtooth edges top and bottom */
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000 90deg, #000 0) 0 0 / var(--pac-tooth) var(--pac-tooth) repeat-x,
+    conic-gradient(from 135deg at top, #0000 90deg, #000 0) 0 100% / var(--pac-tooth) var(--pac-tooth) repeat-x,
+    linear-gradient(#000, #000) 0 var(--pac-tooth) / 100% calc(100% - var(--pac-tooth) * 2) no-repeat !important;
+}
+/* Remove terminal header/footer artifacts */
+.share-modal::before { display: none !important; content: none !important; }
+.share-modal-title { display: none !important; }
+.share-modal-close { top: 20px !important; right: 20px !important; color: #9ca3af !important; z-index: 10 !important; background: transparent !important; border: none !important; }
+.share-modal-close svg { stroke: var(--color-text) !important; }
+
+/* ─── 2. HORIZONTAL SHARE CARD ─── */
+.share-card-wrap { padding: 0 !important; background: transparent !important; border-bottom: 2px dashed #000 !important; margin-bottom: 24px !important; padding-bottom: 24px !important; }
+.share-card {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--rb-yellow) !important;
+  border: 3px solid #000 !important;
+  padding: 24px !important;
+  display: flex !important;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* ─── 3. SHARE BUTTONS (PURE WHITE BACKGROUND, 4x2 GRID) ─── */
+.share-platforms {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 0 !important;
+  border: 2px solid #000 !important;
+  background: transparent !important;
+}
+.sp-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: 16px 8px !important;
+  background: #FFF !important;
+  color: #000 !important;
+  border: none !important;
+  border-right: 1px solid #000 !important;
+  border-bottom: 1px solid #000 !important;
+  transition: background 0.1s linear !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.sp-btn:nth-child(4n) { border-right: none !important; }
+.sp-btn:nth-child(n+5) { border-bottom: none !important; }
+.sp-btn:hover { background: #f0f0f0 !important; color: #000 !important; transform: none !important; box-shadow: none !important; }
+
+/* Clear Icon Backgrounds */
+.sp-icon {
+  background: transparent !important;
+  color: #000 !important;
+  border: none !important;
+  width: 28px !important; height: 28px !important;
+  box-shadow: none !important;
+}
+.sp-logo-fallback { background: transparent !important; color: #000 !important; }
+.sp-btn:hover .sp-icon { background: transparent !important; color: #000 !important; }
+
+/* Mobile Overrides */
+@media (max-width: 640px) {
+  .share-card { aspect-ratio: 4 / 3; padding: 16px !important; }
+  .share-platforms { grid-template-columns: repeat(4, 1fr) !important; }
+  .sp-btn { padding: 12px 4px !important; font-size: 10px !important; }
+}
