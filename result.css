@@ -1891,3 +1891,29 @@ body.result-body {
     padding: 16px !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+ *  HERO / BONUS BADGE / MOBILE TIER  ::  cleanup overrides
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* 1. 移除红圈：隐藏顶部 SCORE.WINDOW 占位符文字 */
+.result-hero::before { display: none !important; }
+
+/* 2. 移除蓝圈黑框：将加分项彻底融为无背景的纯文本 */
+.bonus-badge {
+  background: transparent !important;
+  color: var(--color-text) !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 16px !important;
+}
+
+/* 3. 放大黄圈文字：移动端 S级 标签强化并增加机械感边框 */
+@media (max-width: 640px) {
+  .persona-card .persona-tier {
+    font-size: 24px !important;
+    padding: 6px 14px !important;
+    border: 3px solid var(--color-text) !important;
+    box-shadow: 4px 4px 0 var(--color-text) !important;
+  }
+}
